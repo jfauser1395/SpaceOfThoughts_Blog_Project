@@ -1,0 +1,12 @@
+/* Center the login screen vertically and horizontally */
+.logInScreen {
+  display: flex; /* Enable flexbox layout */
+  justify-content: center; /* Center items horizontally */
+  align-items: center; /* Center items vertically */
+  height: 90vh; /* Set the height to 90% of the viewport height */
+}
+
+/* Apply red border to invalid and touched input fields */
+input.ng-invalid.ng-touched {
+  border: red 2px solid; /* Red border with 2px width for invalid input fields */
+}

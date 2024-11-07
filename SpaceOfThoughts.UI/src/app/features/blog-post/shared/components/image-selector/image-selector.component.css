@@ -1,0 +1,26 @@
+.imgStyle {
+  border: 1px solid transparent; /* Adds transparent border and smooth transitions for any changes */
+  transition: all 0.3s ease;
+  flex: 1 1 300px; /* Allow the item to grow and shrink with a base size */
+  max-width: 300px; /* Keep a consistent maximum width */
+}
+
+.imgStyle:hover {
+  box-shadow: 0 0 10px 1px white; /* Adds a white shadow around the element when hovered */
+}
+
+.imgStyle:active,
+.imgStyle:focus {
+  box-shadow: 0 0 15px 5px green; /* Adds a more prominent green shadow when the element is active or focused */
+}
+
+.custom-image {
+  width: 100%; /* The image will fill its container */
+  aspect-ratio: 1 / 1; /* Ensures the image has a 1:1 aspect ratio */
+}
+
+.pictureWindow {
+  width: 100%; /* The div will fill its container */
+  height: 450px; /* Adjust picture window */
+  overflow-x: hidden; /* Disable horizontal scrollbar */
+}

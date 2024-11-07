@@ -1,0 +1,123 @@
+<div class="container">
+  <h1 class="mt-3">Edit Category</h1>
+
+  <!-- Check if the category exists before rendering the form -->
+  @if (category) {
+    <div>
+      <!-- Form for editing the category -->
+      <form #editCategoryForm="ngForm" (ngSubmit)="onFormSubmit()">
+        <div class="mt-2">
+          <!-- Disabled input field for displaying the category ID -->
+          <div class="mt-3">
+            <label for="categoryId">Id</label>
+            <input
+              type="text"
+              disabled
+              id="categoryId"
+              class="form-control"
+              name="categoryId"
+              value="{{ category.id }}"
+            />
+          </div>
+
+          <!-- Input field for category name -->
+          <div class="mt-3">
+            <label for="categoryName">Name</label>
+            <input
+              type="text"
+              id="categoryName"
+              class="form-control"
+              name="categoryName"
+              [(ngModel)]="category.name"
+              required
+            />
+          </div>
+
+          <!-- Input field for category URL handle -->
+          <div class="mt-3">
+            <label for="categoryUrlHandle">Url Handle</label>
+            <input
+              type="text"
+              id="categoryUrlHandle"
+              class="form-control"
+              name="categoryUrlHandle"
+              [(ngModel)]="category.urlHandle"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <!-- Submit button to save changes -->
+          <button type="submit" class="btn btn-secondary" name="saveButton">
+            Save
+          </button>
+
+          <!-- Button to trigger the delete confirmation modal -->
+          <button
+            type="button"
+            class="btn btn-danger ms-2"
+            name="deleteButton"
+            data-bs-toggle="modal"
+            data-bs-target="#staticBackdrop"
+          >
+            Delete
+          </button>
+
+          <!-- Delete confirmation modal -->
+          <div
+            class="modal fade"
+            id="staticBackdrop"
+            data-bs-backdrop="static"
+            data-bs-keyboard="false"
+            tabindex="-1"
+            aria-labelledby="staticBackdropLabel"
+            aria-hidden="true"
+          >
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h1 class="modal-title fs-5" id="staticBackdropLabel">
+                    Delete Category
+                  </h1>
+                  <button
+                    type="button"
+                    class="btn-close"
+                    name="closeModalIcon"
+                    data-bs-dismiss="modal"
+                    aria-label="Close"
+                  ></button>
+                </div>
+                <div class="modal-body">
+                  Do you really want to delete the category?
+                </div>
+                <div class="modal-footer">
+                  <button
+                    type="button"
+                    class="btn btn-secondary"
+                    name="closeButton"
+                    data-bs-dismiss="modal"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-danger ms-3"
+                    name="deleteButtonModal"
+                    data-bs-dismiss="modal"
+                    (click)="onDelete()"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+  } @else {
+    <!-- Alert message when category is not found -->
+    <div class="alert alert-light" role="alert">Category not found!</div>
+  }
+</div>

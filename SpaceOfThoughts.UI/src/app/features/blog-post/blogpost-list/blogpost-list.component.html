@@ -1,0 +1,202 @@
+<div class="p-2">
+  <div class="card bg-gradient container mt-5">
+    <h1 class="ms-1 mt-4">Blog Post List</h1>
+
+    <!-- Search bar section to find a specific blog post -->
+    <div class="container mt-5">
+      <div class="col-md">
+        <div class="custom-input-group">
+          <!-- Input field for blog search; triggers search on 'Enter' or button click -->
+          <input
+            type="text"
+            id="fearchField"
+            class="form-control"
+            (keyup.enter)="onSearch(queryText.value)"
+            placeholder="Find blog"
+            aria-label="Find blog"
+            aria-describedby="basic-addon1"
+            #queryText
+          />
+          <!-- Search button that triggers the same 'onSearch' method -->
+          <button
+            class="btn btn-secondary inside-btn"
+            name="searchIcon"
+            (click)="onSearch(queryText.value)"
+          >
+            <i class="bi bi-search"></i>
+            <!-- Bootstrap search icon -->
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Check if the async blogPost$ observable returns data -->
+    @if (blogPost$ | async; as blogPosts) {
+      <!-- Table displaying blog posts in a responsive layout -->
+      <div class="table-responsive mb-2">
+        <table
+          class="table-bordered rounded-3 mt-4 table"
+          style="overflow: hidden"
+        >
+          <!-- Table header with sortable columns -->
+          <thead>
+            <tr class="text-center align-middle">
+              <th class="text-start">Title</th>
+              <!-- Blog post title -->
+
+              <!-- Published Date with sort functionality (ascending/descending) -->
+              <th>
+                <div class="d-flex justify-content-between">
+                  <div class="d-flex justify-content-start">
+                    <span class="mt-2">Date</span>
+                  </div>
+                  <div class="d-flex justify-content-end">
+                    <span>
+                      <!-- Sort by 'publishedDate' in ascending order -->
+                      <button
+                        type="button"
+                        class="btn btn-secondary ms-2"
+                        name="sortAscButton"
+                        (click)="sort('publishedDate', 'asc')"
+                      >
+                        <i class="bi bi-arrow-up"></i>
+                        <!-- Sort ascending icon -->
+                      </button>
+                    </span>
+                    <span>
+                      <!-- Sort by 'publishedDate' in descending order -->
+                      <button
+                        type="button"
+                        class="btn btn-secondary ms-2"
+                        name="sortDescButton"
+                        (click)="sort('publishedDate', 'desc')"
+                      >
+                        <i class="bi bi-arrow-down"></i>
+                        <!-- Sort descending icon -->
+                      </button>
+                    </span>
+                  </div>
+                </div>
+              </th>
+
+              <!-- Column for indicating blog post visibility (Online/Offline) -->
+              <th>Online</th>
+
+              <!-- Column for blog post categories -->
+              <th>Category</th>
+
+              <!-- Tools column with edit button -->
+              <th>
+                <span class="d-flex justify-content-center">
+                  <i class="bi bi-tools"></i>
+                  <!-- Tools icon for actions -->
+                </span>
+              </th>
+            </tr>
+          </thead>
+
+          <!-- Table body displaying the blog posts dynamically -->
+          <tbody>
+            @for (blogPost of blogPosts; track blogPost) {
+              <tr class="align-middle">
+                <!-- Blog post title displayed in a smaller font -->
+                <td style="font-size: small">{{ blogPost.title }}</td>
+
+                <!-- Blog post published date formatted to MM-DD-YY -->
+                <td class="text-center">
+                  {{ blogPost.publishedDate | date: "MM-dd-yy" }}
+                </td>
+
+                <!-- Boolean value for visibility (isVisible) -->
+                <td class="text-center">{{ blogPost.isVisible }}</td>
+
+                <!-- Blog post categories displayed as badges -->
+                <td class="text-center">
+                  @for (category of blogPost.categories; track category) {
+                    <span class="badge bg-secondary me-1 mt-2">{{
+                      category.name
+                    }}</span>
+                    <!-- Category badge -->
+                  }
+                </td>
+
+                <!-- Edit button that navigates to the blog post's edit page -->
+                <td>
+                  <span
+                    class="d-flex justify-content-center align-items-center"
+                  >
+                    <a
+                      class="btn btn-secondary"
+                      name="editButton"
+                      (click)="navigateToEditBlogPost(blogPost.id)"
+                      >Edit</a
+                    >
+                  </span>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+    <div class="d-flex justify-content-between">
+      <div class="flex-column align-item-start">
+        <!-- Button to add a new blog post -->
+        <button
+          class="btn btn-primary mb-2 me-1"
+          name="addBlogButton"
+          (click)="navigateToAddBlogPost()"
+        >
+          Add blog
+        </button>
+      </div>
+      <!-- Conditional pagination (shown if total count is greater than 5) -->
+      @if (this.totalCount >= 5) {
+        <div class="flex-colmn align-item-end">
+          <!-- Pagination controls -->
+          <nav aria-label="Page navigation">
+            <ul class="pagination">
+              <li class="page-item">
+                <!-- Button to go to the previous page -->
+                <button
+                  class="page-link"
+                  (click)="getPrevPage()"
+                  name="previousButton"
+                >
+                <i class="bi bi-caret-left"></i>
+                </button>
+              </li>
+
+              <!-- Page number buttons -->
+              @for (item of list; track $index; let idx = $index) {
+                <li class="page-item">
+                  <!-- Button to go to a specific page -->
+                  <button
+                    class="page-link"
+                    (click)="getPage(idx + 1)"
+                    name="pageNumberButtons"
+                  >
+                    {{ idx + 1 }}
+                    <!-- Display page numbers dynamically -->
+                  </button>
+                </li>
+              }
+
+              <li class="page-item">
+                <!-- Button to go to the next page -->
+                <button
+                  class="page-link"
+                  (click)="getNextPage()"
+                  name="nextButton"
+                >
+                <i class="bi bi-caret-right"></i>
+                </button>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      }
+    </div>
+  </div>
+</div>

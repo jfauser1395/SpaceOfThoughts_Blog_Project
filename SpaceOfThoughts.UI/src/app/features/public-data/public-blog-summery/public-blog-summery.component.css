@@ -1,0 +1,44 @@
+/* Override button styling */
+.btnPrimary {
+    background: #212529;
+    color: #d5dfe9;
+    border: 0px;
+    white-space: nowrap; /* To prevent the text from breaking into a new line */
+    position: relative;
+    transition: background-color 0.3s, box-shadow 0.3s, transform 0.3s;
+  }
+
+/* Card proportions for all screen sizes */
+.card-img-top {
+  height: 450px;
+}
+
+@media (max-width: 500px) {
+  .card-img-top {
+    height: 300px; 
+  }
+}
+
+.card-text {
+  height: 100px;
+  overflow: auto;
+}
+
+@media (max-width: 460px) {
+  .card-text{
+    height:80px;
+    overflow: auto;
+  }
+}
+.card-title {
+  height: 70px;
+}
+
+/* Customize button styling */
+.btn {
+  color: white;
+}
+.btn:hover {
+  box-shadow: 0 0 14px 1px #a66776; 
+  color: white;
+}

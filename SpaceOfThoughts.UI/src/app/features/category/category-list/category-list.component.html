@@ -1,0 +1,189 @@
+<div class="p-2">
+  <div class="card bg-gradient container mt-5">
+    <h1 class="mt-4">Category List</h1>
+
+    <!-- Search bar section to find a specific category -->
+    <div class="container mt-5">
+      <div class="col-md">
+        <div class="custom-input-group">
+          <!-- Input field for category search; triggers search on 'Enter' or button click -->
+          <input
+            type="text"
+            id="searchField"
+            class="form-control"
+            (keyup.enter)="onSearch(queryText.value)"
+            placeholder="Find category"
+            aria-label="Find category"
+            aria-describedby="basic-addon1"
+            #queryText
+          />
+          <!-- Search button that triggers the same 'onSearch' method -->
+          <button
+            class="btn btn-secondary inside-btn"
+            name="searchButton"
+            (click)="onSearch(queryText.value)"
+          >
+            <i class="bi bi-search"></i>
+            <!-- Bootstrap search icon -->
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Check if the async categories$ observable returns data -->
+    @if (categories$ | async; as categories) {
+      <!-- Table displaying categories in a responsive layout -->
+      <div class="table-responsive">
+        <table
+          class="table-bordered mt-4 table"
+          style="border-radius: 10px; overflow: hidden"
+        >
+          <!-- Table header with sortable columns for Name -->
+          <thead>
+            <tr class="text-center align-middle">
+              <!-- Name column with sorting functionality (ascending/descending) -->
+              <th>
+                <div class="d-flex justify-content-between">
+                  <div class="d-flex justify-content-start">
+                    <span class="mt-2">Name</span>
+                  </div>
+                  <div class="d-flex justify-content-end">
+                    <span>
+                      <!-- Sort by 'name' in ascending order -->
+                      <button
+                        type="button"
+                        class="btn btn-secondary ms-2"
+                        name="sortAscButton"
+                        (click)="sort('name', 'asc')"
+                      >
+                        <i class="bi bi-arrow-up"></i>
+                        <!-- Sort ascending icon -->
+                      </button>
+                    </span>
+                    <span>
+                      <!-- Sort by 'name' in descending order -->
+                      <button
+                        type="button"
+                        class="btn btn-secondary ms-2"
+                        name="sortDescButton"
+                        (click)="sort('name', 'desc')"
+                      >
+                        <i class="bi bi-arrow-down"></i>
+                        <!-- Sort descending icon -->
+                      </button>
+                    </span>
+                  </div>
+                </div>
+              </th>
+
+              <!-- Url Handle column -->
+              <th>
+                <span
+                  class="d-flex justify-content-start align-items-center mb-1"
+                >
+                  Url Handle
+                  <!-- Label for the URL Handle column -->
+                </span>
+              </th>
+
+              <!-- Tools column for actions (Edit button) -->
+              <th>
+                <span
+                  class="d-flex justify-content-center align-items-center mb-1"
+                >
+                  <i class="bi bi-tools"></i>
+                  <!-- Tools icon for actions -->
+                </span>
+              </th>
+            </tr>
+          </thead>
+
+          <!-- Table body displaying the categories dynamically -->
+          <tbody>
+            @for (category of categories; track category.id) {
+              <tr>
+                <!-- Category name -->
+                <td>{{ category.name }}</td>
+                <!-- Category URL Handle -->
+                <td>{{ category.urlHandle }}</td>
+                <!-- Edit button for the category, navigating to the edit page -->
+                <td>
+                  <span
+                    class="d-flex justify-content-center align-items-center"
+                  >
+                    <a
+                      class="btn btn-secondary"
+                      name="editButton"
+                      [routerLink]="['/admin/categories', category.id]"
+                      >Edit</a
+                    >
+                  </span>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+    <!-- Button and Pagination controls -->
+    <div class="d-flex justify-content-between">
+      <!-- Button to add a new category -->
+      <div class="flex-column align-item-start">
+        <button
+          class="btn btn-primary mb-2"
+          [routerLink]="['/admin/categories/add']"
+        >
+          Add Category
+        </button>
+      </div>
+
+      <!-- Conditional pagination (shown if total count is greater than 4) -->
+      @if (this.totalCount >= 4) {
+        <div class="flex-colmn align-item-end">
+          <!-- Pagination controls -->
+          <nav aria-label="Page navigation">
+            <ul class="pagination">
+              <li class="page-item">
+                <!-- Button to go to the previous page -->
+                <button
+                  class="page-link"
+                  (click)="getPrevPage()"
+                  name="previousButton"
+                >
+                <i class="bi bi-caret-left"></i>
+                </button>
+              </li>
+
+              <!-- Page number buttons -->
+              @for (item of list; track $index; let idx = $index) {
+                <li class="page-item">
+                  <!-- Button to go to a specific page -->
+                  <button
+                    class="page-link"
+                    (click)="getPage(idx + 1)"
+                    name="pageNumberButtons"
+                  >
+                    {{ idx + 1 }}
+                    <!-- Display page numbers dynamically -->
+                  </button>
+                </li>
+              }
+
+              <li class="page-item">
+                <!-- Button to go to the next page -->
+                <button
+                  class="page-link"
+                  (click)="getNextPage()"
+                  name="nextButton"
+                >
+                <i class="bi bi-caret-right"></i>
+                </button>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      }
+    </div>
+  </div>
+</div>

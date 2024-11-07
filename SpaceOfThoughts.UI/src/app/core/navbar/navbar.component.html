@@ -1,0 +1,292 @@
+<!-- Main navigation bar -->
+<nav class="navbar navbar-expand-lg bg-body-tertiary fixed-top p-2">
+  <!-- Container div holds all elements of the navbar -->
+  <div class="container">
+    <!-- Brand name of the website -->
+
+    <a class="navbar-brand blogFontThemeNav align-items-start" href="#"
+      >Space of Thoughts</a
+    >
+
+    @if (isSmallScreen) {
+      <div class="d-flex align-items-center justify-content-center">
+        <div
+          class="searchIconAnimation searchIconSmallScreen searchIconLargerScreen"
+          [class.expanded]="searchExpanded"
+        >
+          <input
+            type="search"
+            id="searchSmall"
+            name="searchSmall"
+            #searchInput
+            (keyup.enter)="collapseSearch(searchInput.value)"
+            class="searchIconAnimationInput"
+            placeholder="Search blog ..."
+          />
+          <i class="fa" (click)="toggleSearchBar(searchInput.value)"
+            ><svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="21"
+              height="21"
+              fill="currentColor"
+              class="bi bi-search"
+              viewBox="0 0 16 16"
+            >
+              <path
+                d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"
+              />
+            </svg>
+          </i>
+        </div>
+      </div>
+    } @else {
+      <div class="custom-input-group custom-input mt-1">
+        <input
+          #searchInput
+          (keyup.enter)="blogPostService.navSort.next(searchInput.value)"
+          type="text"
+          class="form-control border-0"
+          id="search-blog"
+          placeholder="Search the Blog"
+          aria-label="Search the Blog"
+          aria-describedby="search-blog"
+        />
+        <button
+          class="btn btn-dark btnIcons inside-btn me-2"
+          (click)="blogPostService.navSort.next(searchInput.value)"
+          type="button"
+          aria-label="search"
+        >
+          <!-- SVG is the search icon -->
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            fill="currentColor"
+            class="bi bi-search mb-1"
+            viewBox="0 0 16 16"
+          >
+            <path
+              d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"
+            />
+          </svg>
+        </button>
+      </div>
+    }
+    <div class="mb-1">
+      <!-- Button toggles the navbar on smaller screens -->
+      <button
+        class="navbar-toggler collapsed d-flex d-lg-none flex-column"
+        (click)="navToggled()"
+        type="button"
+        data-bs-toggle="collapse"
+        data-bs-target="#navbarSupportedContent"
+        aria-controls="navbarSupportedContent"
+        aria-expanded="false"
+        aria-label="Toggle navigation"
+      >
+        <div>
+          <!-- Spans are the lines in the hamburger icon -->
+          <span class="toggler-icon top-bar"></span>
+          <span class="toggler-icon middle-bar"></span>
+          <span class="toggler-icon bottom-bar"></span>
+        </div>
+      </button>
+    </div>
+    @if (isMediumScreen) {
+      <!-- Div contains the actual navigation links -->
+      <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <!-- Greets the user -->
+        @if (user !== undefined) {
+          <!--  displays the user's email -->
+          <div class="blogFontTheme">
+            Hay <span class="ms-1"> {{ user.userName }} </span> !
+          </div>
+        }
+        <!-- Ul contains the list of navigation links -->
+        <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+          <!-- Each li is a single navigation link -->
+          <!-- <li class="nav-item">
+          <a class="nav-link active" aria-current="page" href="#">Home</a>
+        </li> -->
+          <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="#">Blogs</a>
+          </li>
+          <!-- <li class="nav-item">
+          <a class="nav-link active" aria-current="page" href="#">About</a>
+        </li> -->
+
+          <!-- Part is only visible to users with the 'Writer' role -->
+          @if (user !== undefined && user.roles.includes("Writer")) {
+            <li class="nav-item dropdown">
+              <a
+                class="nav-link dropdown-toggle"
+                role="button"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+                >Admin-Tools</a
+              >
+              <ul
+                class="dropdown-menu"
+                data-bs-toggle="collapse"
+                data-bs-target="#navbarSupportedContent"
+              >
+                <li>
+                  <a class="dropdown-item" [routerLink]="['/admin/categories']"
+                    >Manage categories</a
+                  >
+                </li>
+                <li>
+                  <hr class="dropdown-divider" />
+                  <a class="dropdown-item" [routerLink]="['/admin/blogposts']"
+                    >Manage blog posts</a
+                  >
+                </li>
+                <li>
+                  <hr class="dropdown-divider" />
+                  <a class="dropdown-item" [routerLink]="['/admin/users']"
+                    >Manage users</a
+                  >
+                </li>
+              </ul>
+            </li>
+          }
+        </ul>
+
+        <!--  login/logout functionality -->
+        <div class="d-flex">
+          @if (user === undefined) {
+            <a
+              [routerLink]="['/login']"
+              class="btn btn-link btnIcons mt-1 me-2"
+              aria-label="login"
+              data-bs-toggle="collapse"
+              data-bs-target="#navbarSupportedContent"
+            >
+              <!-- SVG is the user icon -->
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="28"
+                height="28"
+                fill="currentColor"
+                class="bi bi-person-circle"
+                viewBox="0 0 16 16"
+              >
+                <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0" />
+                <path
+                  fill-rule="evenodd"
+                  d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1"
+                />
+              </svg>
+            </a>
+          } @else {
+            <div class="align-items-center">
+              <!--  logs the user out -->
+              <button
+                class="btn btnPrimary btn-outline-light"
+                (click)="onLogout()"
+                aria-label="logout"
+                data-bs-toggle="collapse"
+                data-bs-target="#navbarSupportedContent"
+                name="Sign out button"
+              >
+                Sign out
+              </button>
+            </div>
+          }
+        </div>
+      </div>
+    } @else {
+      <!-- Div contains the actual navigation links -->
+      <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <!-- Greets the user -->
+        @if (user !== undefined) {
+          <!--  displays the user's email -->
+          <div class="ms-2 me-1 blogFontTheme d-flex">
+           Hay <span class="ms-1"> {{ user.userName }} !</span>
+          </div>
+        }
+        <!-- Ul contains the list of navigation links -->
+        <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+          <!-- Each li is a single navigation link -->
+          <!-- <li class="nav-item">
+          <a class="nav-link active" aria-current="page" href="#">Home</a>
+        </li> -->
+          <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="#">Blogs</a>
+          </li>
+          <!-- <li class="nav-item">
+          <a class="nav-link active" aria-current="page" [routerLink]="['/about']">About</a>
+        </li> -->
+
+          <!-- Part is only visible to users with the 'Writer' role -->
+          @if (user !== undefined && user.roles.includes("Writer")) {
+            <li class="nav-item dropdown">
+              <a
+                class="nav-link dropdown-toggle"
+                role="button"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+                >Admin-Tools</a
+              >
+              <ul class="dropdown-menu">
+                <li>
+                  <a class="dropdown-item" [routerLink]="['/admin/categories']"
+                    >Manage categories</a
+                  >
+                </li>
+                <li>
+                  <hr class="dropdown-divider" />
+                  <a class="dropdown-item" [routerLink]="['/admin/blogposts']"
+                    >Manage blog posts</a
+                  >
+                </li>
+                <li>
+                  <hr class="dropdown-divider" />
+                  <a class="dropdown-item" [routerLink]="['/admin/users']"
+                    >Manage users</a
+                  >
+                </li>
+              </ul>
+            </li>
+          }
+        </ul>
+
+        <!--  login/logout functionality -->
+        <div class="d-flex">
+          @if (user === undefined) {
+            <a
+              [routerLink]="['/login']"
+              class="btn btn-link btnIcons mt-1 me-2"
+              aria-label="login"
+              name="login button"
+            >
+              <!-- SVG is the user icon -->
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="28"
+                height="28"
+                fill="currentColor"
+                class="bi bi-person-circle"
+                viewBox="0 0 16 16"
+              >
+                <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0" />
+                <path
+                  fill-rule="evenodd"
+                  d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1"
+                />
+              </svg>
+            </a>
+          } @else {
+            <div class="d-flex align-items-center">
+              <!--  logs the user out -->
+              <button class="btn btn-outline-light btnPrimary ms-2" (click)="onLogout()" name="sign out button">
+                Sign out
+              </button>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+</nav>

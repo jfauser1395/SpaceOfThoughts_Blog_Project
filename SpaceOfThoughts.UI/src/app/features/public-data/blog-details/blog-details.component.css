@@ -1,0 +1,15 @@
+/* Apply full width to elements, with a maximum heigh for the blog image */
+.full-width {
+  width: 90vw; 
+  height: auto;
+  max-height: 800px; 
+}
+
+/* Media query for screens with a maximum width of 576px */
+@media (max-width: 576px) {
+  .full-width {
+      margin: 0 auto; 
+      display: block; 
+      width: auto; 
+  }
+}

@@ -1,0 +1,221 @@
+<div class="mt-5 p-2" style="overflow-y: hidden">
+  <div class="card bg-gradient container mt-5">
+    <h1 class="mt-4">Users List</h1>
+
+    <!-- Search bar section to find a specific user -->
+    <div class="container mt-5">
+      <div class="col-md">
+        <div class="custom-input-group">
+          <!-- Input field for user search; triggers search on 'Enter' or button click -->
+          <input
+            type="text"
+            id="searchField"
+            name="searchField"
+            class="form-control"
+            (keyup.enter)="onSearch(queryText.value)"
+            placeholder="Find user"
+            aria-label="Find user"
+            aria-describedby="basic-addon1"
+            #queryText
+          />
+          <!-- Search button that triggers the same 'onSearch' method -->
+          <button
+            class="btn btn-secondary inside-btn"
+            (click)="onSearch(queryText.value)"
+            name="searchButton"
+            aria-label="Search button"
+          >
+            <i class="bi bi-search"></i>
+            <!-- Bootstrap search icon -->
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Check if the users observable has emitted data -->
+    @if (users$ | async; as users) {
+      <table
+        class="table-bordered rounded-3 mt-4 table"
+        style="overflow: hidden"
+      >
+        <thead>
+          <tr class="text-center align-middle">
+            <th>
+              <div class="d-flex justify-content-between">
+                <div class="d-flex justify-content-start">
+                  <span class="mt-2">Username</span>
+                </div>
+                <div class="d-flex justify-content-end">
+                  <span>
+                    <button
+                      type="button"
+                      class="btn btn-secondary ms-2"
+                      (click)="sort('userName', 'asc')"
+                      name="sortUsernameAscButton"
+                      aria-label="Sort username ascending"
+                    >
+                      <i class="bi bi-arrow-up"></i>
+                    </button>
+                  </span>
+                  <span>
+                    <button
+                      type="button"
+                      class="btn btn-secondary ms-2"
+                      (click)="sort('userName', 'desc')"
+                      name="sortUsernameDescButton"
+                      aria-label="Sort username descending"
+                    >
+                      <i class="bi bi-arrow-down"></i>
+                    </button>
+                  </span>
+                </div>
+              </div>
+            </th>
+            <th>
+              <span
+                class="d-flex justify-content-center align-items-center mb-1"
+              >
+                <i class="bi bi-tools"></i>
+              </span>
+            </th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <!-- Loop through the users and display each user -->
+          @for (user of users; track user) {
+            <tr>
+              <td>{{ user.userName }}</td>
+              <td>
+                <span class="d-flex justify-content-center align-items-center">
+                  <!-- Button to trigger delete confirmation modal -->
+                  <button
+                    type="button"
+                    class="btn btn-danger ms-2"
+                    data-bs-toggle="modal"
+                    data-bs-target="#deleteUserModal"
+                    (click)="setUserId(user.id)"
+                    name="deleteUserButton"
+                    aria-label="Delete user button"
+                  >
+                    Delete
+                  </button>
+                  <!-- Delete confirmation modal -->
+                  <div
+                    class="modal fade"
+                    id="deleteUserModal"
+                    data-bs-backdrop="static"
+                    data-bs-keyboard="false"
+                    tabindex="-1"
+                    aria-labelledby="deleteUserModalLabel"
+                    aria-hidden="true"
+                  >
+                    <div class="modal-dialog modal-dialog-centered">
+                      <div class="modal-content">
+                        <div class="modal-header">
+                          <h1
+                            class="modal-title fs-5"
+                            id="deleteUserModalLabel"
+                          >
+                            Delete User
+                          </h1>
+                          <button
+                            type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"
+                            aria-label="Close"
+                          ></button>
+                        </div>
+                        <div class="modal-body">
+                          Do you really want to delete this user?
+                        </div>
+                        <div class="modal-footer">
+                          <!-- Close modal button -->
+                          <button
+                            type="button"
+                            class="btn btn-secondary"
+                            data-bs-dismiss="modal"
+                            name="closeModalButton"
+                            aria-label="Close button"
+                          >
+                            Close
+                          </button>
+                          <!-- Confirm delete button -->
+                          <button
+                            type="button"
+                            class="btn btn-danger"
+                            (click)="onDelete()"
+                            data-bs-dismiss="modal"
+                            name="confirmDeleteButton"
+                            aria-label="Confirm delete button"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </span>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+
+    <div class="d-flex justify-content-between">
+      <div class="flex-column align-item-start">
+        <!-- Display current user count -->
+        <span class="card bg-gradient mb-2 p-2">
+          The current user count: {{ totalCount }}
+        </span>
+      </div>
+
+      <!-- Conditional pagination (shown if total count is greater than 5) -->
+      @if (this.totalCount >= 5) {
+        <div class="flex-column align-item-end">
+          <!-- Pagination controls -->
+          <nav aria-label="Page navigation">
+            <ul class="pagination">
+              <li class="page-item">
+                <!-- Button to go to the previous page -->
+                <button
+                  class="page-link"
+                  (click)="getPrevPage()"
+                  name="previousButton"
+                >
+                <i class="bi bi-caret-left"></i>
+                </button>
+              </li>
+
+              <!-- Page number buttons -->
+              @for (item of list; track $index; let idx = $index) {
+                <li class="page-item">
+                  <!-- Button to go to a specific page -->
+                  <button
+                    class="page-link"
+                    (click)="getPage(idx + 1)"
+                    name="pageNumberButton"
+                  >
+                    {{ idx + 1 }}
+                    <!-- Display page numbers dynamically -->
+                  </button>
+                </li>
+              }
+              <li class="page-item">
+                <!-- Button to go to the next page -->
+                <button
+                  class="page-link"
+                  (click)="getNextPage()"
+                  name="nextButton"
+                >
+                <i class="bi bi-caret-right"></i>
+                </button>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      }
+    </div>
+  </div>
+</div>

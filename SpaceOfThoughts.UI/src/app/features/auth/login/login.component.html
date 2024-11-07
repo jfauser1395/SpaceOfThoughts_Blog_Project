@@ -1,0 +1,123 @@
+<div class="container">
+  <div class="logInScreen">
+    <div class="col-12 col-md-8 col-xl-6 mx-auto">
+      <div class="card rounded-4 p-4 cardBackground">
+        <h1>Sign in</h1>
+        <!-- Login form with Angular form group binding and submit handler -->
+        <form
+          class="needs-validation"
+          novalidate
+          [formGroup]="loginFormGroup"
+          (ngSubmit)="onFormSubmit()"
+          name="loginForm"
+        >
+          <!-- Email input field -->
+          <div class="mt-3">
+            <label for="email" class="form-label">Email</label>
+            <input
+              type="text"
+              class="form-control"
+              id="email"
+              name="email"
+              autocomplete="email"
+              formControlName="email"
+              aria-label="Email input"
+            />
+            <div>
+              <!-- Display validation message for email field -->
+              @if (
+                loginFormGroup.get('email')?.invalid &&
+                loginFormGroup.get('email')?.touched &&
+                errorTitle.length === 0
+              ) {
+                <small class="text-danger justify-content-start mt-2">
+                  *This field is required
+                </small>
+              } @else if (
+                loginFormGroup.get('email')?.invalid && !requestOk && errorTitle
+              ) {
+                <small class="text-danger justify-content-start mt-2">
+                  *{{ errorTitle }}
+                </small>
+              }
+            </div>
+          </div>
+          <!-- Password input field -->
+          <div class="mt-3">
+            <label for="password" class="form-label">Password</label>
+            <div class="custom-input-group">
+              <input
+                [type]="passwordFieldType"
+                class="form-control"
+                id="password"
+                name="password"
+                autocomplete="current-password"
+                formControlName="password"
+                aria-label="Password input"
+              />
+              <!-- Toggle the password visibility -->
+              <button
+                type="button"
+                class="inside-btn"
+                (click)="togglePasswordVisibility()"
+                name="togglePasswordVisibility"
+                aria-label="Toggle password visibility button"
+              >
+                <i
+                  [ngClass]="
+                    passwordFieldType === 'password'
+                      ? 'bi bi-eye'
+                      : 'bi bi-eye-slash'
+                  "
+                ></i>
+              </button>
+            </div>
+            <div>
+              <!-- Display validation message for password field -->
+              @if (
+                loginFormGroup.get('password')?.invalid &&
+                loginFormGroup.get('password')?.touched &&
+                errorTitle.length === 0
+              ) {
+                <small class="text-danger justify-content-start mt-2">
+                  *This field is required
+                </small>
+              } @else if (
+                loginFormGroup.get('password')?.invalid &&
+                !requestOk &&
+                errorTitle
+              ) {
+                <small class="text-danger justify-content-start mt-2">
+                  *{{ errorTitle }}
+                </small>
+              }
+            </div>
+          </div>
+          <!-- Login button -->
+          <div class="mt-3">
+            <button
+              type="submit"
+              class="btn btnPrimary form-control mt-4"
+              name="loginButton"
+              aria-label="Login button"
+            >
+              Sign in
+            </button>
+          </div>
+          <!-- Link to create a new account -->
+          <div class="mt-4 text-center">
+            New to <span class="blogFontTheme">spaceofthoughs</span>?
+            <a
+              class="link link-focus text-nowrap"
+              [routerLink]="['/create-account']"
+              name="createAccountLink"
+              aria-label="Create account link"
+            >
+              create account
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
