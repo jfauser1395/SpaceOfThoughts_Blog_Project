@@ -170,7 +170,7 @@ To test out admin functionalities login with credentials that are set up in the 
 After cloning the repo open the setup.sh file and comment out all packages that you already have installed on your machine and run:
 
  ```
-chmod +x SpaceOfThoughts.UI/setup.sh
+chmod +x blog-project-web-development/SpaceOfThoughts.UI/setup.sh
 ./blog-project-web-development/SpaceOfThoughts.UI/setup.sh
  ```
  change the path if necessary.
