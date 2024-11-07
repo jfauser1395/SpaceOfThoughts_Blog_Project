@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Download the API Repo
-git clone https://github.com/jfauser1395/SpaceOfThoughts.API.git
-
 # Download and install nodejs version 20.x.x
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs

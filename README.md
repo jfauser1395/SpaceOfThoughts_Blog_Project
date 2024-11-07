@@ -1,4 +1,6 @@
-# SpaceOfThoughts.API installation on Linux (tested on Ubuntu):
+# Blog project setup API and UI
+
+This setup manual is designed for Linux, specifically tested on Ubuntu 24.04 LTS. Follow the installation steps carefully. Alternatively, refer to the automated setup at the end of this README.
 
 ## 1. MySQL Database setup 
 
@@ -87,9 +89,10 @@ dotnet ef --version
 
 ## 3. Database Migration
 
-First delete all files inside the Migrations folder:
+First navigate into the API folder and delete all files inside the Migrations folder:
 
 ```
+cd SpaceOfThoughts.API/
 sudo rm -rf Migrations/*
 ```
 
@@ -121,9 +124,9 @@ Run the application:
 dotnet run
 ```
 
-# SpaceOfThoughts.UI installation on Linux (tested on Ubuntu):
+## 5. Prerequisites
 
-## 1. Prerequisites
+### Open a new terminal and navigate to the UI folder
 
 Before you start please make sure Node.js is installed:
 
@@ -139,7 +142,7 @@ Please install the CLI:
 sudo npm install -g @angular/cli
 ```
 
-## 2. Start the application
+## 6. Start the application
 
 **First make sure that you are running the API in another terminal as explained above**
 
@@ -156,7 +159,7 @@ Start the frontend application:
 ng serve
 ```
 
-to start the dev server. Navigate to `http://localhost:4200/` or Press `o + Enter` to open in the system's default browser.
+The application will start on it's own alternatively navigate to `http://localhost:4200/` or Press `o + Enter` to open in the system's default browser.
 
 ## Login into the application
 
