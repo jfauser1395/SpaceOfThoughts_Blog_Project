@@ -11,8 +11,8 @@ namespace SpaceOfThoughts.API.Data
             : base(options) { }
 
         // DbSet properties represent collections of the specified entity types in the database
-        public DbSet<BlogPost> BlogPosts { get; set; } // Table to store blog posts
-        public DbSet<Category> Categories { get; set; } // Table to store categories
-        public DbSet<BlogImage> BlogImages { get; set; } // Table to store blog images
+        public required DbSet<BlogPost> BlogPosts { get; set; } // Table to store blog posts
+        public required DbSet<Category> Categories { get; set; } // Table to store categories
+        public required DbSet<BlogImage> BlogImages { get; set; } // Table to store blog images
     }
 }
