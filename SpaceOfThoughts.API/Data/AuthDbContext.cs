@@ -29,7 +29,7 @@ namespace SpaceOfThoughts.API.Data
                     Id = readerRoleId,
                     Name = "Reader",
                     NormalizedName = "READER",
-                    ConcurrencyStamp = readerRoleId // A random value that changes whenever a user is persisted to the store
+                    ConcurrencyStamp = readerRoleId 
                 },
                 new IdentityRole()
                 {
