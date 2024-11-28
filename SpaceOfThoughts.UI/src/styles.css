@@ -125,6 +125,7 @@ input:-webkit-autofill + .inside-btn {
 /* Card background */
 .cardBackground {
   background: #17191d;
+  box-shadow: 0 0 25px 1px rgb(77, 77, 77); /* Adds a white shadow around the element when hovered */
 }
 
 /*########################################################################*/
