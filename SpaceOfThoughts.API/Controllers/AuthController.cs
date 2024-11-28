@@ -30,6 +30,7 @@ namespace SpaceOfThoughts.API.Controllers
         [Route("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
         {
+            // Find the user by email
             var identityUser = await userManager.FindByEmailAsync(request.Email);
             if (identityUser is not null)
             {
@@ -38,20 +39,24 @@ namespace SpaceOfThoughts.API.Controllers
                     identityUser,
                     request.Password
                 );
+
+                // Create a JWT token and form the login response
                 if (checkPasswordResult)
                 {
                     var roles = await userManager.GetRolesAsync(identityUser);
-                    // Create a JWT token and form the login response
                     var jwtToken = tokenRepository.CreateJWTToken(identityUser, roles.ToList());
-                    var response = new LoginResponseDto
+                    if (identityUser.UserName != null)
                     {
-                        Id = identityUser.Id,
-                        UserName = identityUser.UserName ?? "Unknown User", // Default value if null
-                        Email = request.Email,
-                        Roles = roles.ToList(),
-                        Token = jwtToken
-                    };
-                    return Ok(response);
+                        var response = new LoginResponseDto
+                        {
+                            Id = identityUser.Id,
+                            UserName = identityUser.UserName,
+                            Email = request.Email,
+                            Roles = roles.ToList(),
+                            Token = jwtToken
+                        };
+                        return Ok(response);
+                    }
                 }
             }
             // If the email or password is incorrect, return a validation problem
@@ -225,12 +230,17 @@ namespace SpaceOfThoughts.API.Controllers
         [Authorize(Roles = "Writer")]
         public async Task<IActionResult> GetUserById([FromRoute] string id)
         {
+            // Find the user by their ID
             var user = await userManager.FindByIdAsync(id);
             if (user is null)
             {
                 return NotFound();
             }
+
+            // Get roles for the user
             var roles = await userManager.GetRolesAsync(user);
+
+            // Convert to DTO
             var response = new UserResponseDto
             {
                 Id = user.Id,
@@ -246,6 +256,7 @@ namespace SpaceOfThoughts.API.Controllers
         [Route("count")]
         public async Task<IActionResult> GetUsersTotal()
         {
+            // Get total count of users excluding the admin
             var count = await userManager.Users.CountAsync();
             return Ok(count - 1); // -1 because we do not count the admin
         }
@@ -256,17 +267,22 @@ namespace SpaceOfThoughts.API.Controllers
         [Authorize(Roles = "Writer")]
         public async Task<IActionResult> DeleteUser(string id)
         {
+            // Find the user by their ID
             var user = await userManager.FindByIdAsync(id);
             if (user is null)
             {
                 return NotFound();
             }
+
+            // Delete the user
             var result = await userManager.DeleteAsync(user);
             if (!result.Succeeded)
             {
                 return BadRequest(result.Errors);
             }
+
             return Ok();
         }
+
     }
 }

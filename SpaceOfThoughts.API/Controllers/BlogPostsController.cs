@@ -29,7 +29,7 @@ namespace SpaceOfThoughts.API.Controllers
         [Authorize(Roles = "Writer")]
         public async Task<IActionResult> CreateBlogPost([FromBody] CreateBlogPostRequestDto request)
         {
-            // Convert DTO to Domain
+            // Convert DTO to Domain Model
             var blogPost = new BlogPost
             {
                 Author = request.Author,
@@ -42,6 +42,8 @@ namespace SpaceOfThoughts.API.Controllers
                 UrlHandle = request.UrlHandle,
                 Categories = new List<Category>()
             };
+
+            // Add existing categories to the blog post
             foreach (var categoryGuid in request.Categories)
             {
                 var existingCategory = await categoryRepository.GetById(categoryGuid);
@@ -50,8 +52,11 @@ namespace SpaceOfThoughts.API.Controllers
                     blogPost.Categories.Add(existingCategory);
                 }
             }
+
+            // Save the new blog post to the repository
             blogPost = await blogPostRepository.CreateAsync(blogPost);
-            // Convert Domain Model back to DTO
+
+            // Convert Domain Model to DTO
             var response = new BlogPostDto
             {
                 Id = blogPost.Id,
@@ -85,6 +90,7 @@ namespace SpaceOfThoughts.API.Controllers
             [FromQuery] int? pageSize
         )
         {
+            // Call repository to get all blog posts with optional query, sorting, and pagination
             var blogPosts = await blogPostRepository.GetAllAsync(
                 query,
                 sortBy,
@@ -92,7 +98,8 @@ namespace SpaceOfThoughts.API.Controllers
                 pageNumber,
                 pageSize
             );
-            // Convert Domain model to DTO
+
+            // Convert Domain Models to DTOs
             var response = new List<BlogPostDto>();
             foreach (var blogPost in blogPosts)
             {
@@ -127,12 +134,13 @@ namespace SpaceOfThoughts.API.Controllers
         [Route("{id:Guid}")]
         public async Task<IActionResult> GetBlogPostById([FromRoute] Guid id)
         {
-            // Get the BlogPost from Repository
+            // Get the BlogPost from the repository
             var blogPost = await blogPostRepository.GetByIdAsync(id);
             if (blogPost == null)
             {
                 return NotFound();
             }
+
             // Convert Domain Model to DTO
             var response = new BlogPostDto
             {
@@ -162,6 +170,7 @@ namespace SpaceOfThoughts.API.Controllers
         [Route("count")]
         public async Task<IActionResult> GetBlogPostTotal()
         {
+            // Call repository to get the total count of blog posts
             var count = await blogPostRepository.GetCount();
             return Ok(count);
         }
@@ -171,12 +180,13 @@ namespace SpaceOfThoughts.API.Controllers
         [Route("{urlHandle}")]
         public async Task<IActionResult> GetBlogPostByUrl([FromRoute] string urlHandle)
         {
-            // Get Blog Post details from repository
+            // Get Blog Post details from the repository
             var blogPost = await blogPostRepository.GetByUrlHandleAsync(urlHandle);
             if (blogPost == null)
             {
                 return NotFound();
             }
+
             // Convert Domain Model to DTO
             var response = new BlogPostDto
             {
@@ -200,7 +210,6 @@ namespace SpaceOfThoughts.API.Controllers
             };
             return Ok(response);
         }
-
         // PUT: {apiBaseUrl}/api/blogposts/{id} - Update a blog post by its ID
         [HttpPut]
         [Route("{id:Guid}")]
@@ -224,6 +233,8 @@ namespace SpaceOfThoughts.API.Controllers
                 UrlHandle = request.UrlHandle,
                 Categories = new List<Category>()
             };
+
+            // Add existing categories to the blog post
             foreach (var categoryGuid in request.Categories)
             {
                 var existingCategory = await categoryRepository.GetById(categoryGuid);
@@ -232,12 +243,14 @@ namespace SpaceOfThoughts.API.Controllers
                     blogPost.Categories.Add(existingCategory);
                 }
             }
-            // Call repository to update blogpost Domain Model
+
+            // Call repository to update the blog post
             var updatedBlogPost = await blogPostRepository.UpdateAsync(blogPost);
             if (updatedBlogPost == null)
             {
                 return NotFound();
             }
+
             // Convert Domain Model back to DTO
             var response = new BlogPostDto
             {
@@ -263,12 +276,13 @@ namespace SpaceOfThoughts.API.Controllers
             return Ok(response);
         }
 
-        // Delete:{apiBaseUrl}/api/blogposts/{id} - Endpoint to delete a blogpost by its ID
+        // DELETE: {apiBaseUrl}/api/blogposts/{id} - Delete a blog post by its ID
         [HttpDelete]
         [Route("{id:guid}")]
         [Authorize(Roles = "Writer")]
         public async Task<IActionResult> DeleteBlogPost([FromRoute] Guid id)
         {
+            // Call repository to delete the blog post by its ID
             var deletedBlogPost = await blogPostRepository.DeleteAsync(id);
 
             if (deletedBlogPost == null)

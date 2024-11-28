@@ -23,11 +23,17 @@ namespace SpaceOfThoughts.API.Controllers
         [Authorize(Roles = "Writer")]
         public async Task<IActionResult> CreateCategory([FromBody] CreateCategoryRequestDto request)
         {
-            // Map DTO to Domain Model
-            var category = new Category { Name = request.Name, UrlHandle = request.UrlHandle };
-            await categoryRepository.CreateAsync(category);
+            // Convert DTO to Domain Model
+            var category = new Category 
+            { 
+                Name = request.Name,
+                UrlHandle = request.UrlHandle
+            };
 
-            // Map Domain model to DTO
+            // Save the new category to the repository
+            category = await categoryRepository.CreateAsync(category);
+
+            // Convert Domain Model to DTO
             var response = new CategoryDto
             {
                 Id = category.Id,
@@ -48,6 +54,7 @@ namespace SpaceOfThoughts.API.Controllers
             [FromQuery] int? pageSize
         )
         {
+            // Call repository to get all categories with optional query, sorting, and pagination
             var categories = await categoryRepository.GetAllAsync(
                 query,
                 sortBy,
@@ -56,7 +63,7 @@ namespace SpaceOfThoughts.API.Controllers
                 pageSize
             );
 
-            // Map Domain model to DTO
+            // Convert Domain Models to DTOs
             var response = new List<CategoryDto>();
             foreach (var category in categories)
             {
@@ -78,13 +85,14 @@ namespace SpaceOfThoughts.API.Controllers
         [Authorize(Roles = "Writer")]
         public async Task<IActionResult> GetCategoryById([FromRoute] Guid id)
         {
+            // Call repository to get the category by its ID
             var existentCategory = await categoryRepository.GetById(id);
             if (existentCategory is null)
             {
                 return NotFound();
             }
 
-            // Map Domain model to DTO
+            // Convert Domain Model to DTO
             var response = new CategoryDto
             {
                 Id = existentCategory.Id,
@@ -100,6 +108,7 @@ namespace SpaceOfThoughts.API.Controllers
         [Authorize(Roles = "Writer")]
         public async Task<IActionResult> GetCategoriesTotal()
         {
+            // Call repository to get the total count of categories
             var count = await categoryRepository.GetCount();
             return Ok(count);
         }
@@ -113,20 +122,22 @@ namespace SpaceOfThoughts.API.Controllers
             [FromBody] UpdateCategoryRequestDto request
         )
         {
-            // Convert DTO to Domain model
+            // Convert DTO to Domain Model
             var category = new Category
             {
                 Id = id,
                 Name = request.Name,
                 UrlHandle = request.UrlHandle
             };
+
+            // Update the category in the repository
             category = await categoryRepository.UpdateAsync(category);
             if (category is null)
             {
                 return NotFound();
             }
 
-            // Convert Domain model to DTO
+            // Convert Domain Model to DTO
             var response = new CategoryDto
             {
                 Id = category.Id,
@@ -142,13 +153,14 @@ namespace SpaceOfThoughts.API.Controllers
         [Authorize(Roles = "Writer")]
         public async Task<IActionResult> DeleteCategory([FromRoute] Guid id)
         {
+            // Call repository to delete the category by its ID
             var deletedCategory = await categoryRepository.DeleteAsync(id);
             if (deletedCategory is null)
             {
                 return NotFound();
             }
 
-            // Convert Domain model to DTO
+            // Convert Domain Model to DTO
             var response = new CategoryDto
             {
                 Id = deletedCategory.Id,

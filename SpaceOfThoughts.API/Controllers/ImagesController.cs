@@ -28,6 +28,7 @@ namespace SpaceOfThoughts.API.Controllers
         {
             // Call image repository to get all images
             var images = await imageRepository.GetAll(sortBy, sortDirection);
+
             // Convert Domain model to DTO
             var response = new List<BlogImageDto>();
             foreach (var image in images)
@@ -58,6 +59,7 @@ namespace SpaceOfThoughts.API.Controllers
         {
             // Call ValidateFileUpdate method to validate the file
             ValidateFileUpdate(file);
+
             // Check if the ModelState is valid
             if (ModelState.IsValid)
             {
@@ -69,8 +71,10 @@ namespace SpaceOfThoughts.API.Controllers
                     Title = title,
                     DateCreated = DateTime.Now,
                 };
+
                 // Upload the file and get the updated BlogImage object
                 blogImage = await imageRepository.Upload(file, blogImage);
+
                 // Convert Domain Model to DTO
                 var response = new BlogImageDto
                 {
@@ -106,11 +110,13 @@ namespace SpaceOfThoughts.API.Controllers
         [Authorize(Roles = "Writer")]
         public async Task<IActionResult> DeleteCategory([FromRoute] Guid id)
         {
+            // Call repository to delete the image by its ID
             var deletedImage = await imageRepository.DeleteAsync(id);
             if (deletedImage is null)
             {
                 return NotFound();
             }
+
             // Convert Domain model to DTO
             var response = new BlogImageDto
             {
