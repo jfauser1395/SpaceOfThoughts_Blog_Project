@@ -17,8 +17,9 @@ import { ViewportScroller } from '@angular/common';
 export class EditCategoryComponent implements OnInit, OnDestroy {
   id: string | null = null; // ID of the category to be edited
   paramsSubscription?: Subscription; // Subscription for route parameters
-  editCategorySubscribtion?: Subscription; // Subscription for updating the category
+  editCategorySubscription?: Subscription; // Subscription for updating the category
   category?: Category; // Model for the category data
+  getCategoryByIdSubscription?: Subscription; //Subscription for get category bi id
 
   constructor(
     private route: ActivatedRoute, // Inject ActivatedRoute to access route parameters
@@ -34,11 +35,13 @@ export class EditCategoryComponent implements OnInit, OnDestroy {
         this.id = params.get('id');
         if (this.id) {
           // Get the data from the API for this category ID
-          this.categoryService.getCategoryById(this.id).subscribe({
-            next: (response) => {
-              this.category = response;
-            },
-          });
+          this.getCategoryByIdSubscription = this.categoryService
+            .getCategoryById(this.id)
+            .subscribe({
+              next: (response) => {
+                this.category = response;
+              },
+            });
         }
       },
     });
@@ -51,10 +54,10 @@ export class EditCategoryComponent implements OnInit, OnDestroy {
       urlHandle: this.category?.urlHandle ?? '',
     };
     if (this.id) {
-      this.editCategorySubscribtion = this.categoryService
+      this.editCategorySubscription = this.categoryService
         .updateCategory(this.id, updateCategoryRequest)
         .subscribe({
-          next: (response) => {
+          next: () => {
             this.router.navigateByUrl('/admin/categories').then(() => {
               this.viewportScroller.scrollToPosition([0, 0]); // Redirect to the categories admin page on success
             });
@@ -67,7 +70,7 @@ export class EditCategoryComponent implements OnInit, OnDestroy {
   onDelete(): void {
     if (this.id) {
       this.categoryService.deleteCategory(this.id).subscribe({
-        next: (response) => {
+        next: () => {
           this.router.navigateByUrl('/admin/categories'); // Redirect to categories admin page on success
         },
       });
@@ -77,6 +80,7 @@ export class EditCategoryComponent implements OnInit, OnDestroy {
   // Unsubscribe from subscriptions to prevent memory leaks
   ngOnDestroy(): void {
     this.paramsSubscription?.unsubscribe();
-    this.editCategorySubscribtion?.unsubscribe();
+    this.editCategorySubscription?.unsubscribe();
+    this.getCategoryByIdSubscription?.unsubscribe();
   }
 }

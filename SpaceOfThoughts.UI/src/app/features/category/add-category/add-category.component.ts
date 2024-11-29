@@ -10,7 +10,7 @@ import { ViewportScroller } from '@angular/common';
 @Component({
   selector: 'app-add-category',
   standalone: true,
-  imports: [FormsModule, AddCategoryComponent, RouterModule],
+  imports: [FormsModule, RouterModule],
   templateUrl: './add-category.component.html',
   styleUrls: ['./add-category.component.css'],
 })
@@ -35,7 +35,7 @@ export class AddCategoryComponent implements OnDestroy {
     this.addCategorySubscription = this.categoryService
       .addCategory(this.model)
       .subscribe({
-        next: (response) => {
+        next: () => {
           this.router.navigateByUrl('admin/categories').then(() => {
             this.viewportScroller.scrollToPosition([0, 0]); // Redirect to the categories admin page on success
           });
