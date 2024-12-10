@@ -167,10 +167,10 @@ To test out admin functionalities login with credentials that are set up in the 
 
 # Alternatively use the automated setup
 
-After cloning the repo open the setup.sh file and comment out all packages that you already have installed on your machine and run:
+After cloning the repo open the setup.sh file and comment out all packages that you already have installed on your machine and run (change the path if necessary):
 
  ```
 chmod +x blog-project-web-development/SpaceOfThoughtsWebApp/SpaceOfThoughts.UI/setup.sh
 ./blog-project-web-development/SpaceOfThoughtsWebApp/SpaceOfThoughts.UI/setup.sh
  ```
- change the path if necessary.
+ once the second terminal pops up just confirm with `Y + Enter` and the application will start automatically.
