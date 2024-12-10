@@ -92,7 +92,7 @@ dotnet ef --version
 First navigate into the API folder and delete all files inside the Migrations folder:
 
 ```
-cd blog-project-web-development/SpaceOfThoughts.API/
+cd blog-project-web-development/SpaceOfThoughtsWebApp/SpaceOfThoughts.API/
 sudo rm -rf Migrations/*
 ```
 
@@ -149,7 +149,7 @@ sudo npm install -g @angular/cli
 Navigate into the UI folder and install all dependencies:
 
 ```
-cd ./blog-project-web-development/SpaceOfThoughts.UI
+cd ./blog-project-web-development/SpaceOfThoughtsWebApp/SpaceOfThoughts.UI
 npm install
 ```
 
@@ -171,6 +171,6 @@ After cloning the repo open the setup.sh file and comment out all packages that 
 
  ```
 chmod +x blog-project-web-development/SpaceOfThoughts.UI/setup.sh
-./blog-project-web-development/SpaceOfThoughts.UI/setup.sh
+./blog-project-web-development/SpaceOfThoughtsWebApp/SpaceOfThoughts.UI/setup.sh
  ```
  change the path if necessary.
