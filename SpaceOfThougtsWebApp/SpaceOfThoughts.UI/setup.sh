@@ -11,7 +11,7 @@ sudo npm install -g @angular/cli
 sudo apt install -y mysql-server
 
 # Setup the project's default database
-sudo mysql < blog-project-web-development/SpaceOfThoughts.UI/InstallationScript/mysql_commands.sql
+sudo mysql < blog-project-web-development/SpaceOfThoughtsWebApp/SpaceOfThoughts.UI/InstallationScript/mysql_commands.sql
 
 # Download and install .Net SDK
 sudo apt install -y dotnet-sdk-8.0
@@ -26,7 +26,7 @@ source ~/.profile
 # Setup the API
 
 # Database migration
-cd blog-project-web-development/SpaceOfThoughts.API/
+cd blog-project-web-development/SpaceOfThoughtsWebApp/SpaceOfThoughts.API/
 sudo rm -rf Migrations/*
 dotnet ef migrations add InitialCreate --context ApplicationDbContext
 dotnet ef migrations add InitialCreateAuth --context AuthDbContext
@@ -47,4 +47,4 @@ dotnet run &
 
 # Open a new terminal window to run npm install and ng serve
 # The Angular CLI will ask if you want to activate the autosuggestion functionality type y or n according to your preference
-gnome-terminal -- bash -c "cd ~/blog-project-web-development/SpaceOfThoughts.UI && npm install && ng serve; exec bash"  
+gnome-terminal -- bash -c "cd ~/blog-project-web-development/SpaceOfThoughtsWebApp/SpaceOfThoughts.UI && npm install && ng serve; exec bash"  
