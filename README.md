@@ -1,4 +1,4 @@
-# Blog project setup API and UI
+# SpaceOfThoughts Blog project setup API and UI
 
 This setup manual is designed for Linux, specifically tested on Ubuntu 24.04 LTS. Follow the installation steps carefully. Alternatively, refer to the automated setup at the end of this README.
 
