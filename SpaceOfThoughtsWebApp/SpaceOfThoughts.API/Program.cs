@@ -127,7 +127,7 @@ builder.Services.AddRateLimiter(options =>
     });
 });
 
-// Define the CORS policy restrict api access to https://spaceofthoughts.com and http://localhost:4200
+// Define the CORS policy to restrict API access to https://spaceofthoughts.com and https://www.spaceofthoughts.com
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(
@@ -135,14 +135,16 @@ builder.Services.AddCors(options =>
         builder =>
         {
             builder
-                .WithOrigins("http://localhost:4200", "https://spaceofthoughts.com") // while "http://localhost:4200" is only for testing
+                .WithOrigins("https://spaceofthoughts.com", "https://www.spaceofthoughts.com")
                 .AllowAnyMethod()
                 .AllowAnyHeader();
         }
     );
 });
-
 var app = builder.Build();
+
+// Apply the CORS policy
+app.UseCors("AllowSpecificOrigins");
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -152,14 +154,13 @@ if (app.Environment.IsDevelopment())
 }
 
 // HTTPS redirection will not be used because the API will run locally
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
-// Apply the CORS policy
-app.UseCors("AllowSpecificOrigins");
-
+// Enable authentication and authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Serve static files from the "Images" directory
 app.UseStaticFiles(
     new StaticFileOptions
     {
