@@ -93,7 +93,7 @@ namespace SpaceOfThoughts.API.Controllers
         // Method to validate the uploaded file
         private void ValidateFileUpdate(IFormFile file)
         {
-            var allowedExtension = new string[] { ".jpg", ".jpeg", ".png" };
+            var allowedExtension = new string[] { ".jpg", ".jpeg", ".png", "svg" };
             if (!allowedExtension.Contains(Path.GetExtension(file.FileName).ToLower()))
             {
                 ModelState.AddModelError("file", "Unsupported file format");
