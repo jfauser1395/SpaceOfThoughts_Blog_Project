@@ -1,5 +1,3 @@
-using System.IO.Compression;
-using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
@@ -8,8 +6,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using SpaceOfThoughts.API.Data;
+using SpaceOfThoughts.API.Data.Initialization;
 using SpaceOfThoughts.API.Repositories.Implementation;
 using SpaceOfThoughts.API.Repositories.Interface;
+using System.IO.Compression;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,11 +43,11 @@ builder.Services.Configure<GzipCompressionProviderOptions>(options =>
 // Inject DbContext service to the builder and pass the connection string
 var connectionString = builder.Configuration.GetConnectionString("SpaceOfThoughtsConnectionString");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)) // Use MySQL with auto-detected server version
+   options.UseSqlServer(connectionString) 
 );
 
 builder.Services.AddDbContext<AuthDbContext>(options =>
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)) // Use MySQL with auto-detected server version
+    options.UseSqlServer(connectionString)
 );
 
 // Register repositories for dependency injection
@@ -135,7 +136,7 @@ builder.Services.AddCors(options =>
         builder =>
         {
             builder
-                .WithOrigins("https://spaceofthoughts.com", "https://www.spaceofthoughts.com")
+                .WithOrigins("https://spaceofthoughts.com", "https://www.spaceofthoughts.com", "http://localhost:4200")
                 .AllowAnyMethod()
                 .AllowAnyHeader();
         }
@@ -185,5 +186,7 @@ app.Use(
 app.MapControllers();
 
 app.UseResponseCompression(); // Enable response compression
+
+await SpaceOfThoughts.API.Data.Initialization.DbInitializer.MigrateAndSeedAsync(app);
 
 app.Run();
