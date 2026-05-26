@@ -9,11 +9,10 @@ import { AuthService } from '../../auth/services/auth.service';
 import { User } from '../../auth/models/user.model';
 
 @Component({
-  selector: 'app-home',
-  standalone: true,
-  imports: [CommonModule, RouterModule],
-  templateUrl: './public-blog-summery.component.html',
-  styleUrl: './public-blog-summery.component.css',
+    selector: 'app-home',
+    imports: [CommonModule, RouterModule],
+    templateUrl: './public-blog-summery.component.html',
+    styleUrl: './public-blog-summery.component.css'
 })
 export class PublicBlogSummeryComponent implements OnInit, OnDestroy {
   blogs$?: Observable<BlogPost[]>; // Observable for the list of blog posts

@@ -6,11 +6,10 @@ import { Observable, Subscription } from 'rxjs';
 import { BlogImage } from '../../models/blog-image.model';
 
 @Component({
-  selector: 'app-image-selector',
-  standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
-  templateUrl: './image-selector.component.html',
-  styleUrls: ['./image-selector.component.css'],
+    selector: 'app-image-selector',
+    imports: [CommonModule, FormsModule, ReactiveFormsModule],
+    templateUrl: './image-selector.component.html',
+    styleUrls: ['./image-selector.component.css']
 })
 export class ImageSelectorComponent implements OnInit, OnDestroy {
   private file?: File; // Variable to hold the uploaded file

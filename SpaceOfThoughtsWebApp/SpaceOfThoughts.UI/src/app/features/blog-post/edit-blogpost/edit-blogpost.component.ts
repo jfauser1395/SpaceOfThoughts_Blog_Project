@@ -16,17 +16,16 @@ import { ImageService } from '../shared/components/services/image.service';
 import { ViewportScroller } from '@angular/common';
 
 @Component({
-  selector: 'app-edit-blogpost',
-  standalone: true,
-  templateUrl: './edit-blogpost.component.html',
-  styleUrl: './edit-blogpost.component.css',
-  imports: [
-    CommonModule,
-    FormsModule,
-    MarkdownComponent,
-    DatePipe,
-    ImageSelectorComponent,
-  ],
+    selector: 'app-edit-blogpost',
+    templateUrl: './edit-blogpost.component.html',
+    styleUrl: './edit-blogpost.component.css',
+    imports: [
+        CommonModule,
+        FormsModule,
+        MarkdownComponent,
+        DatePipe,
+        ImageSelectorComponent,
+    ]
 })
 export class EditBlogpostComponent implements OnInit, OnDestroy {
   id: string | null = null; // ID of the blog post to be edited

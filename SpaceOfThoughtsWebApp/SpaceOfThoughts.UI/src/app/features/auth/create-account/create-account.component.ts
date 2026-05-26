@@ -8,11 +8,10 @@ import { RegisterRequest } from '../models/register-request.model';
 import { Subscription } from 'rxjs';
 
 @Component({
-  selector: 'app-create-account',
-  standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, ReactiveFormsModule],
-  templateUrl: './create-account.component.html',
-  styleUrl: './create-account.component.css',
+    selector: 'app-create-account',
+    imports: [CommonModule, FormsModule, RouterModule, ReactiveFormsModule],
+    templateUrl: './create-account.component.html',
+    styleUrl: './create-account.component.css'
 })
 export class CreateAccountComponent implements OnInit, OnDestroy {
   private addedUser?: Subscription; // Subscription for adding a user

@@ -6,11 +6,10 @@ import { Observable, Subscription } from 'rxjs';
 import { CommonModule } from '@angular/common';
 
 @Component({
-  selector: 'app-category-list',
-  standalone: true,
-  imports: [RouterModule, CommonModule],
-  templateUrl: './category-list.component.html',
-  styleUrl: './category-list.component.css',
+    selector: 'app-category-list',
+    imports: [RouterModule, CommonModule],
+    templateUrl: './category-list.component.html',
+    styleUrl: './category-list.component.css'
 })
 export class CategoryListComponent implements OnInit, OnDestroy {
   categories$?: Observable<Category[]>; // Observable for the list of categories

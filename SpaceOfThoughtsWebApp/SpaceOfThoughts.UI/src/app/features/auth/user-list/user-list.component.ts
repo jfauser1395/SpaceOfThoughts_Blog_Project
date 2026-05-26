@@ -5,11 +5,10 @@ import { AuthService } from '../services/auth.service';
 import { CommonModule } from '@angular/common';
 
 @Component({
-  selector: 'app-user-list',
-  standalone: true,
-  imports: [CommonModule],
-  templateUrl: './user-list.component.html',
-  styleUrls: ['./user-list.component.css'],
+    selector: 'app-user-list',
+    imports: [CommonModule],
+    templateUrl: './user-list.component.html',
+    styleUrls: ['./user-list.component.css']
 })
 export class UserListComponent implements OnInit, OnDestroy {
   users$?: Observable<User[]>; // Observable for the list of users

@@ -10,11 +10,10 @@ import { StyleService } from '../../../../services/style.service';
 import { RouterModule } from '@angular/router';
 
 @Component({
-  selector: 'app-blog-details',
-  standalone: true,
-  imports: [CommonModule, DatePipe, MarkdownComponent, RouterModule],
-  templateUrl: './blog-details.component.html',
-  styleUrl: './blog-details.component.css',
+    selector: 'app-blog-details',
+    imports: [CommonModule, DatePipe, MarkdownComponent, RouterModule],
+    templateUrl: './blog-details.component.html',
+    styleUrl: './blog-details.component.css'
 })
 export class BlogDetailsComponent implements OnInit {
   url: string | null = null; // URL handle of the blog post

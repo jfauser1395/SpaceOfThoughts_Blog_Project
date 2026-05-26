@@ -14,17 +14,16 @@ import { ImageService } from '../shared/components/services/image.service';
 import { ViewportScroller } from '@angular/common';
 
 @Component({
-  selector: 'app-add-blogpost',
-  standalone: true,
-  templateUrl: './add-blogpost.component.html',
-  styleUrls: ['./add-blogpost.component.css'],
-  imports: [
-    FormsModule,
-    DatePipe,
-    MarkdownComponent,
-    CommonModule,
-    ImageSelectorComponent,
-  ],
+    selector: 'app-add-blogpost',
+    templateUrl: './add-blogpost.component.html',
+    styleUrls: ['./add-blogpost.component.css'],
+    imports: [
+        FormsModule,
+        DatePipe,
+        MarkdownComponent,
+        CommonModule,
+        ImageSelectorComponent,
+    ]
 })
 export class AddBlogpostComponent implements OnInit, OnDestroy {
   model: AddBlogPost; // Model for the blog post data

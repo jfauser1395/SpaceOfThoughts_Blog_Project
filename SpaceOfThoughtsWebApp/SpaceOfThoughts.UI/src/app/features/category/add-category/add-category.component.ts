@@ -8,11 +8,10 @@ import { Router } from '@angular/router';
 import { ViewportScroller } from '@angular/common';
 
 @Component({
-  selector: 'app-add-category',
-  standalone: true,
-  imports: [FormsModule, RouterModule],
-  templateUrl: './add-category.component.html',
-  styleUrls: ['./add-category.component.css'],
+    selector: 'app-add-category',
+    imports: [FormsModule, RouterModule],
+    templateUrl: './add-category.component.html',
+    styleUrls: ['./add-category.component.css']
 })
 export class AddCategoryComponent implements OnDestroy {
   model: AddCategoryRequest; // Model for the add category request

@@ -7,11 +7,10 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 
 @Component({
-  selector: 'app-blogpost-list',
-  standalone: true,
-  imports: [RouterModule, CommonModule],
-  templateUrl: './blogpost-list.component.html',
-  styleUrl: './blogpost-list.component.css',
+    selector: 'app-blogpost-list',
+    imports: [RouterModule, CommonModule],
+    templateUrl: './blogpost-list.component.html',
+    styleUrl: './blogpost-list.component.css'
 })
 export class BlogpostListComponent implements OnInit, OnDestroy {
   blogPost$?: Observable<BlogPost[]>; // Observable for the list of blog posts

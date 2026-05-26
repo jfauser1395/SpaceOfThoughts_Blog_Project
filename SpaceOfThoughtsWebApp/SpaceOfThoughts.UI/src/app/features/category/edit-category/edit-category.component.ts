@@ -8,11 +8,10 @@ import { UpdateCategoryRequest } from '../models/update-category-request.model';
 import { ViewportScroller } from '@angular/common';
 
 @Component({
-  selector: 'app-edit-category',
-  standalone: true,
-  imports: [FormsModule],
-  templateUrl: './edit-category.component.html',
-  styleUrl: './edit-category.component.css',
+    selector: 'app-edit-category',
+    imports: [FormsModule],
+    templateUrl: './edit-category.component.html',
+    styleUrl: './edit-category.component.css'
 })
 export class EditCategoryComponent implements OnInit, OnDestroy {
   id: string | null = null; // ID of the category to be edited

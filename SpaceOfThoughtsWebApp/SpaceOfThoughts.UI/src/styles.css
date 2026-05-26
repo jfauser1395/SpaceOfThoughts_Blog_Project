@@ -96,8 +96,10 @@ input:-webkit-autofill + .inside-btn {
 /*Fonts and backgrounds*/
 @font-face {
   font-family: NavFont;
-  src: url("../public/assets/fonts/Magiesta.ttf");
+  src: url("/assets/fonts/Magiesta.woff2") format("woff2");
+  font-display: swap; /* Fixes FCP render blocking completely */
 }
+
 
 /* Theme font*/
 .blogFontThemeNav {

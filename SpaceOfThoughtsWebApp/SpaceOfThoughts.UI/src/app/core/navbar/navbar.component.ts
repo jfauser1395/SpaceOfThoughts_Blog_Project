@@ -2,16 +2,14 @@ import { Component, ElementRef, inject, OnInit, ViewChild, HostListener } from '
 import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../features/auth/services/auth.service';
 import { User } from '../../features/auth/models/user.model';
-import { PublicBlogSummeryComponent } from '../../features/public-data/public-blog-summery/public-blog-summery.component';
 import { Subscription } from 'rxjs';
 import { BlogPostService } from '../../features/blog-post/services/blog-post.service';
 
 @Component({
-  selector: 'app-navbar',
-  standalone: true,
-  imports: [RouterModule, PublicBlogSummeryComponent],
-  templateUrl: './navbar.component.html',
-  styleUrl: './navbar.component.css',
+    selector: 'app-navbar',
+    imports: [RouterModule],
+    templateUrl: './navbar.component.html',
+    styleUrl: './navbar.component.css'
 })
 export class NavbarComponent implements OnInit {
   user?: User; // Holds the current user information
