@@ -45,7 +45,6 @@ namespace SpaceOfThoughts.API.Controllers
 
         // GET: {apiBaseUrl}/api/Categories?query=example&sortBy=example1&sortDirection=desc - Endpoint to get all categories with optional query, sorting, and pagination
         [HttpGet]
-        [Authorize(Roles = "Writer")]
         public async Task<IActionResult> GetAllCategories(
             [FromQuery] string? query,
             [FromQuery] string? sortBy,

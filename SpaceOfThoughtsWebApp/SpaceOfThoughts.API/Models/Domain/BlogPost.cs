@@ -32,5 +32,8 @@
 
         // Categories associated with the blog post
         public ICollection<Category> Categories { get; set; } = new List<Category>();
+
+        // Comments associated with the blog post
+        public ICollection<BlogComment> Comments { get; set; } = new List<BlogComment>();
     }
 }

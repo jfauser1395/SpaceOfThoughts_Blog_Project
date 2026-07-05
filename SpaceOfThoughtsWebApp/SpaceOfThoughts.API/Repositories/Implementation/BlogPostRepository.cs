@@ -51,22 +51,67 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
             // Apply filtering
             if (!string.IsNullOrWhiteSpace(query))
             {
-                blogPosts = blogPosts.Where(x => x.Title.Contains(query));
+                var normalizedQuery = query.Trim().ToLower();
+                blogPosts = blogPosts.Where(x =>
+                    x.Title.ToLower().Contains(normalizedQuery)
+                    || x.ShortDescription.ToLower().Contains(normalizedQuery)
+                    || x.Content.ToLower().Contains(normalizedQuery)
+                    || x.Author.ToLower().Contains(normalizedQuery)
+                    || x.UrlHandle.ToLower().Contains(normalizedQuery)
+                    || x.Categories.Any(category =>
+                        category.Name.ToLower().Contains(normalizedQuery)
+                        || category.UrlHandle.ToLower().Contains(normalizedQuery)
+                    )
+                );
             }
 
             // Apply sorting
             if (!string.IsNullOrWhiteSpace(sortBy))
             {
-                if (string.Equals(sortBy, "PublishedDate", StringComparison.OrdinalIgnoreCase))
+                var isAsc = string.Equals(
+                    sortDirection,
+                    "asc",
+                    StringComparison.OrdinalIgnoreCase
+                );
+
+                if (string.Equals(sortBy, "Title", StringComparison.OrdinalIgnoreCase))
                 {
-                    var isAsc = string.Equals(
-                        sortDirection,
-                        "asc",
-                        StringComparison.OrdinalIgnoreCase
-                    );
+                    blogPosts = isAsc
+                        ? blogPosts.OrderBy(x => x.Title)
+                        : blogPosts.OrderByDescending(x => x.Title);
+                }
+                else if (string.Equals(sortBy, "PublishedDate", StringComparison.OrdinalIgnoreCase))
+                {
                     blogPosts = isAsc
                         ? blogPosts.OrderBy(x => x.PublishedDate)
                         : blogPosts.OrderByDescending(x => x.PublishedDate);
+                }
+                else if (string.Equals(sortBy, "IsVisible", StringComparison.OrdinalIgnoreCase))
+                {
+                    blogPosts = isAsc
+                        ? blogPosts.OrderBy(x => x.IsVisible).ThenBy(x => x.Title)
+                        : blogPosts.OrderByDescending(x => x.IsVisible).ThenByDescending(x => x.Title);
+                }
+                else if (
+                    string.Equals(sortBy, "Category", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(sortBy, "Categories", StringComparison.OrdinalIgnoreCase)
+                )
+                {
+                    blogPosts = isAsc
+                        ? blogPosts
+                            .OrderBy(x =>
+                                x.Categories.OrderBy(category => category.Name)
+                                    .Select(category => category.Name)
+                                    .FirstOrDefault()
+                            )
+                            .ThenBy(x => x.Title)
+                        : blogPosts
+                            .OrderByDescending(x =>
+                                x.Categories.OrderBy(category => category.Name)
+                                    .Select(category => category.Name)
+                                    .FirstOrDefault()
+                            )
+                            .ThenByDescending(x => x.Title);
                 }
             }
             else

@@ -1,0 +1,21 @@
+namespace SpaceOfThoughts.API.Models.Domain
+{
+    // CoverPage represents the editable public cover page content
+    public class CoverPage
+    {
+        // Unique identifier for the cover page
+        public Guid Id { get; set; }
+
+        // Main welcome title displayed on the cover page
+        public required string WelcomeTitle { get; set; }
+
+        // Introductory text displayed below the welcome title
+        public required string Introduction { get; set; }
+
+        // Optional background image URL for the cover page
+        public string? BackgroundImageUrl { get; set; }
+
+        // Date and time when the cover page was last updated
+        public DateTime UpdatedAt { get; set; }
+    }
+}

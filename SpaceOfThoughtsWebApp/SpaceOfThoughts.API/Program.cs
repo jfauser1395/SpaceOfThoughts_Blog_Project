@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +12,7 @@ using SpaceOfThoughts.API.Repositories.Implementation;
 using SpaceOfThoughts.API.Repositories.Interface;
 using System.IO.Compression;
 using System.Threading.RateLimiting;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,7 +55,11 @@ builder.Services.AddDbContext<AuthDbContext>(options =>
 // Register repositories for dependency injection
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<IBlogPostRepository, BlogPostRepository>();
+builder.Services.AddScoped<IBlogCommentRepository, BlogCommentRepository>();
 builder.Services.AddScoped<IImageRepository, ImageRepository>();
+builder.Services.AddScoped<ICoverPageRepository, CoverPageRepository>();
+builder.Services.AddScoped<IAboutPageRepository, AboutPageRepository>();
+builder.Services.AddScoped<IBlogSummaryPageRepository, BlogSummaryPageRepository>();
 builder.Services.AddScoped<ITokenRepository, TokenRepository>();
 
 // Configure Identity services
@@ -136,13 +142,19 @@ builder.Services.AddCors(options =>
         builder =>
         {
             builder
-                .WithOrigins("https://spaceofthoughts.com", "https://www.spaceofthoughts.com", "http://localhost:4200")
+                .WithOrigins("https://spaceofthoughts.com", "https://www.spaceofthoughts.com", "http://localhost:4200", "http://127.0.0.1:4200")
                 .AllowAnyMethod()
                 .AllowAnyHeader();
         }
     );
 });
 var app = builder.Build();
+
+// Resolve reverse proxy (Nginx) scheme mismatches so native URLs generate as HTTPS.
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
 
 // Apply the CORS policy
 app.UseCors("AllowSpecificOrigins");
@@ -161,16 +173,16 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Serve static files from the "Images" directory
-app.UseStaticFiles(
-    new StaticFileOptions
-    {
-        FileProvider = new PhysicalFileProvider(
-            Path.Combine(Directory.GetCurrentDirectory(), "Images") // Serve static files from the "Images" directory
-        ),
-        RequestPath = "/Images" // Set the request path for static files
-    }
-);
+// Serve static files from the "Images" directory now served by Nginx, so this is commented out to avoid conflicts
+// app.UseStaticFiles(
+//     new StaticFileOptions
+//     {
+//         FileProvider = new PhysicalFileProvider(
+//             Path.Combine(Directory.GetCurrentDirectory(), "Images") // Serve static files from the "Images" directory
+//         ),
+//         RequestPath = "/Images" // Set the request path for static files
+//     }
+// );
 
 // Add security headers to responses
 app.Use(

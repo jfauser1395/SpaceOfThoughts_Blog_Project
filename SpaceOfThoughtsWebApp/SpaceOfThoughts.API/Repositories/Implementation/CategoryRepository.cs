@@ -57,16 +57,23 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
             // Apply sorting
             if (!string.IsNullOrWhiteSpace(sortBy))
             {
+                var isAsc = string.Equals(
+                    sortDirection,
+                    "asc",
+                    StringComparison.OrdinalIgnoreCase
+                );
+
                 if (string.Equals(sortBy, "Name", StringComparison.OrdinalIgnoreCase))
                 {
-                    var isAsc = string.Equals(
-                        sortDirection,
-                        "asc",
-                        StringComparison.OrdinalIgnoreCase
-                    );
                     categories = isAsc
                         ? categories.OrderBy(x => x.Name)
                         : categories.OrderByDescending(x => x.Name);
+                }
+                else if (string.Equals(sortBy, "UrlHandle", StringComparison.OrdinalIgnoreCase))
+                {
+                    categories = isAsc
+                        ? categories.OrderBy(x => x.UrlHandle)
+                        : categories.OrderByDescending(x => x.UrlHandle);
                 }
             }
             else

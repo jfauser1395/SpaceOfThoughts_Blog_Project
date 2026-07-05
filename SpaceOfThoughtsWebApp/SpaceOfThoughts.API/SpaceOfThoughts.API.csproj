@@ -28,7 +28,7 @@
 
   <ItemGroup>
     <Folder Include="Images\" />
-    <Folder Include="Migrations\AuthDB\" />
+    <Folder Include="Migrations\ApplicationDb\" />
     <Folder Include="Properties\PublishProfiles\" />
   </ItemGroup>
 
