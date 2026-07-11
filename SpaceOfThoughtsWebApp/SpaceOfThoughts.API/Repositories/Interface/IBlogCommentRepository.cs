@@ -14,6 +14,9 @@ namespace SpaceOfThoughts.API.Repositories.Interface
         // Method to create a new blog comment
         Task<BlogComment> CreateAsync(BlogComment blogComment);
 
+        // Mark a comment as deleted without removing its replies
+        Task<BlogComment?> SoftDeleteAsync(Guid blogPostId, Guid commentId);
+
         // Method to get the current depth of a comment in its thread
         Task<int> GetDepthAsync(Guid blogPostId, Guid commentId);
 

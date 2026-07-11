@@ -43,6 +43,30 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
             return blogComment;
         }
 
+        // Mark a comment as deleted while retaining the row needed by its replies
+        public async Task<BlogComment?> SoftDeleteAsync(Guid blogPostId, Guid commentId)
+        {
+            var comment = await dbContext
+                .BlogComments.Include(comment => comment.Reactions)
+                .FirstOrDefaultAsync(comment =>
+                    comment.BlogPostId == blogPostId && comment.Id == commentId
+                );
+
+            if (comment is null)
+            {
+                return null;
+            }
+
+            if (!comment.IsDeleted)
+            {
+                comment.IsDeleted = true;
+                comment.DeletedAt = DateTime.UtcNow;
+                await dbContext.SaveChangesAsync();
+            }
+
+            return comment;
+        }
+
         // Get the current depth of a comment in its thread
         public async Task<int> GetDepthAsync(Guid blogPostId, Guid commentId)
         {

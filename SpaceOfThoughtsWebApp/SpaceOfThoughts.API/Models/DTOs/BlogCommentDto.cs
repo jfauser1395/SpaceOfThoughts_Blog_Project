@@ -30,6 +30,12 @@ namespace SpaceOfThoughts.API.Models.DTOs
         // Date when the comment was created
         public DateTime CreatedAt { get; set; }
 
+        // Whether the comment content is replaced with a deleted placeholder
+        public bool IsDeleted { get; set; }
+
+        // Whether the Identity account that authored the comment no longer exists
+        public bool IsAuthorDeleted { get; set; }
+
         // Number of likes on the comment
         public int LikeCount { get; set; }
 

@@ -24,6 +24,12 @@ namespace SpaceOfThoughts.API.Models.Domain
         // Date when the comment was created
         public DateTime CreatedAt { get; set; }
 
+        // Whether the comment was removed while keeping its reply thread intact
+        public bool IsDeleted { get; set; }
+
+        // Date and time when the comment was removed
+        public DateTime? DeletedAt { get; set; }
+
         // Blog post navigation property
         public BlogPost? BlogPost { get; set; }
 

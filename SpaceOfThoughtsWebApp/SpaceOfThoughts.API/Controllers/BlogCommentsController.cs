@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using SpaceOfThoughts.API.Models.Domain;
 using SpaceOfThoughts.API.Models.DTOs;
 using SpaceOfThoughts.API.Repositories.Interface;
@@ -20,6 +21,8 @@ namespace SpaceOfThoughts.API.Controllers
         private const string ProfileImageClaimType = "profile_image_url";
         private const string ProfileImagePositionClaimType = "profile_image_position";
         private const string DefaultProfileImagePosition = "50% 50% 100%";
+        private const string DeletedAuthorName = "[deleted]";
+        private const string DeletedCommentContent = "Comment deleted.";
         private readonly IBlogPostRepository blogPostRepository;
         private readonly IBlogCommentRepository blogCommentRepository;
         private readonly UserManager<IdentityUser> userManager;
@@ -49,20 +52,23 @@ namespace SpaceOfThoughts.API.Controllers
 
             var comments = (await blogCommentRepository.GetByBlogPostIdAsync(blogPostId)).ToList();
             var currentUserId = await GetCurrentUserIdAsync();
+            var authorIds = comments.Select(comment => comment.AuthorId).ToList();
 
             // Load profile image metadata once per author before building the comment tree
             var authorProfileImageUrls = await GetProfileImageUrlsByUserIdAsync(
-                comments.Select(comment => comment.AuthorId)
+                authorIds
             );
             var authorProfileImagePositions = await GetProfileImagePositionsByUserIdAsync(
-                comments.Select(comment => comment.AuthorId)
+                authorIds
             );
+            var existingAuthorIds = await GetExistingUserIdsAsync(authorIds);
 
             var response = BuildCommentTree(
                 comments,
                 currentUserId,
                 authorProfileImageUrls,
-                authorProfileImagePositions
+                authorProfileImagePositions,
+                existingAuthorIds
             );
 
             return Ok(response);
@@ -145,7 +151,8 @@ namespace SpaceOfThoughts.API.Controllers
                 new Dictionary<string, string?>
                 {
                     [user.Id] = await GetProfileImagePositionAsync(user)
-                }
+                },
+                new HashSet<string>(StringComparer.Ordinal) { user.Id }
             );
 
             return Ok(response);
@@ -195,6 +202,7 @@ namespace SpaceOfThoughts.API.Controllers
             var authorProfileImageUrl = await GetProfileImageUrlByUserIdAsync(comment.AuthorId);
             var authorProfileImagePosition =
                 await GetProfileImagePositionByUserIdAsync(comment.AuthorId);
+            var existingAuthorIds = await GetExistingUserIdsAsync(new[] { comment.AuthorId });
 
             return Ok(
                 MapComment(
@@ -204,7 +212,61 @@ namespace SpaceOfThoughts.API.Controllers
                     new Dictionary<string, string?>
                     {
                         [comment.AuthorId] = authorProfileImagePosition
-                    }
+                    },
+                    existingAuthorIds
+                )
+            );
+        }
+
+        // DELETE: {apiBaseUrl}/api/blogposts/{blogPostId}/comments/{commentId} - Soft-delete a comment
+        [HttpDelete("{commentId:guid}")]
+        [Authorize(Roles = "Reader,Writer")]
+        public async Task<IActionResult> DeleteCommentForBlogPost(
+            [FromRoute] Guid blogPostId,
+            [FromRoute] Guid commentId
+        )
+        {
+            var blogPost = await blogPostRepository.GetByIdAsync(blogPostId);
+            if (blogPost is null || !blogPost.IsVisible)
+            {
+                return NotFound();
+            }
+
+            var user = await GetCurrentUserAsync();
+            if (user is null)
+            {
+                return Unauthorized();
+            }
+
+            var comment = await blogCommentRepository.GetByIdAsync(blogPostId, commentId);
+            if (comment is null)
+            {
+                return NotFound();
+            }
+
+            var isWriter = await userManager.IsInRoleAsync(user, "Writer");
+            if (comment.AuthorId != user.Id && !isWriter)
+            {
+                return Forbid();
+            }
+
+            var deletedComment = await blogCommentRepository.SoftDeleteAsync(blogPostId, commentId);
+            if (deletedComment is null)
+            {
+                return NotFound();
+            }
+
+            var existingAuthorIds = await GetExistingUserIdsAsync(
+                new[] { deletedComment.AuthorId }
+            );
+
+            return Ok(
+                MapComment(
+                    deletedComment,
+                    user.Id,
+                    new Dictionary<string, string?>(),
+                    new Dictionary<string, string?>(),
+                    existingAuthorIds
                 )
             );
         }
@@ -256,6 +318,27 @@ namespace SpaceOfThoughts.API.Controllers
             }
 
             return profileImagePositions;
+        }
+
+        // Identify authors whose Identity accounts still exist
+        private async Task<HashSet<string>> GetExistingUserIdsAsync(IEnumerable<string> userIds)
+        {
+            var distinctUserIds = userIds
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct()
+                .ToList();
+
+            if (distinctUserIds.Count == 0)
+            {
+                return new HashSet<string>(StringComparer.Ordinal);
+            }
+
+            var existingUserIds = await userManager
+                .Users.Where(user => distinctUserIds.Contains(user.Id))
+                .Select(user => user.Id)
+                .ToListAsync();
+
+            return existingUserIds.ToHashSet(StringComparer.Ordinal);
         }
 
         // Get a user's profile image URL from Identity claims
@@ -322,7 +405,8 @@ namespace SpaceOfThoughts.API.Controllers
             IEnumerable<BlogComment> comments,
             string? currentUserId,
             IReadOnlyDictionary<string, string?> profileImageUrls,
-            IReadOnlyDictionary<string, string?> profileImagePositions
+            IReadOnlyDictionary<string, string?> profileImagePositions,
+            IReadOnlySet<string> existingAuthorIds
         )
         {
             var orderedComments = comments.OrderBy(comment => comment.CreatedAt).ToList();
@@ -332,7 +416,8 @@ namespace SpaceOfThoughts.API.Controllers
                     comment,
                     currentUserId,
                     profileImageUrls,
-                    profileImagePositions
+                    profileImagePositions,
+                    existingAuthorIds
                 )
             );
             var rootComments = new List<BlogCommentDto>();
@@ -363,10 +448,12 @@ namespace SpaceOfThoughts.API.Controllers
             BlogComment comment,
             string? currentUserId,
             IReadOnlyDictionary<string, string?> profileImageUrls,
-            IReadOnlyDictionary<string, string?> profileImagePositions
+            IReadOnlyDictionary<string, string?> profileImagePositions,
+            IReadOnlySet<string> existingAuthorIds
         )
         {
             string? userReaction = null;
+            var isAuthorDeleted = !existingAuthorIds.Contains(comment.AuthorId);
             profileImageUrls.TryGetValue(
                 comment.AuthorId,
                 out var authorProfileImageUrl
@@ -376,7 +463,7 @@ namespace SpaceOfThoughts.API.Controllers
                 out var authorProfileImagePosition
             );
 
-            if (!string.IsNullOrWhiteSpace(currentUserId))
+            if (!comment.IsDeleted && !string.IsNullOrWhiteSpace(currentUserId))
             {
                 // Include the current user's reaction so the UI can mark the active button
                 var reaction = comment.Reactions.FirstOrDefault(reaction =>
@@ -396,13 +483,19 @@ namespace SpaceOfThoughts.API.Controllers
                 Id = comment.Id,
                 BlogPostId = comment.BlogPostId,
                 ParentCommentId = comment.ParentCommentId,
-                Content = comment.Content,
+                Content = comment.IsDeleted ? DeletedCommentContent : comment.Content,
                 AuthorId = comment.AuthorId,
-                AuthorName = comment.AuthorName,
-                AuthorProfileImageUrl = authorProfileImageUrl,
+                AuthorName = comment.IsDeleted || isAuthorDeleted
+                    ? DeletedAuthorName
+                    : comment.AuthorName,
+                AuthorProfileImageUrl = comment.IsDeleted || isAuthorDeleted
+                    ? null
+                    : authorProfileImageUrl,
                 AuthorProfileImagePosition =
                     authorProfileImagePosition ?? DefaultProfileImagePosition,
                 CreatedAt = comment.CreatedAt,
+                IsDeleted = comment.IsDeleted,
+                IsAuthorDeleted = isAuthorDeleted,
                 LikeCount = comment.Reactions.Count(reaction =>
                     reaction.ReactionType == BlogCommentReactionType.Like
                 ),
