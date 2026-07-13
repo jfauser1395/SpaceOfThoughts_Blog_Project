@@ -1,0 +1,257 @@
+<div class="profile-page">
+  <div class="container profile-shell">
+    <!-- Profile page header -->
+    <header class="profile-header">
+      <div>
+        <h1>Profile</h1>
+        <p>{{ currentUser?.email }}</p>
+      </div>
+      <a class="btn btn-outline-secondary" [routerLink]="['/blogs']">
+        <i class="bi bi-arrow-left" aria-hidden="true"></i>
+        Blogs
+      </a>
+    </header>
+
+    @if (isLoading) {
+      <!-- Loading state while the profile request is pending -->
+      <div class="profile-status">Loading profile...</div>
+    } @else {
+      <div class="profile-layout">
+        <!-- Profile picture preview panel -->
+        <section class="avatar-panel" aria-labelledby="profile-picture-heading">
+          <h2 id="profile-picture-heading">Profile picture</h2>
+          <button
+            type="button"
+            class="avatar-display-button"
+            aria-label="Profile picture preview"
+            (click)="openProfilePictureEditor()"
+          >
+            @if (avatarImageUrl) {
+              <img
+                [src]="avatarImageUrl"
+                [style.height.%]="avatarZoom"
+                [style.object-position]="avatarObjectPosition"
+                [style.transform]="avatarImageTransform"
+                [style.width.%]="avatarZoom"
+                alt="Profile picture preview"
+                draggable="false"
+              />
+            } @else {
+              <span>{{ userInitial }}</span>
+            }
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-outline-secondary avatar-edit-button"
+            (click)="openProfilePictureEditor()"
+          >
+            <i class="bi bi-pencil" aria-hidden="true"></i>
+            Edit picture
+          </button>
+
+          @if (imageSuccess) {
+            <div class="profile-alert profile-alert-success">{{ imageSuccess }}</div>
+          }
+        </section>
+
+        @if (isProfilePictureEditorOpen) {
+          <!-- Profile picture editor popup -->
+          <div class="profile-picture-backdrop" (click)="closeProfilePictureEditor()">
+            <section
+              class="profile-picture-popup"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="profile-picture-popup-heading"
+              (click)="$event.stopPropagation()"
+            >
+              <header class="profile-picture-popup-header">
+                <h2 id="profile-picture-popup-heading">Edit profile picture</h2>
+                <button
+                  type="button"
+                  class="profile-picture-close-button"
+                  aria-label="Close profile picture editor"
+                  [disabled]="isUploadingProfileImage"
+                  (click)="closeProfilePictureEditor()"
+                >
+                  <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+              </header>
+
+              <!-- Draggable avatar crop preview -->
+              <div
+                class="avatar-preview"
+                [class.is-draggable]="avatarImageUrl"
+                [class.is-dragging]="isDraggingAvatar"
+                title="Drag to position picture"
+                aria-label="Profile picture preview"
+                (pointerdown)="onAvatarPointerDown($event)"
+                (pointermove)="onAvatarPointerMove($event)"
+                (pointerup)="onAvatarPointerUp($event)"
+                (pointercancel)="onAvatarPointerUp($event)"
+              >
+                @if (avatarImageUrl) {
+                  <img
+                    [src]="avatarImageUrl"
+                    [style.height.%]="avatarZoom"
+                    [style.object-position]="avatarObjectPosition"
+                    [style.transform]="avatarImageTransform"
+                    [style.width.%]="avatarZoom"
+                    alt="Profile picture preview"
+                    draggable="false"
+                  />
+                } @else {
+                  <span>{{ userInitial }}</span>
+                }
+              </div>
+
+              @if (avatarImageUrl) {
+                <!-- Avatar zoom control shown when an image is available -->
+                <div class="avatar-zoom-control">
+                  <label for="profile-picture-zoom">
+                    <span>Zoom</span>
+                    <output for="profile-picture-zoom">{{ avatarZoom }}%</output>
+                  </label>
+                  <input
+                    id="profile-picture-zoom"
+                    type="range"
+                    [min]="minimumAvatarZoom"
+                    [max]="maximumAvatarZoom"
+                    [step]="avatarZoomStep"
+                    [value]="avatarZoom"
+                    (input)="onAvatarZoomChange($event)"
+                  />
+                </div>
+              }
+
+              <!-- Avatar file picker and save actions -->
+              <div class="avatar-controls">
+                <label class="btn btnPrimary avatar-upload-button" for="profile-picture-input">
+                  <i class="bi bi-upload" aria-hidden="true"></i>
+                  Choose picture
+                </label>
+                <input
+                  id="profile-picture-input"
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                  (change)="onProfileImageSelected($event)"
+                />
+
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary"
+                  [disabled]="(!selectedProfileImageFile && !avatarImageUrl) || isUploadingProfileImage"
+                  (click)="onUploadProfileImage()"
+                >
+                  <i class="bi bi-check2" aria-hidden="true"></i>
+                  {{ isUploadingProfileImage ? "Saving..." : "Save picture" }}
+                </button>
+              </div>
+
+              @if (imageError) {
+                <div class="profile-alert profile-alert-error">{{ imageError }}</div>
+              }
+            </section>
+          </div>
+        }
+
+        <!-- Profile credentials form -->
+        <section class="credentials-panel" aria-labelledby="credentials-heading">
+          <h2 id="credentials-heading">Credentials</h2>
+          <form [formGroup]="profileForm" (ngSubmit)="onSaveProfile()">
+            <div class="form-field">
+              <label for="profile-username">Username</label>
+              <input
+                id="profile-username"
+                type="text"
+                class="form-control"
+                formControlName="userName"
+                autocomplete="username"
+              />
+              @if (profileForm.controls.userName.invalid && profileForm.controls.userName.touched) {
+                <small>Username is required.</small>
+              }
+            </div>
+
+            <div class="form-field">
+              <label for="profile-email">Email</label>
+              <input
+                id="profile-email"
+                type="email"
+                class="form-control"
+                formControlName="email"
+                autocomplete="email"
+              />
+              @if (profileForm.controls.email.invalid && profileForm.controls.email.touched) {
+                <small>Enter a valid email address.</small>
+              }
+            </div>
+
+            <div class="form-grid">
+              <div class="form-field">
+                <label for="current-password">Current password</label>
+                <input
+                  id="current-password"
+                  type="password"
+                  class="form-control"
+                  formControlName="currentPassword"
+                  autocomplete="current-password"
+                />
+                @if (
+                  profileForm.controls.currentPassword.hasError("required") &&
+                  profileForm.controls.currentPassword.touched
+                ) {
+                  <small>Current password is required.</small>
+                }
+              </div>
+
+              <div class="form-field">
+                <label for="new-password">New password</label>
+                <input
+                  id="new-password"
+                  type="password"
+                  class="form-control"
+                  formControlName="newPassword"
+                  autocomplete="new-password"
+                />
+              </div>
+
+              <div class="form-field">
+                <label for="confirm-password">Repeat new password</label>
+                <input
+                  id="confirm-password"
+                  type="password"
+                  class="form-control"
+                  formControlName="confirmPassword"
+                  autocomplete="new-password"
+                />
+                @if (profileForm.controls.confirmPassword.hasError("mismatch")) {
+                  <small>Passwords do not match.</small>
+                }
+              </div>
+            </div>
+
+            <!-- Profile save feedback messages -->
+            @if (profileError) {
+              <div class="profile-alert profile-alert-error">{{ profileError }}</div>
+            }
+            @if (profileSuccess) {
+              <div class="profile-alert profile-alert-success">{{ profileSuccess }}</div>
+            }
+
+            <div class="profile-actions-footer">
+              <button
+                type="submit"
+                class="btn btnPrimary"
+                [disabled]="isSavingProfile || profileForm.invalid"
+              >
+                <i class="bi bi-save" aria-hidden="true"></i>
+                {{ isSavingProfile ? "Saving..." : "Save changes" }}
+              </button>
+            </div>
+          </form>
+        </section>
+      </div>
+    }
+  </div>
+</div>

@@ -1,0 +1,271 @@
+/* About editor page layout */
+.about-editor-page {
+  background: #f8f5f7;
+  color: #212529;
+  min-height: 100vh;
+  padding: 96px 0 40px;
+}
+
+/* About editor header */
+.about-editor-header {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.about-editor-header h1 {
+  font-size: 32px;
+  margin: 0;
+}
+
+.about-editor-header p {
+  color: #5f2d38;
+  margin: 4px 0 0;
+}
+
+/* Editor form layout and fields */
+.about-editor-layout {
+  align-items: start;
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+}
+
+.about-editor-fields,
+.about-editor-preview,
+.about-editor-loading {
+  background: #fffefe;
+  border: 1px solid #ead9de;
+  border-radius: 8px;
+  padding: 22px;
+}
+
+.about-editor-fields h2,
+.about-editor-preview h2 {
+  color: #5f2d38;
+  font-size: 20px;
+  margin: 0 0 18px;
+}
+
+.about-editor-fields h3 {
+  border-top: 1px solid #ead9de;
+  color: #5f2d38;
+  font-size: 18px;
+  margin: 24px 0 14px;
+  padding-top: 18px;
+}
+
+.about-editor-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.about-editor-field {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 16px;
+}
+
+.about-editor-field label {
+  color: #5f2d38;
+  font-weight: 700;
+}
+
+.about-editor-page .form-control {
+  background: #fffefe;
+  border-color: #dec8ce;
+  color: #212529;
+}
+
+/* Editor actions and feedback messages */
+.about-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.about-editor-actions .btn {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.about-editor-alert {
+  border-radius: 8px;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+}
+
+.about-editor-alert-error {
+  background: #f8d7da;
+  border: 1px solid #f1aeb5;
+  color: #842029;
+}
+
+.about-editor-alert-success {
+  background: #d1e7dd;
+  border: 1px solid #a3cfbb;
+  color: #0f5132;
+}
+
+/* Live preview panel */
+.about-editor-preview {
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  position: sticky;
+  top: 92px;
+}
+
+.about-editor-preview::-webkit-scrollbar {
+  width: 8px;
+}
+
+.about-editor-preview::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.about-editor-preview::-webkit-scrollbar-thumb {
+  background: rgba(95, 45, 56, 0.22);
+  border-radius: 999px;
+}
+
+/* Live preview card content */
+.about-editor-preview-card {
+  align-items: stretch;
+  background: #f8f3f5;
+  border: 1px solid rgba(166, 103, 118, 0.22);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  text-align: left;
+}
+
+.about-editor-preview-signature {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: center;
+}
+
+.about-editor-preview-signature img {
+  height: 96px;
+  width: 96px;
+}
+
+.about-editor-preview-card .about-editor-preview-caption {
+  color: #72535b;
+  font-size: 13px;
+  font-style: italic;
+  margin: 0;
+}
+
+.about-editor-preview-section {
+  border-top: 1px solid #ead9de;
+  padding-top: 14px;
+}
+
+.about-editor-preview-author {
+  align-items: start;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 96px minmax(0, 1fr);
+}
+
+.about-editor-preview-photo,
+.about-editor-preview-photo-placeholder {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  height: 96px;
+  width: 96px;
+}
+
+.about-editor-preview-photo {
+  object-fit: cover;
+}
+
+.about-editor-preview-photo-placeholder {
+  align-items: center;
+  background: linear-gradient(135deg, #ddd2d6, #bba9af);
+  color: rgba(95, 45, 56, 0.54);
+  display: flex;
+  font-family: NavFont, serif;
+  font-size: 40px;
+  justify-content: center;
+}
+
+.about-editor-preview-card h3 {
+  color: #5f2d38;
+  font-size: 18px;
+  margin: 0 0 8px;
+}
+
+.about-editor-preview-author h3 {
+  font-family: NavFont, serif;
+  font-size: 24px;
+  margin-bottom: 2px;
+}
+
+.about-editor-preview-card p {
+  color: #473d41;
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0 0 8px;
+}
+
+.about-editor-preview-card p:last-child {
+  margin-bottom: 0;
+}
+
+.about-editor-preview-card .about-editor-preview-role {
+  color: #72535b;
+  font-weight: 700;
+}
+
+.about-editor-preview-terms {
+  color: #473d41;
+  display: grid;
+  font-size: 13px;
+  gap: 6px;
+  line-height: 1.45;
+  margin: 0 0 10px;
+  padding-left: 18px;
+}
+
+.about-editor-preview-card .about-editor-preview-contact {
+  color: #8e4455;
+  font-weight: 700;
+}
+
+/* Responsive editor layout */
+@media (max-width: 992px) {
+  .about-editor-layout,
+  .about-editor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .about-editor-preview {
+    max-height: none;
+    position: static;
+  }
+}
+
+/* Mobile editor spacing */
+@media (max-width: 576px) {
+  .about-editor-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .about-editor-actions .btn {
+    width: 100%;
+  }
+
+  .about-editor-preview-author {
+    grid-template-columns: 1fr;
+  }
+}

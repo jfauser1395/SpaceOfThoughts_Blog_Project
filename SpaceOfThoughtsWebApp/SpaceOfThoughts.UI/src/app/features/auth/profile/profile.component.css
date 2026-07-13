@@ -1,0 +1,249 @@
+/* Profile page layout */
+.profile-page {
+  background: #f8f5f7;
+  color: #212529;
+  min-height: 100vh;
+  padding: 96px 0 40px;
+}
+
+/* Profile page header */
+.profile-header {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.profile-header h1 {
+  font-size: 32px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.profile-header p {
+  color: #5f2d38;
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+/* Profile content panels */
+.profile-layout {
+  align-items: start;
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+}
+
+.avatar-panel,
+.credentials-panel {
+  background: #fffefe;
+  border: 1px solid #ead9de;
+  border-radius: 8px;
+  padding: 22px;
+}
+
+.avatar-panel h2,
+.credentials-panel h2 {
+  color: #5f2d38;
+  font-size: 20px;
+  margin: 0 0 18px;
+}
+
+/* Avatar preview and editor */
+.avatar-preview {
+  align-items: center;
+  background: #17191d;
+  border: 0;
+  border-radius: 50%;
+  color: #d5dfe9;
+  display: flex;
+  height: 220px;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0;
+  touch-action: none;
+  user-select: none;
+  width: 220px;
+}
+
+.avatar-preview {
+  margin: 0 auto 18px;
+}
+
+.avatar-preview.is-draggable {
+  cursor: grab;
+}
+
+.avatar-preview.is-dragging {
+  cursor: grabbing;
+}
+
+.avatar-preview img {
+  display: block;
+  flex: 0 0 auto;
+  height: 134%;
+  max-width: none;
+  object-fit: cover;
+  pointer-events: none;
+  transition:
+    height 0.14s ease,
+    transform 0.14s ease,
+    width 0.14s ease;
+  transform-origin: center;
+  width: 134%;
+}
+
+.avatar-preview.is-dragging img {
+  transition: none;
+}
+
+.avatar-preview span {
+  font-size: 72px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Avatar zoom and upload controls */
+.avatar-zoom-control {
+  display: grid;
+  gap: 8px;
+  margin: -4px auto 18px;
+  max-width: 270px;
+}
+
+.avatar-zoom-control label {
+  align-items: center;
+  color: #5f2d38;
+  display: flex;
+  font-weight: 700;
+  justify-content: space-between;
+}
+
+.avatar-zoom-control input[type="range"] {
+  accent-color: #d47e92;
+  cursor: pointer;
+  width: 100%;
+}
+
+.profile-page .btn-outline-secondary {
+  border-color: #a66776;
+  color: #5f2d38;
+}
+
+.avatar-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.avatar-upload-button {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+#profile-picture-input {
+  height: 1px;
+  opacity: 0;
+  position: absolute;
+  width: 1px;
+}
+
+/* Profile credential form fields */
+.form-field label {
+  color: #5f2d38;
+  font-weight: 700;
+}
+
+.profile-page .form-control {
+  background: #fffefe;
+  border-color: #dec8ce;
+  color: #212529;
+}
+
+.profile-page .form-control:focus {
+  border-color: #d47e92;
+  box-shadow: 0 0 0 0.2rem rgba(212, 126, 146, 0.2);
+}
+
+.form-field {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 16px;
+}
+
+.form-field small {
+  color: #b02a37;
+}
+
+.form-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Profile actions and feedback */
+.profile-actions-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.profile-alert {
+  border-radius: 8px;
+  margin-top: 14px;
+  padding: 10px 12px;
+}
+
+.profile-alert-error {
+  background: #f8d7da;
+  border: 1px solid #f1aeb5;
+  color: #842029;
+}
+
+.profile-alert-success {
+  background: #d1e7dd;
+  border: 1px solid #a3cfbb;
+  color: #0f5132;
+}
+
+/* Loading state */
+.profile-status {
+  background: #fffefe;
+  border: 1px dashed #d6b5bd;
+  border-radius: 8px;
+  color: #7d4a55;
+  padding: 20px;
+  text-align: center;
+}
+
+/* Tablet profile layout */
+@media (max-width: 992px) {
+  .profile-layout,
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Mobile profile layout */
+@media (max-width: 576px) {
+  .profile-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .avatar-preview {
+    height: 180px;
+    width: 180px;
+  }
+
+  .profile-actions-footer {
+    justify-content: stretch;
+  }
+
+  .profile-actions-footer .btn {
+    width: 100%;
+  }
+}

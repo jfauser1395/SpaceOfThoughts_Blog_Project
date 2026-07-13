@@ -8,28 +8,28 @@ import { CategoryService } from '../../category/services/category.service';
 import { Observable, Subscription } from 'rxjs';
 import { Category } from '../../category/models/category.model';
 import { CommonModule } from '@angular/common';
-import { MarkdownComponent } from 'ngx-markdown';
 import { ImageSelectorComponent } from '../shared/components/image-selector/image-selector.component';
 import { ImageService } from '../shared/components/services/image.service';
 import { ViewportScroller } from '@angular/common';
+import { MarkdownEditorComponent } from '../shared/components/markdown-editor/markdown-editor.component';
 
 @Component({
-    selector: 'app-add-blogpost',
-    templateUrl: './add-blogpost.component.html',
-    styleUrls: ['./add-blogpost.component.css'],
-    imports: [
-        FormsModule,
-        DatePipe,
-        MarkdownComponent,
-        CommonModule,
-        ImageSelectorComponent,
-    ]
+  selector: 'app-add-blogpost',
+  templateUrl: './add-blogpost.component.html',
+  styleUrls: ['./add-blogpost.component.css'],
+  imports: [
+    FormsModule,
+    DatePipe,
+    CommonModule,
+    ImageSelectorComponent,
+    MarkdownEditorComponent,
+  ],
 })
 export class AddBlogpostComponent implements OnInit, OnDestroy {
   model: AddBlogPost; // Model for the blog post data
   categories$?: Observable<Category[]>; // Observable for the list of categories
   imageSelectorSubscription?: Subscription; // Subscription for the image selector
-  urlHandleWarning?: string; // Url handle field warning 
+  urlHandleWarning?: string; // Url handle field warning
 
   constructor(
     private blogpostService: BlogPostService, // Inject BlogPostService for blog post operations

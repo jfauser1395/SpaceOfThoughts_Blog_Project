@@ -1,0 +1,159 @@
+/* Cover editor page layout */
+.cover-editor-page {
+  background: #f8f5f7;
+  color: #212529;
+  min-height: 100vh;
+  padding: 96px 0 40px;
+}
+
+/* Cover editor header */
+.cover-editor-header {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.cover-editor-header h1 {
+  font-size: 32px;
+  margin: 0;
+}
+
+.cover-editor-header p {
+  color: #5f2d38;
+  margin: 4px 0 0;
+}
+
+/* Cover editor form layout and fields */
+.cover-editor-layout {
+  align-items: start;
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+}
+
+.cover-editor-fields,
+.cover-editor-preview,
+.cover-editor-loading {
+  background: #fffefe;
+  border: 1px solid #ead9de;
+  border-radius: 8px;
+  padding: 22px;
+}
+
+.cover-editor-fields h2,
+.cover-editor-preview h2 {
+  color: #5f2d38;
+  font-size: 20px;
+  margin: 0 0 18px;
+}
+
+.cover-editor-field {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 16px;
+}
+
+.cover-editor-field label {
+  color: #5f2d38;
+  font-weight: 700;
+}
+
+.cover-editor-page .form-control {
+  background: #fffefe;
+  border-color: #dec8ce;
+  color: #212529;
+}
+
+/* Cover preview image card */
+.cover-editor-preview-image {
+  align-items: end;
+  aspect-ratio: 4 / 5;
+  background-position: center;
+  background-size: cover;
+  border-radius: 8px;
+  display: flex;
+  overflow: hidden;
+  position: relative;
+}
+
+.cover-editor-preview-image::before {
+  background: rgba(23, 25, 29, 0.52);
+  content: "";
+  inset: 0;
+  position: absolute;
+}
+
+.cover-editor-preview-image div {
+  color: #fffefe;
+  padding: 22px;
+  position: relative;
+}
+
+.cover-editor-preview-image span {
+  color: #f1c2cc;
+  display: block;
+  font-weight: 700;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.cover-editor-preview-image strong {
+  display: block;
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.cover-editor-preview-image p {
+  margin: 12px 0 0;
+}
+
+/* Cover editor actions and feedback */
+.cover-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.cover-editor-actions .btn {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.cover-editor-alert {
+  border-radius: 8px;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+}
+
+.cover-editor-alert-error {
+  background: #f8d7da;
+  border: 1px solid #f1aeb5;
+  color: #842029;
+}
+
+.cover-editor-alert-success {
+  background: #d1e7dd;
+  border: 1px solid #a3cfbb;
+  color: #0f5132;
+}
+
+/* Responsive cover editor layout */
+@media (max-width: 992px) {
+  .cover-editor-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Mobile cover editor spacing */
+@media (max-width: 576px) {
+  .cover-editor-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .cover-editor-actions .btn {
+    width: 100%;
+  }
+}

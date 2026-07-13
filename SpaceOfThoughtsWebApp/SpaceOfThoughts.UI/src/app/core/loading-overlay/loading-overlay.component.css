@@ -1,0 +1,19 @@
+/* Shared full-screen loader surface and exit transition */
+.app-loading-overlay {
+  background: rgba(15, 17, 20, 0.96);
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Fade the overlay after its owning page finishes loading */
+.app-loading-overlay.is-leaving {
+  opacity: 0;
+}
+
+/* Respect reduced-motion preferences while retaining the loading status */
+@media (prefers-reduced-motion: reduce) {
+  .app-loading-overlay {
+    transition: none;
+  }
+}

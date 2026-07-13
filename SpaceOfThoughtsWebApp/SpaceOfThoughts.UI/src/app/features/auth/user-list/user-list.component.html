@@ -1,108 +1,126 @@
-<div class="mt-5 p-2" style="overflow-y: hidden">
-  <div class="card bg-gradient container mt-5">
-    <h1 class="mt-4">Users List</h1>
+<div class="admin-page">
+  <!-- Admin panel for managing users -->
+  <section class="admin-panel">
+    <!-- User list header and count -->
+    <header class="admin-panel-header">
+      <div>
+        <h1>Manage users</h1>
+      </div>
 
-    <!-- Search bar section to find a specific user -->
-    <div class="container mt-5">
-      <div class="col-md">
-        <div class="custom-input-group">
-          <!-- Input field for user search; triggers search on 'Enter' or button click -->
-          <input
-            type="text"
-            id="searchField"
-            name="searchField"
-            class="form-control"
-            (keyup.enter)="onSearch(queryText.value)"
-            placeholder="Find user"
-            aria-label="Find user"
-            aria-describedby="basic-addon1"
-            #queryText
-          />
-          <!-- Search button that triggers the same 'onSearch' method -->
-          <button
-            class="btn btn-secondary inside-btn"
-            (click)="onSearch(queryText.value)"
-            name="searchButton"
-            aria-label="Search button"
-          >
-            <i class="bi bi-search"></i>
-            <!-- Bootstrap search icon -->
-          </button>
-        </div>
+      <span class="admin-count-pill">
+        <i class="bi bi-person-lines-fill" aria-hidden="true"></i>
+        {{ totalCount }} users
+      </span>
+    </header>
+
+    <!-- Search toolbar for filtering users -->
+    <div class="admin-toolbar">
+      <div class="admin-search-field custom-input-group">
+        <input
+          type="text"
+          id="searchField"
+          name="searchField"
+          class="form-control"
+          (keyup.enter)="onSearch(queryText.value)"
+          placeholder="Find user"
+          aria-label="Find user"
+          aria-describedby="basic-addon1"
+          #queryText
+        />
+        <button
+          class="admin-icon-button inside-btn"
+          (click)="onSearch(queryText.value)"
+          name="searchButton"
+          aria-label="Search users"
+        >
+          <i class="bi bi-search" aria-hidden="true"></i>
+        </button>
       </div>
     </div>
 
-    <!-- Check if the users observable has emitted data -->
     @if (users$ | async; as users) {
-      <table
-        class="table-bordered rounded-3 mt-4 table"
-        style="overflow: hidden"
-      >
-        <thead>
-          <tr class="text-center align-middle">
-            <th>
-              <div class="d-flex justify-content-between">
-                <div class="d-flex justify-content-start">
-                  <span class="mt-2">Username</span>
-                </div>
-                <div class="d-flex justify-content-end">
-                  <span>
-                    <button
-                      type="button"
-                      class="btn btn-secondary ms-2"
-                      (click)="sort('userName', 'asc')"
-                      name="sortUsernameAscButton"
-                      aria-label="Sort username ascending"
-                    >
-                      <i class="bi bi-arrow-up"></i>
-                    </button>
-                  </span>
-                  <span>
-                    <button
-                      type="button"
-                      class="btn btn-secondary ms-2"
-                      (click)="sort('userName', 'desc')"
-                      name="sortUsernameDescButton"
-                      aria-label="Sort username descending"
-                    >
-                      <i class="bi bi-arrow-down"></i>
-                    </button>
-                  </span>
-                </div>
-              </div>
-            </th>
-            <th>
-              <span
-                class="d-flex justify-content-center align-items-center mb-1"
-              >
-                <i class="bi bi-tools"></i>
-              </span>
-            </th>
-          </tr>
-        </thead>
-
-        <tbody>
-          <!-- Loop through the users and display each user -->
-          @for (user of users; track user) {
+      <!-- User table with sortable columns and account actions -->
+      <div class="table-responsive admin-table-wrap">
+        <table class="table admin-table">
+          <thead>
             <tr>
-              <td>{{ user.userName }}</td>
-              <td>
-                <span class="d-flex justify-content-center align-items-center">
-                  <!-- Button to trigger delete confirmation modal -->
-                  <button
-                    type="button"
-                    class="btn btn-danger ms-2"
-                    data-bs-toggle="modal"
-                    data-bs-target="#deleteUserModal"
-                    (click)="setUserId(user.id)"
-                    name="deleteUserButton"
-                    aria-label="Delete user button"
+              <th [attr.aria-sort]="getSortAria('userName')">
+                <button
+                  type="button"
+                  class="admin-sort-button"
+                  [class.is-active]="isSortedBy('userName')"
+                  (click)="sort('userName')"
+                  name="sortUsernameButton"
+                  [attr.aria-label]="getSortLabel('username', 'userName')"
+                >
+                  Username
+                </button>
+              </th>
+              <th>Status</th>
+              <th class="admin-tools-column admin-user-tools-column">
+                <i class="bi bi-tools" aria-hidden="true"></i>
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            @for (user of users; track user.id) {
+              <tr>
+                <td class="admin-strong-cell">{{ user.userName }}</td>
+                <td>
+                  <span
+                    class="admin-status-pill"
+                    [class.is-banned]="user.isBanned"
                   >
-                    Delete
-                  </button>
-                  <!-- Delete confirmation modal -->
+                    @if (user.isBanned) {
+                      Banned
+                    } @else {
+                      Active
+                    }
+                  </span>
+                </td>
+                <td>
+                  <div class="admin-row-actions">
+                    @if (user.isBanned) {
+                      <button
+                        type="button"
+                        class="admin-row-action"
+                        (click)="onBanToggle(user)"
+                        name="unbanUserButton"
+                        aria-label="Unban user button"
+                      >
+                        <i class="bi bi-person-check" aria-hidden="true"></i>
+                        <span>Unban</span>
+                      </button>
+                    } @else {
+                      <button
+                        type="button"
+                        class="admin-danger-action"
+                        (click)="onBanToggle(user)"
+                        name="banUserButton"
+                        aria-label="Ban user button"
+                      >
+                        <i class="bi bi-person-slash" aria-hidden="true"></i>
+                        <span>Ban</span>
+                      </button>
+                    }
+                    <button
+                      type="button"
+                      class="admin-danger-action"
+                      data-bs-toggle="modal"
+                      data-bs-target="#deleteUserModal"
+                      (click)="setUserId(user.id)"
+                      name="deleteUserButton"
+                      aria-label="Delete user button"
+                    >
+                      <i class="bi bi-trash3" aria-hidden="true"></i>
+                      <span>Delete</span>
+                    </button>
+                  </div>
+
+                  <!-- Delete confirmation modal for users -->
                   <div
-                    class="modal fade"
+                    class="modal fade admin-modal"
                     id="deleteUserModal"
                     data-bs-backdrop="static"
                     data-bs-keyboard="false"
@@ -117,7 +135,7 @@
                             class="modal-title fs-5"
                             id="deleteUserModalLabel"
                           >
-                            Delete User
+                            Delete user
                           </h1>
                           <button
                             type="button"
@@ -130,92 +148,78 @@
                           Do you really want to delete this user?
                         </div>
                         <div class="modal-footer">
-                          <!-- Close modal button -->
                           <button
                             type="button"
-                            class="btn btn-secondary"
+                            class="admin-row-action"
                             data-bs-dismiss="modal"
                             name="closeModalButton"
                             aria-label="Close button"
                           >
                             Close
                           </button>
-                          <!-- Confirm delete button -->
                           <button
                             type="button"
-                            class="btn btn-danger"
+                            class="admin-danger-action"
                             (click)="onDelete()"
                             data-bs-dismiss="modal"
                             name="confirmDeleteButton"
                             aria-label="Confirm delete button"
                           >
-                            Delete
+                            <i class="bi bi-trash3" aria-hidden="true"></i>
+                            <span>Delete</span>
                           </button>
                         </div>
                       </div>
                     </div>
                   </div>
-                </span>
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
     }
 
-    <div class="d-flex justify-content-between">
-      <div class="flex-column align-item-start">
-        <!-- Display current user count -->
-        <span class="card bg-gradient mb-2 p-2">
-          The current user count: {{ totalCount }}
-        </span>
-      </div>
+    @if (list.length > 1) {
+      <!-- Pagination controls for the user table -->
+      <footer class="admin-panel-footer">
+        <nav aria-label="Page navigation">
+          <ul class="pagination admin-pagination">
+            <li class="page-item">
+              <button
+                class="page-link"
+                (click)="getPrevPage()"
+                name="previousButton"
+                aria-label="Previous page"
+              >
+                <i class="bi bi-caret-left" aria-hidden="true"></i>
+              </button>
+            </li>
 
-      <!-- Conditional pagination (shown if total count is greater than 5) -->
-      @if (this.totalCount >= 5) {
-        <div class="flex-column align-item-end">
-          <!-- Pagination controls -->
-          <nav aria-label="Page navigation">
-            <ul class="pagination">
+            @for (item of list; track $index; let idx = $index) {
               <li class="page-item">
-                <!-- Button to go to the previous page -->
                 <button
                   class="page-link"
-                  (click)="getPrevPage()"
-                  name="previousButton"
+                  (click)="getPage(idx + 1)"
+                  name="pageNumberButton"
                 >
-                <i class="bi bi-caret-left"></i>
+                  {{ idx + 1 }}
                 </button>
               </li>
-
-              <!-- Page number buttons -->
-              @for (item of list; track $index; let idx = $index) {
-                <li class="page-item">
-                  <!-- Button to go to a specific page -->
-                  <button
-                    class="page-link"
-                    (click)="getPage(idx + 1)"
-                    name="pageNumberButton"
-                  >
-                    {{ idx + 1 }}
-                    <!-- Display page numbers dynamically -->
-                  </button>
-                </li>
-              }
-              <li class="page-item">
-                <!-- Button to go to the next page -->
-                <button
-                  class="page-link"
-                  (click)="getNextPage()"
-                  name="nextButton"
-                >
-                <i class="bi bi-caret-right"></i>
-                </button>
-              </li>
-            </ul>
-          </nav>
-        </div>
-      }
-    </div>
-  </div>
+            }
+            <li class="page-item">
+              <button
+                class="page-link"
+                (click)="getNextPage()"
+                name="nextButton"
+                aria-label="Next page"
+              >
+                <i class="bi bi-caret-right" aria-hidden="true"></i>
+              </button>
+            </li>
+          </ul>
+        </nav>
+      </footer>
+    }
+  </section>
 </div>

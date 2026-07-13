@@ -4,7 +4,12 @@
   <div class="container">
     <!-- Brand name of the website -->
 
-    <a class="navbar-brand blogFontThemeNav align-items-start" href="#"
+    <a
+      class="navbar-brand blogFontThemeNav align-items-start"
+      [class.is-brand-click-reset]="brandLinkColorReset"
+      [routerLink]="['/']"
+      (click)="onBrandClick($event)"
+      (mouseleave)="resetBrandLinkColor()"
       >Space of Thoughts</a
     >
 
@@ -13,6 +18,10 @@
         <div
           class="searchIconAnimation searchIconSmallScreen searchIconLargerScreen"
           [class.expanded]="searchExpanded"
+          [style.width]="searchExpanded ? '94vw' : '35px'"
+          [style.transform]="
+            searchExpanded ? 'translateX(-75%)' : 'translateX(0)'
+          "
         >
           <input
             type="search"
@@ -22,6 +31,7 @@
             (keyup.enter)="collapseSearch(searchInput.value)"
             class="searchIconAnimationInput"
             placeholder="Search blog ..."
+            [style.opacity]="searchExpanded ? '1' : '0'"
           />
           <i class="fa" (click)="toggleSearchBar(searchInput.value)"
             ><svg
@@ -43,7 +53,7 @@
       <div class="custom-input-group custom-input mt-1">
         <input
           #searchInput
-          (keyup.enter)="blogPostService.navSort.next(searchInput.value)"
+          (keyup.enter)="submitSearch(searchInput.value)"
           type="text"
           class="form-control border-0"
           id="search-blog"
@@ -53,7 +63,7 @@
         />
         <button
           class="btn btn-dark btnIcons inside-btn me-2"
-          (click)="blogPostService.navSort.next(searchInput.value)"
+          (click)="submitSearch(searchInput.value)"
           type="button"
           aria-label="search"
         >
@@ -96,13 +106,6 @@
     @if (isMediumScreen) {
       <!-- Div contains the actual navigation links -->
       <div class="collapse navbar-collapse" id="navbarSupportedContent">
-        <!-- Greets the user -->
-        @if (user !== undefined) {
-          <!--  displays the user's email -->
-          <div class="blogFontTheme">
-            Hay <span class="ms-1"> {{ user.userName }} </span> !
-          </div>
-        }
         <!-- Ul contains the list of navigation links -->
         <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
           <!-- Each li is a single navigation link -->
@@ -110,42 +113,95 @@
           <a class="nav-link active" aria-current="page" href="#">Home</a>
         </li> -->
           <li class="nav-item">
-            <a class="nav-link active" aria-current="page" href="#">Blogs</a>
+            <a
+              class="nav-link active"
+              aria-current="page"
+              [routerLink]="['/blogs']"
+              (click)="collapseNavbar()"
+              >Blogs</a
+            >
           </li>
-          <!-- <li class="nav-item">
-          <a class="nav-link active" aria-current="page" href="#">About</a>
-        </li> -->
+          <li class="nav-item">
+            <a
+              class="nav-link active"
+              aria-current="page"
+              [routerLink]="['/about']"
+              (click)="collapseNavbar()"
+              >About</a
+            >
+          </li>
 
           <!-- Part is only visible to users with the 'Writer' role -->
           @if (user !== undefined && user.roles.includes("Writer")) {
             <li class="nav-item dropdown">
               <a
-                class="nav-link dropdown-toggle"
+                class="nav-link dropdown-toggle admin-tools-toggle"
                 role="button"
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
-                >Admin-Tools</a
               >
+                <i class="bi bi-sliders2-vertical" aria-hidden="true"></i>
+                <span>Admin tools</span>
+              </a>
               <ul
-                class="dropdown-menu"
-                data-bs-toggle="collapse"
-                data-bs-target="#navbarSupportedContent"
+                class="dropdown-menu admin-tools-menu"
+                aria-label="Admin tools"
               >
                 <li>
-                  <a class="dropdown-item" [routerLink]="['/admin/categories']"
-                    >Manage categories</a
+                  <a
+                    class="dropdown-item"
+                    [routerLink]="['/admin/cover-page']"
+                    (click)="collapseNavbar()"
+                    ><i class="bi bi-window-sidebar" aria-hidden="true"></i
+                    ><span>Edit cover page</span></a
                   >
                 </li>
                 <li>
-                  <hr class="dropdown-divider" />
-                  <a class="dropdown-item" [routerLink]="['/admin/blogposts']"
-                    >Manage blog posts</a
+                  <a
+                    class="dropdown-item"
+                    [routerLink]="['/admin/about-page']"
+                    (click)="collapseNavbar()"
+                    ><i class="bi bi-person-vcard" aria-hidden="true"></i
+                    ><span>Edit about page</span></a
                   >
                 </li>
                 <li>
-                  <hr class="dropdown-divider" />
-                  <a class="dropdown-item" [routerLink]="['/admin/users']"
-                    >Manage users</a
+                  <a
+                    class="dropdown-item"
+                    [routerLink]="['/admin/blogs-page']"
+                    (click)="collapseNavbar()"
+                    ><i
+                      class="bi bi-layout-text-window-reverse"
+                      aria-hidden="true"
+                    ></i
+                    ><span>Edit blogs page</span></a
+                  >
+                </li>
+                <li>
+                  <a
+                    class="dropdown-item"
+                    [routerLink]="['/admin/categories']"
+                    (click)="collapseNavbar()"
+                    ><i class="bi bi-tags" aria-hidden="true"></i
+                    ><span>Manage categories</span></a
+                  >
+                </li>
+                <li>
+                  <a
+                    class="dropdown-item"
+                    [routerLink]="['/admin/blogposts']"
+                    (click)="collapseNavbar()"
+                    ><i class="bi bi-journal-richtext" aria-hidden="true"></i
+                    ><span>Manage blog posts</span></a
+                  >
+                </li>
+                <li>
+                  <a
+                    class="dropdown-item"
+                    [routerLink]="['/admin/users']"
+                    (click)="collapseNavbar()"
+                    ><i class="bi bi-people" aria-hidden="true"></i
+                    ><span>Manage users</span></a
                   >
                 </li>
               </ul>
@@ -154,11 +210,11 @@
         </ul>
 
         <!--  login/logout functionality -->
-        <div class="d-flex">
+        <div class="d-flex navbar-auth-actions">
           @if (user === undefined) {
             <a
               [routerLink]="['/login']"
-              class="btn btn-link btnIcons mt-1 me-2"
+              class="btn btn-link btnIcons mt-1 me-2 navbar-login-link"
               aria-label="login"
               data-bs-toggle="collapse"
               data-bs-target="#navbarSupportedContent"
@@ -180,17 +236,38 @@
               </svg>
             </a>
           } @else {
-            <div class="align-items-center">
+            <div class="profile-actions">
+              <a
+                [routerLink]="['/profile']"
+                (click)="collapseNavbar()"
+                class="profile-avatar-button"
+                title="Open profile"
+                aria-label="Open profile"
+              >
+                @if (user.profileImageUrl) {
+                  <img
+                    [src]="user.profileImageUrl"
+                    [alt]="user.userName + ' profile picture'"
+                    [style.height.%]="getProfileImageZoom(user)"
+                    [style.object-position]="getProfileImagePosition(user)"
+                    [style.transform]="getProfileImageTransform(user)"
+                    [style.width.%]="getProfileImageZoom(user)"
+                  />
+                } @else {
+                  <span>{{ getUserInitial(user) }}</span>
+                }
+              </a>
               <!--  logs the user out -->
               <button
-                class="btn btnPrimary btn-outline-light"
+                class="sign-out-button"
                 (click)="onLogout()"
-                aria-label="logout"
+                aria-label="Sign out"
                 data-bs-toggle="collapse"
                 data-bs-target="#navbarSupportedContent"
                 name="Sign out button"
               >
-                Sign out
+                <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+                <span>Sign out</span>
               </button>
             </div>
           }
@@ -199,13 +276,6 @@
     } @else {
       <!-- Div contains the actual navigation links -->
       <div class="collapse navbar-collapse" id="navbarSupportedContent">
-        <!-- Greets the user -->
-        @if (user !== undefined) {
-          <!--  displays the user's email -->
-          <div class="ms-2 me-1 blogFontTheme d-flex">
-           Hay <span class="ms-1"> {{ user.userName }} !</span>
-          </div>
-        }
         <!-- Ul contains the list of navigation links -->
         <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
           <!-- Each li is a single navigation link -->
@@ -213,38 +283,95 @@
           <a class="nav-link active" aria-current="page" href="#">Home</a>
         </li> -->
           <li class="nav-item">
-            <a class="nav-link active" aria-current="page" href="#">Blogs</a>
+            <a
+              class="nav-link active"
+              aria-current="page"
+              [routerLink]="['/blogs']"
+              (click)="collapseNavbar()"
+              >Blogs</a
+            >
           </li>
-          <!-- <li class="nav-item">
-          <a class="nav-link active" aria-current="page" [routerLink]="['/about']">About</a>
-        </li> -->
+          <li class="nav-item">
+            <a
+              class="nav-link active"
+              aria-current="page"
+              [routerLink]="['/about']"
+              (click)="collapseNavbar()"
+              >About</a
+            >
+          </li>
 
           <!-- Part is only visible to users with the 'Writer' role -->
           @if (user !== undefined && user.roles.includes("Writer")) {
             <li class="nav-item dropdown">
               <a
-                class="nav-link dropdown-toggle"
+                class="nav-link dropdown-toggle admin-tools-toggle"
                 role="button"
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
-                >Admin-Tools</a
               >
-              <ul class="dropdown-menu">
+                <i class="bi bi-sliders2-vertical" aria-hidden="true"></i>
+                <span>Admin tools</span>
+              </a>
+              <ul
+                class="dropdown-menu admin-tools-menu"
+                aria-label="Admin tools"
+              >
                 <li>
-                  <a class="dropdown-item" [routerLink]="['/admin/categories']"
-                    >Manage categories</a
+                  <a
+                    class="dropdown-item"
+                    [routerLink]="['/admin/cover-page']"
+                    (click)="collapseNavbar()"
+                    ><i class="bi bi-window-sidebar" aria-hidden="true"></i
+                    ><span>Edit cover page</span></a
                   >
                 </li>
                 <li>
-                  <hr class="dropdown-divider" />
-                  <a class="dropdown-item" [routerLink]="['/admin/blogposts']"
-                    >Manage blog posts</a
+                  <a
+                    class="dropdown-item"
+                    [routerLink]="['/admin/about-page']"
+                    (click)="collapseNavbar()"
+                    ><i class="bi bi-person-vcard" aria-hidden="true"></i
+                    ><span>Edit about page</span></a
                   >
                 </li>
                 <li>
-                  <hr class="dropdown-divider" />
-                  <a class="dropdown-item" [routerLink]="['/admin/users']"
-                    >Manage users</a
+                  <a
+                    class="dropdown-item"
+                    [routerLink]="['/admin/blogs-page']"
+                    (click)="collapseNavbar()"
+                    ><i
+                      class="bi bi-layout-text-window-reverse"
+                      aria-hidden="true"
+                    ></i
+                    ><span>Edit blogs page</span></a
+                  >
+                </li>
+                <li>
+                  <a
+                    class="dropdown-item"
+                    [routerLink]="['/admin/categories']"
+                    (click)="collapseNavbar()"
+                    ><i class="bi bi-tags" aria-hidden="true"></i
+                    ><span>Manage categories</span></a
+                  >
+                </li>
+                <li>
+                  <a
+                    class="dropdown-item"
+                    [routerLink]="['/admin/blogposts']"
+                    (click)="collapseNavbar()"
+                    ><i class="bi bi-journal-richtext" aria-hidden="true"></i
+                    ><span>Manage blog posts</span></a
+                  >
+                </li>
+                <li>
+                  <a
+                    class="dropdown-item"
+                    [routerLink]="['/admin/users']"
+                    (click)="collapseNavbar()"
+                    ><i class="bi bi-people" aria-hidden="true"></i
+                    ><span>Manage users</span></a
                   >
                 </li>
               </ul>
@@ -253,11 +380,11 @@
         </ul>
 
         <!--  login/logout functionality -->
-        <div class="d-flex">
+        <div class="d-flex navbar-auth-actions">
           @if (user === undefined) {
             <a
               [routerLink]="['/login']"
-              class="btn btn-link btnIcons mt-1 me-2"
+              class="btn btn-link btnIcons mt-1 me-2 navbar-login-link"
               aria-label="login"
               name="login button"
             >
@@ -278,10 +405,36 @@
               </svg>
             </a>
           } @else {
-            <div class="d-flex align-items-center">
+            <div class="profile-actions">
+              <a
+                [routerLink]="['/profile']"
+                (click)="collapseNavbar()"
+                class="profile-avatar-button"
+                title="Open profile"
+                aria-label="Open profile"
+              >
+                @if (user.profileImageUrl) {
+                  <img
+                    [src]="user.profileImageUrl"
+                    [alt]="user.userName + ' profile picture'"
+                    [style.height.%]="getProfileImageZoom(user)"
+                    [style.object-position]="getProfileImagePosition(user)"
+                    [style.transform]="getProfileImageTransform(user)"
+                    [style.width.%]="getProfileImageZoom(user)"
+                  />
+                } @else {
+                  <span>{{ getUserInitial(user) }}</span>
+                }
+              </a>
               <!--  logs the user out -->
-              <button class="btn btn-outline-light btnPrimary ms-2" (click)="onLogout()" name="sign out button">
-                Sign out
+              <button
+                class="sign-out-button"
+                (click)="onLogout()"
+                aria-label="Sign out"
+                name="sign out button"
+              >
+                <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+                <span>Sign out</span>
               </button>
             </div>
           }

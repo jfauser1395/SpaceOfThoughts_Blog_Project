@@ -1,137 +1,145 @@
-<div class="p-2">
-  <div class="card bg-gradient container mt-5">
-    <h1 class="ms-1 mt-4">Blog Post List</h1>
+<div class="admin-page">
+  <!-- Admin panel for managing blog posts -->
+  <section class="admin-panel">
+    <!-- Blog post list header and add action -->
+    <header class="admin-panel-header">
+      <div>
+        <h1>Manage blog posts</h1>
+      </div>
 
-    <!-- Search bar section to find a specific blog post -->
-    <div class="container mt-5">
-      <div class="col-md">
-        <div class="custom-input-group">
-          <!-- Input field for blog search; triggers search on 'Enter' or button click -->
-          <input
-            type="text"
-            id="fearchField"
-            class="form-control"
-            (keyup.enter)="onSearch(queryText.value)"
-            placeholder="Find blog"
-            aria-label="Find blog"
-            aria-describedby="basic-addon1"
-            #queryText
-          />
-          <!-- Search button that triggers the same 'onSearch' method -->
-          <button
-            class="btn btn-secondary inside-btn"
-            name="searchIcon"
-            (click)="onSearch(queryText.value)"
-          >
-            <i class="bi bi-search"></i>
-            <!-- Bootstrap search icon -->
-          </button>
-        </div>
+      <button
+        type="button"
+        class="admin-primary-action"
+        name="addBlogButton"
+        (click)="navigateToAddBlogPost()"
+      >
+        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+        <span>Add blog</span>
+      </button>
+    </header>
+
+    <!-- Search toolbar for filtering blog posts -->
+    <div class="admin-toolbar">
+      <div class="admin-search-field custom-input-group">
+        <input
+          type="text"
+          id="fearchField"
+          class="form-control"
+          (keyup.enter)="onSearch(queryText.value)"
+          placeholder="Find blog"
+          aria-label="Find blog"
+          aria-describedby="basic-addon1"
+          #queryText
+        />
+        <button
+          class="admin-icon-button inside-btn"
+          name="searchIcon"
+          (click)="onSearch(queryText.value)"
+          aria-label="Search blog posts"
+        >
+          <i class="bi bi-search" aria-hidden="true"></i>
+        </button>
       </div>
     </div>
 
-    <!-- Check if the async blogPost$ observable returns data -->
     @if (blogPost$ | async; as blogPosts) {
-      <!-- Table displaying blog posts in a responsive layout -->
-      <div class="table-responsive mb-2">
-        <table
-          class="table-bordered rounded-3 mt-4 table"
-          style="overflow: hidden"
-        >
-          <!-- Table header with sortable columns -->
+      <!-- Blog post table with sortable columns -->
+      <div class="table-responsive admin-table-wrap">
+        <table class="table admin-table">
           <thead>
-            <tr class="text-center align-middle">
-              <th class="text-start">Title</th>
-              <!-- Blog post title -->
-
-              <!-- Published Date with sort functionality (ascending/descending) -->
-              <th>
-                <div class="d-flex justify-content-between">
-                  <div class="d-flex justify-content-start">
-                    <span class="mt-2">Date</span>
-                  </div>
-                  <div class="d-flex justify-content-end">
-                    <span>
-                      <!-- Sort by 'publishedDate' in ascending order -->
-                      <button
-                        type="button"
-                        class="btn btn-secondary ms-2"
-                        name="sortAscButton"
-                        (click)="sort('publishedDate', 'asc')"
-                      >
-                        <i class="bi bi-arrow-up"></i>
-                        <!-- Sort ascending icon -->
-                      </button>
-                    </span>
-                    <span>
-                      <!-- Sort by 'publishedDate' in descending order -->
-                      <button
-                        type="button"
-                        class="btn btn-secondary ms-2"
-                        name="sortDescButton"
-                        (click)="sort('publishedDate', 'desc')"
-                      >
-                        <i class="bi bi-arrow-down"></i>
-                        <!-- Sort descending icon -->
-                      </button>
-                    </span>
-                  </div>
-                </div>
+            <tr>
+              <th [attr.aria-sort]="getSortAria('title')">
+                <button
+                  type="button"
+                  class="admin-sort-button"
+                  [class.is-active]="isSortedBy('title')"
+                  name="sortTitleButton"
+                  (click)="sort('title')"
+                  [attr.aria-label]="getSortLabel('title', 'title')"
+                >
+                  Title
+                </button>
               </th>
-
-              <!-- Column for indicating blog post visibility (Online/Offline) -->
-              <th>Online</th>
-
-              <!-- Column for blog post categories -->
-              <th>Category</th>
-
-              <!-- Tools column with edit button -->
-              <th>
-                <span class="d-flex justify-content-center">
-                  <i class="bi bi-tools"></i>
-                  <!-- Tools icon for actions -->
-                </span>
+              <th [attr.aria-sort]="getSortAria('publishedDate')">
+                <button
+                  type="button"
+                  class="admin-sort-button"
+                  [class.is-active]="isSortedBy('publishedDate')"
+                  name="sortDateButton"
+                  (click)="sort('publishedDate')"
+                  [attr.aria-label]="getSortLabel('date', 'publishedDate')"
+                >
+                  Date
+                </button>
+              </th>
+              <th [attr.aria-sort]="getSortAria('isVisible')">
+                <button
+                  type="button"
+                  class="admin-sort-button"
+                  [class.is-active]="isSortedBy('isVisible')"
+                  name="sortOnlineButton"
+                  (click)="sort('isVisible')"
+                  [attr.aria-label]="getSortLabel('online status', 'isVisible')"
+                >
+                  Online
+                </button>
+              </th>
+              <th [attr.aria-sort]="getSortAria('category')">
+                <button
+                  type="button"
+                  class="admin-sort-button"
+                  [class.is-active]="isSortedBy('category')"
+                  name="sortCategoryButton"
+                  (click)="sort('category')"
+                  [attr.aria-label]="getSortLabel('category', 'category')"
+                >
+                  Category
+                </button>
+              </th>
+              <th class="admin-tools-column">
+                <i class="bi bi-tools" aria-hidden="true"></i>
               </th>
             </tr>
           </thead>
 
-          <!-- Table body displaying the blog posts dynamically -->
           <tbody>
-            @for (blogPost of blogPosts; track blogPost) {
-              <tr class="align-middle">
-                <!-- Blog post title displayed in a smaller font -->
-                <td style="font-size: small">{{ blogPost.title }}</td>
-
-                <!-- Blog post published date formatted to MM-DD-YY -->
-                <td class="text-center">
-                  {{ blogPost.publishedDate | date: "MM-dd-yy" }}
-                </td>
-
-                <!-- Boolean value for visibility (isVisible) -->
-                <td class="text-center">{{ blogPost.isVisible }}</td>
-
-                <!-- Blog post categories displayed as badges -->
-                <td class="text-center">
-                  @for (category of blogPost.categories; track category) {
-                    <span class="badge bg-secondary me-1 mt-2">{{
-                      category.name
-                    }}</span>
-                    <!-- Category badge -->
-                  }
-                </td>
-
-                <!-- Edit button that navigates to the blog post's edit page -->
+            @for (blogPost of blogPosts; track blogPost.id) {
+              <tr>
+                <td class="admin-strong-cell">{{ blogPost.title }}</td>
+                <td>{{ blogPost.publishedDate | date: "MM-dd-yy" }}</td>
                 <td>
                   <span
-                    class="d-flex justify-content-center align-items-center"
+                    class="admin-status-pill"
+                    [class.is-offline]="!blogPost.isVisible"
                   >
-                    <a
-                      class="btn btn-secondary"
+                    @if (blogPost.isVisible) {
+                      Online
+                    } @else {
+                      Offline
+                    }
+                  </span>
+                </td>
+                <td>
+                  <div class="admin-badge-row">
+                    @for (category of blogPost.categories; track category) {
+                      <span class="admin-category-badge">{{
+                        category.name
+                      }}</span>
+                    }
+                  </div>
+                </td>
+                <td>
+                  <div class="admin-row-actions">
+                    <button
+                      type="button"
+                      class="admin-row-action"
                       name="editButton"
                       (click)="navigateToEditBlogPost(blogPost.id)"
-                      >Edit</a
                     >
-                  </span>
+                      <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                      <span>Edit</span>
+                    </button>
+                  </div>
                 </td>
               </tr>
             }
@@ -140,63 +148,47 @@
       </div>
     }
 
-    <div class="d-flex justify-content-between">
-      <div class="flex-column align-item-start">
-        <!-- Button to add a new blog post -->
-        <button
-          class="btn btn-primary mb-2 me-1"
-          name="addBlogButton"
-          (click)="navigateToAddBlogPost()"
-        >
-          Add blog
-        </button>
-      </div>
-      <!-- Conditional pagination (shown if total count is greater than 5) -->
-      @if (this.totalCount >= 5) {
-        <div class="flex-colmn align-item-end">
-          <!-- Pagination controls -->
-          <nav aria-label="Page navigation">
-            <ul class="pagination">
+    @if (list.length > 1) {
+      <!-- Pagination controls for the blog post table -->
+      <footer class="admin-panel-footer">
+        <nav aria-label="Page navigation">
+          <ul class="pagination admin-pagination">
+            <li class="page-item">
+              <button
+                class="page-link"
+                (click)="getPrevPage()"
+                name="previousButton"
+                aria-label="Previous page"
+              >
+                <i class="bi bi-caret-left" aria-hidden="true"></i>
+              </button>
+            </li>
+
+            @for (item of list; track $index; let idx = $index) {
               <li class="page-item">
-                <!-- Button to go to the previous page -->
                 <button
                   class="page-link"
-                  (click)="getPrevPage()"
-                  name="previousButton"
+                  (click)="getPage(idx + 1)"
+                  name="pageNumberButtons"
                 >
-                <i class="bi bi-caret-left"></i>
+                  {{ idx + 1 }}
                 </button>
               </li>
+            }
 
-              <!-- Page number buttons -->
-              @for (item of list; track $index; let idx = $index) {
-                <li class="page-item">
-                  <!-- Button to go to a specific page -->
-                  <button
-                    class="page-link"
-                    (click)="getPage(idx + 1)"
-                    name="pageNumberButtons"
-                  >
-                    {{ idx + 1 }}
-                    <!-- Display page numbers dynamically -->
-                  </button>
-                </li>
-              }
-
-              <li class="page-item">
-                <!-- Button to go to the next page -->
-                <button
-                  class="page-link"
-                  (click)="getNextPage()"
-                  name="nextButton"
-                >
-                <i class="bi bi-caret-right"></i>
-                </button>
-              </li>
-            </ul>
-          </nav>
-        </div>
-      }
-    </div>
-  </div>
+            <li class="page-item">
+              <button
+                class="page-link"
+                (click)="getNextPage()"
+                name="nextButton"
+                aria-label="Next page"
+              >
+                <i class="bi bi-caret-right" aria-hidden="true"></i>
+              </button>
+            </li>
+          </ul>
+        </nav>
+      </footer>
+    }
+  </section>
 </div>

@@ -1,34 +1,53 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { BlogPostService } from '../../blog-post/services/blog-post.service';
-import { Observable, Subscription } from 'rxjs';
+import { catchError, Observable, of, Subscription, tap } from 'rxjs';
 import { BlogPost } from '../../blog-post/models/blog-post.model';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
-import { StyleService } from '../../../../services/style.service';
+import { ActivatedRoute, RouterModule } from '@angular/router';
 import { AuthService } from '../../auth/services/auth.service';
 import { User } from '../../auth/models/user.model';
+import { CategoryService } from '../../category/services/category.service';
+import { Category } from '../../category/models/category.model';
+import { BlogSummaryPageService } from '../services/blog-summary-page.service';
+import { LoadingOverlayComponent } from '../../../core/loading-overlay/loading-overlay.component';
 
 @Component({
-    selector: 'app-home',
-    imports: [CommonModule, RouterModule],
-    templateUrl: './public-blog-summery.component.html',
-    styleUrl: './public-blog-summery.component.css'
+  selector: 'app-home',
+  imports: [CommonModule, RouterModule, LoadingOverlayComponent],
+  templateUrl: './public-blog-summery.component.html',
+  styleUrl: './public-blog-summery.component.css',
 })
 export class PublicBlogSummeryComponent implements OnInit, OnDestroy {
-  blogs$?: Observable<BlogPost[]>; // Observable for the list of blog posts
+  categories$?: Observable<Category[]>; // Observable for the list of categories
+  blogs: BlogPost[] = []; // List of blog posts returned from the API
+  filteredBlogs: BlogPost[] = []; // List of blog posts after category filtering
   imageLoaded = false; // Flag to indicate if the image is loaded
   user?: User; // Current user
   userSubscription$?: Subscription; // Subscription for user data
   sortedBy: string; // Field to sort the blog posts by
   sortDirection: string; // Direction of sorting
   navBarSearch$?: Subscription; // Subscription for navbar search functionality
-  blogsEmptySubscribtion$?: Subscription; // Subscription for checking if there are blogs
-  noBlogs: boolean = true;// Flag to indicate if there are no blogs
+  routeSearch$?: Subscription; // Subscription for search query from navigation
+  blogsSubscription$?: Subscription; // Subscription for loading blog posts
+  blogSummaryPageSubscription$?: Subscription; // Subscription for loading page settings
+  selectedCategoryId = 'all'; // Currently selected category filter
+  isLoadingBlogs = true; // Flag to indicate if blog posts are loading
+  isLoadingCategories = true; // Flag for category options required by the filter bar
+  isLoadingPageSettings = true; // Flag for the configurable public blogs background
+  backgroundImageUrl = 'assets/cover-default.png'; // Bundled fallback used if settings fail
+  rollingCategoryIds: string[] = []; // Category buttons currently playing the roll animation
+  rollingDirection: 'forward' | 'backward' = 'forward'; // Direction of the category roll
+  private categoryRollTimeoutId?: number; // Timer for clearing category roll animation state
+  private blogRetryTimeoutId?: number; // Timer for retrying unavailable blog requests
+  private categoryOrderIds: string[] = ['all']; // Stable order used to animate between filters
+  private categoryRollIndexes = new Map<string, number>(); // Position of each rolling filter button
 
   constructor(
     private blogPostService: BlogPostService, // Inject BlogPostService for blog post operations
-    private loadingIconService: StyleService, // Inject StyleService for styling
+    private categoryService: CategoryService, // Inject CategoryService for category filter bar
     private authService: AuthService, // Inject AuthService for authentication
+    private route: ActivatedRoute, // Inject ActivatedRoute for search query params
+    private blogSummaryPageService: BlogSummaryPageService, // Inject BlogSummaryPageService for page settings
   ) {
     this.sortedBy = 'publishedDate'; // Default sorting by published date
     this.sortDirection = 'desc'; // Default sorting direction
@@ -47,13 +66,6 @@ export class PublicBlogSummeryComponent implements OnInit, OnDestroy {
       behavior: 'smooth',
     });
 
-    // Check if there are blogs in the database
-    this.blogsEmptySubscribtion$ = this.blogPostService
-    .checkIfImagesEmpty()
-    .subscribe((isEmpty) => {
-      this.noBlogs = isEmpty;
-    });
-
     // Get the current user to validate access rights for blog details and redirect to login page if not authenticated
     this.userSubscription$ = this.authService.user().subscribe({
       next: (response) => {
@@ -63,33 +75,180 @@ export class PublicBlogSummeryComponent implements OnInit, OnDestroy {
 
     this.user = this.authService.getUser();
 
-    // Get all blog posts
-    this.blogs$ = this.blogPostService.getAllBlogPosts(
-      undefined,
-      this.sortedBy,
-      this.sortDirection,
+    // Load category options and include them in the initial page readiness state
+    this.categories$ = this.categoryService
+      .getAllCategories(undefined, 'name', 'asc')
+      .pipe(
+        tap((categories) => {
+          this.categoryOrderIds = [
+            'all',
+            ...categories.map((category) => category.id),
+          ];
+          this.isLoadingCategories = false;
+        }),
+        catchError(() => {
+          // Keep the page usable without filters if the category request fails
+          this.isLoadingCategories = false;
+          return of([]);
+        }),
+      );
+
+    // Load optional page styling and use the bundled background on failure
+    this.blogSummaryPageSubscription$ = this.blogSummaryPageService
+      .getBlogSummaryPage()
+      .subscribe({
+        next: (blogSummaryPage) => {
+          this.backgroundImageUrl =
+            blogSummaryPage.backgroundImageUrl?.trim() ||
+            this.backgroundImageUrl;
+          this.isLoadingPageSettings = false;
+        },
+        error: () => {
+          // Optional settings must not trap the page behind the loading overlay
+          this.isLoadingPageSettings = false;
+        },
+      });
+
+    // Get all blog posts, optionally filtered by the navbar search query
+    this.routeSearch$ = this.route.queryParamMap.subscribe((params) => {
+      this.onSearch(params.get('query') ?? '');
+    });
+  }
+
+  // Wait for every resource needed to present the public blogs page coherently
+  get isPageLoading(): boolean {
+    return (
+      this.isLoadingBlogs ||
+      this.isLoadingCategories ||
+      this.isLoadingPageSettings
     );
   }
 
   // Search for blog posts by query
   onSearch(query: string) {
-    this.blogs$ = this.blogPostService.getAllBlogPosts(query);
+    const searchQuery = query.trim();
+    this.selectedCategoryId = 'all';
+    this.rollingCategoryIds = [];
+    this.categoryRollIndexes.clear();
+    this.loadBlogs(searchQuery || undefined);
   }
 
-  // Show loading icon
-  loadImageOn() {
-    this.loadingIconService.setBodyStyle('overflow', 'hidden');
+  // Update the active category and animate the path from the previous filter
+  selectCategory(categoryId: string): void {
+    if (this.selectedCategoryId === categoryId) {
+      return;
+    }
+
+    const previousCategoryId = this.selectedCategoryId;
+    this.startCategoryButtonRoll(previousCategoryId, categoryId);
+    this.selectedCategoryId = categoryId;
+    this.applyCategoryFilter();
   }
 
-  // Hide loading icon
-  loadImageOff() {
-    this.loadingIconService.setBodyStyle('overflow', 'auto');
+  // Check whether a category button currently participates in the roll animation
+  isCategoryRolling(categoryId: string): boolean {
+    return this.rollingCategoryIds.includes(categoryId);
+  }
+
+  // Return a stable animation order for each rolling category button
+  getCategoryRollIndex(categoryId: string): number {
+    return this.categoryRollIndexes.get(categoryId) ?? 0;
+  }
+
+  // Load visible blog data and keep retrying temporary API failures
+  private loadBlogs(query?: string): void {
+    this.isLoadingBlogs = true;
+    this.clearBlogRetry();
+    this.blogsSubscription$?.unsubscribe();
+    this.blogsSubscription$ = this.blogPostService
+      .getAllBlogPosts(query, this.sortedBy, this.sortDirection)
+      .subscribe({
+        next: (blogs) => {
+          this.isLoadingBlogs = false;
+          this.blogs = blogs;
+          this.applyCategoryFilter();
+        },
+        error: () => {
+          this.blogRetryTimeoutId = window.setTimeout(() => {
+            this.loadBlogs(query);
+          }, 2500);
+        },
+      });
+  }
+
+  // Apply the selected category without requesting the loaded blogs again
+  private applyCategoryFilter(): void {
+    const visibleBlogs = this.blogs.filter((blog) => blog.isVisible);
+
+    if (this.selectedCategoryId === 'all') {
+      this.filteredBlogs = visibleBlogs;
+      return;
+    }
+
+    this.filteredBlogs = visibleBlogs.filter((blog) =>
+      blog.categories.some(
+        (category) => category.id === this.selectedCategoryId,
+      ),
+    );
+  }
+
+  // Animate through category positions so distant filter changes feel connected
+  private startCategoryButtonRoll(
+    fromCategoryId: string,
+    toCategoryId: string,
+  ): void {
+    if (this.categoryRollTimeoutId) {
+      window.clearTimeout(this.categoryRollTimeoutId);
+    }
+
+    const fromIndex = this.categoryOrderIds.indexOf(fromCategoryId);
+    const toIndex = this.categoryOrderIds.indexOf(toCategoryId);
+    const isKnownPath = fromIndex >= 0 && toIndex >= 0;
+    const rollPath = isKnownPath
+      ? this.getCategoryRollPath(fromIndex, toIndex)
+      : [toCategoryId];
+
+    this.rollingDirection =
+      !isKnownPath || toIndex >= fromIndex ? 'forward' : 'backward';
+    this.rollingCategoryIds = rollPath;
+    this.categoryRollIndexes = new Map(
+      rollPath.map((categoryId, index) => [categoryId, index]),
+    );
+
+    const rollDuration = 620 + Math.max(rollPath.length - 1, 0) * 110;
+    this.categoryRollTimeoutId = window.setTimeout(() => {
+      this.rollingCategoryIds = [];
+      this.categoryRollIndexes.clear();
+    }, rollDuration);
+  }
+
+  // Build the ordered category path used by the rolling button animation
+  private getCategoryRollPath(fromIndex: number, toIndex: number): string[] {
+    if (fromIndex <= toIndex) {
+      return this.categoryOrderIds.slice(fromIndex, toIndex + 1);
+    }
+
+    return this.categoryOrderIds.slice(toIndex, fromIndex + 1).reverse();
+  }
+
+  // Clear a scheduled retry before starting another blog request
+  private clearBlogRetry(): void {
+    if (this.blogRetryTimeoutId) {
+      window.clearTimeout(this.blogRetryTimeoutId);
+      this.blogRetryTimeoutId = undefined;
+    }
   }
 
   // Unsubscribe from subscriptions to prevent memory leaks
   ngOnDestroy(): void {
     this.navBarSearch$?.unsubscribe();
+    this.routeSearch$?.unsubscribe();
     this.userSubscription$?.unsubscribe();
-    this.blogsEmptySubscribtion$?.unsubscribe();
+    this.blogsSubscription$?.unsubscribe();
+    this.blogSummaryPageSubscription$?.unsubscribe();
+    this.clearBlogRetry();
+    if (this.categoryRollTimeoutId) {
+      window.clearTimeout(this.categoryRollTimeoutId);
+    }
   }
 }

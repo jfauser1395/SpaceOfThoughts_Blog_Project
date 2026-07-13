@@ -1,0 +1,26 @@
+@if (isVisible) {
+  <!-- Shared full-page status shown by data-driven public routes -->
+  <div
+    class="app-loading-overlay"
+    [class.is-leaving]="isLeaving"
+    role="status"
+    aria-live="polite"
+    aria-busy="true"
+  >
+    <div
+      class="loadAnimation app-loading-animation"
+      [class.is-paused]="hasConnectionTimedOut"
+    >
+      <!-- The icon is decorative because the adjacent text announces the loading state -->
+      <img
+        src="assets/loadIcon.svg"
+        alt=""
+        class="app-loading-icon"
+        aria-hidden="true"
+      />
+      <span class="app-loading-note">
+        {{ hasConnectionTimedOut ? "server not reachable" : "loading" }}
+      </span>
+    </div>
+  </div>
+}

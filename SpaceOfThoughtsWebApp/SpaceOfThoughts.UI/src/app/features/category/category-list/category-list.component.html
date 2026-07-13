@@ -1,123 +1,100 @@
-<div class="p-2">
-  <div class="card bg-gradient container mt-5">
-    <h1 class="mt-4">Category List</h1>
+<div class="admin-page">
+  <!-- Admin panel for managing categories -->
+  <section class="admin-panel">
+    <!-- Category list header and add action -->
+    <header class="admin-panel-header">
+      <div>
+        <h1>Manage categories</h1>
+      </div>
 
-    <!-- Search bar section to find a specific category -->
-    <div class="container mt-5">
-      <div class="col-md">
-        <div class="custom-input-group">
-          <!-- Input field for category search; triggers search on 'Enter' or button click -->
-          <input
-            type="text"
-            id="searchField"
-            class="form-control"
-            (keyup.enter)="onSearch(queryText.value)"
-            placeholder="Find category"
-            aria-label="Find category"
-            aria-describedby="basic-addon1"
-            #queryText
-          />
-          <!-- Search button that triggers the same 'onSearch' method -->
-          <button
-            class="btn btn-secondary inside-btn"
-            name="searchButton"
-            (click)="onSearch(queryText.value)"
-          >
-            <i class="bi bi-search"></i>
-            <!-- Bootstrap search icon -->
-          </button>
-        </div>
+      <button
+        type="button"
+        class="admin-primary-action"
+        [routerLink]="['/admin/categories/add']"
+      >
+        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+        <span>Add category</span>
+      </button>
+    </header>
+
+    <!-- Search toolbar for filtering categories -->
+    <div class="admin-toolbar">
+      <div class="admin-search-field custom-input-group">
+        <input
+          type="text"
+          id="searchField"
+          class="form-control"
+          (keyup.enter)="onSearch(queryText.value)"
+          placeholder="Find category"
+          aria-label="Find category"
+          aria-describedby="basic-addon1"
+          #queryText
+        />
+        <button
+          class="admin-icon-button inside-btn"
+          name="searchButton"
+          (click)="onSearch(queryText.value)"
+          aria-label="Search categories"
+        >
+          <i class="bi bi-search" aria-hidden="true"></i>
+        </button>
       </div>
     </div>
 
-    <!-- Check if the async categories$ observable returns data -->
     @if (categories$ | async; as categories) {
-      <!-- Table displaying categories in a responsive layout -->
-      <div class="table-responsive">
-        <table
-          class="table-bordered mt-4 table"
-          style="border-radius: 10px; overflow: hidden"
-        >
-          <!-- Table header with sortable columns for Name -->
+      <!-- Category table with sortable columns -->
+      <div class="table-responsive admin-table-wrap">
+        <table class="table admin-table">
           <thead>
-            <tr class="text-center align-middle">
-              <!-- Name column with sorting functionality (ascending/descending) -->
-              <th>
-                <div class="d-flex justify-content-between">
-                  <div class="d-flex justify-content-start">
-                    <span class="mt-2">Name</span>
-                  </div>
-                  <div class="d-flex justify-content-end">
-                    <span>
-                      <!-- Sort by 'name' in ascending order -->
-                      <button
-                        type="button"
-                        class="btn btn-secondary ms-2"
-                        name="sortAscButton"
-                        (click)="sort('name', 'asc')"
-                      >
-                        <i class="bi bi-arrow-up"></i>
-                        <!-- Sort ascending icon -->
-                      </button>
-                    </span>
-                    <span>
-                      <!-- Sort by 'name' in descending order -->
-                      <button
-                        type="button"
-                        class="btn btn-secondary ms-2"
-                        name="sortDescButton"
-                        (click)="sort('name', 'desc')"
-                      >
-                        <i class="bi bi-arrow-down"></i>
-                        <!-- Sort descending icon -->
-                      </button>
-                    </span>
-                  </div>
-                </div>
-              </th>
-
-              <!-- Url Handle column -->
-              <th>
-                <span
-                  class="d-flex justify-content-start align-items-center mb-1"
+            <tr>
+              <th [attr.aria-sort]="getSortAria('name')">
+                <button
+                  type="button"
+                  class="admin-sort-button"
+                  [class.is-active]="isSortedBy('name')"
+                  name="sortNameButton"
+                  (click)="sort('name')"
+                  [attr.aria-label]="getSortLabel('category name', 'name')"
                 >
-                  Url Handle
-                  <!-- Label for the URL Handle column -->
-                </span>
+                  Name
+                </button>
               </th>
-
-              <!-- Tools column for actions (Edit button) -->
-              <th>
-                <span
-                  class="d-flex justify-content-center align-items-center mb-1"
+              <th [attr.aria-sort]="getSortAria('urlHandle')">
+                <button
+                  type="button"
+                  class="admin-sort-button"
+                  [class.is-active]="isSortedBy('urlHandle')"
+                  name="sortUrlHandleButton"
+                  (click)="sort('urlHandle')"
+                  [attr.aria-label]="getSortLabel('url handle', 'urlHandle')"
                 >
-                  <i class="bi bi-tools"></i>
-                  <!-- Tools icon for actions -->
-                </span>
+                  Url handle
+                </button>
+              </th>
+              <th class="admin-tools-column">
+                <i class="bi bi-tools" aria-hidden="true"></i>
               </th>
             </tr>
           </thead>
 
-          <!-- Table body displaying the categories dynamically -->
           <tbody>
             @for (category of categories; track category.id) {
               <tr>
-                <!-- Category name -->
-                <td>{{ category.name }}</td>
-                <!-- Category URL Handle -->
-                <td>{{ category.urlHandle }}</td>
-                <!-- Edit button for the category, navigating to the edit page -->
+                <td class="admin-strong-cell">{{ category.name }}</td>
                 <td>
-                  <span
-                    class="d-flex justify-content-center align-items-center"
-                  >
+                  {{ category.urlHandle }}
+                </td>
+                <td>
+                  <div class="admin-row-actions">
                     <a
-                      class="btn btn-secondary"
+                      class="admin-row-action"
                       name="editButton"
                       [routerLink]="['/admin/categories', category.id]"
-                      >Edit</a
                     >
-                  </span>
+                      <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                      <span>Edit</span>
+                    </a>
+                  </div>
                 </td>
               </tr>
             }
@@ -126,64 +103,47 @@
       </div>
     }
 
-    <!-- Button and Pagination controls -->
-    <div class="d-flex justify-content-between">
-      <!-- Button to add a new category -->
-      <div class="flex-column align-item-start">
-        <button
-          class="btn btn-primary mb-2"
-          [routerLink]="['/admin/categories/add']"
-        >
-          Add Category
-        </button>
-      </div>
+    @if (list.length > 1) {
+      <!-- Pagination controls for the category table -->
+      <footer class="admin-panel-footer">
+        <nav aria-label="Page navigation">
+          <ul class="pagination admin-pagination">
+            <li class="page-item">
+              <button
+                class="page-link"
+                (click)="getPrevPage()"
+                name="previousButton"
+                aria-label="Previous page"
+              >
+                <i class="bi bi-caret-left" aria-hidden="true"></i>
+              </button>
+            </li>
 
-      <!-- Conditional pagination (shown if total count is greater than 4) -->
-      @if (this.totalCount >= 4) {
-        <div class="flex-colmn align-item-end">
-          <!-- Pagination controls -->
-          <nav aria-label="Page navigation">
-            <ul class="pagination">
+            @for (item of list; track $index; let idx = $index) {
               <li class="page-item">
-                <!-- Button to go to the previous page -->
                 <button
                   class="page-link"
-                  (click)="getPrevPage()"
-                  name="previousButton"
+                  (click)="getPage(idx + 1)"
+                  name="pageNumberButtons"
                 >
-                <i class="bi bi-caret-left"></i>
+                  {{ idx + 1 }}
                 </button>
               </li>
+            }
 
-              <!-- Page number buttons -->
-              @for (item of list; track $index; let idx = $index) {
-                <li class="page-item">
-                  <!-- Button to go to a specific page -->
-                  <button
-                    class="page-link"
-                    (click)="getPage(idx + 1)"
-                    name="pageNumberButtons"
-                  >
-                    {{ idx + 1 }}
-                    <!-- Display page numbers dynamically -->
-                  </button>
-                </li>
-              }
-
-              <li class="page-item">
-                <!-- Button to go to the next page -->
-                <button
-                  class="page-link"
-                  (click)="getNextPage()"
-                  name="nextButton"
-                >
-                <i class="bi bi-caret-right"></i>
-                </button>
-              </li>
-            </ul>
-          </nav>
-        </div>
-      }
-    </div>
-  </div>
+            <li class="page-item">
+              <button
+                class="page-link"
+                (click)="getNextPage()"
+                name="nextButton"
+                aria-label="Next page"
+              >
+                <i class="bi bi-caret-right" aria-hidden="true"></i>
+              </button>
+            </li>
+          </ul>
+        </nav>
+      </footer>
+    }
+  </section>
 </div>

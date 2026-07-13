@@ -1,26 +1,229 @@
-.imgStyle {
-  border: 1px solid transparent; /* Adds transparent border and smooth transitions for any changes */
-  transition: all 0.3s ease;
-  flex: 1 1 300px; /* Allow the item to grow and shrink with a base size */
-  max-width: 300px; /* Keep a consistent maximum width */
+/* Image selector host and modal sizing */
+:host {
+  display: block;
 }
 
-.imgStyle:hover {
-  box-shadow: 0 0 10px 1px white; /* Adds a white shadow around the element when hovered */
+.modal-dialog {
+  margin: 112px auto 24px;
+  max-width: min(920px, calc(100vw - 32px));
 }
 
-.imgStyle:active,
-.imgStyle:focus {
-  box-shadow: 0 0 15px 5px green; /* Adds a more prominent green shadow when the element is active or focused */
+.modal-dialog.modal-dialog-centered {
+  align-items: flex-start;
+  min-height: calc(100% - 136px);
 }
 
-.custom-image {
-  width: 100%; /* The image will fill its container */
-  aspect-ratio: 1 / 1; /* Ensures the image has a 1:1 aspect ratio */
+/* Image selector modal shell */
+.admin-image-selector {
+  background: #f8f5f7;
+  box-shadow: 0 22px 70px rgba(33, 37, 41, 0.2);
+  max-height: calc(100vh - 136px);
+  overflow: hidden;
 }
 
-.pictureWindow {
-  width: 100%; /* The div will fill its container */
-  height: 450px; /* Adjust picture window */
-  overflow-x: hidden; /* Disable horizontal scrollbar */
+/* Modal header and close button */
+.admin-image-selector .modal-header {
+  background: #f8f5f7;
+  border-bottom-color: #ead9de;
+}
+
+.admin-image-selector .modal-title {
+  color: #212529;
+  font-weight: 800;
+  opacity: 1;
+}
+
+.admin-image-selector .btn-close {
+  background-color: #fffefe;
+  background-size: 12px;
+  border: 1px solid #dec8ce;
+  border-radius: 6px;
+  height: 34px;
+  opacity: 0.88;
+  padding: 0;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s,
+    box-shadow 0.2s,
+    opacity 0.2s;
+  width: 34px;
+}
+
+.admin-image-selector .btn-close:hover,
+.admin-image-selector .btn-close:focus {
+  background-color: #f8f3f5;
+  border-color: #d47e92;
+  box-shadow: 0 0 0 0.2rem rgba(212, 126, 146, 0.16);
+  opacity: 1;
+}
+
+/* Image selector body layout */
+.admin-image-selector-body {
+  background: #f8f5f7;
+  display: grid;
+  gap: 18px;
+  max-height: min(680px, calc(100vh - 216px));
+  overflow-y: auto;
+  padding: 22px;
+  scrollbar-color: rgba(95, 45, 56, 0.22) transparent;
+  scrollbar-width: thin;
+}
+
+/* Upload and image library panels */
+.admin-image-upload,
+.admin-image-library {
+  background: #fffefe;
+  border: 1px solid #ead9de;
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.admin-image-upload h2,
+.admin-image-library h2 {
+  color: #5f2d38;
+  font-size: 20px;
+  margin: 0 0 16px;
+}
+
+/* Upload form fields and actions */
+.admin-image-upload-form .admin-form-field:last-child {
+  margin-bottom: 0;
+}
+
+.admin-image-upload-form .admin-form-field {
+  margin-bottom: 14px;
+}
+
+.admin-image-upload-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-image-upload .form-control {
+  min-height: 38px;
+}
+
+.admin-image-selector-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.admin-image-selector-actions .admin-primary-action {
+  min-width: 116px;
+  opacity: 1;
+}
+
+/* Uploaded image library scroll area */
+.admin-image-window {
+  background: #f8f5f7;
+  border: 1px solid #ead9de;
+  border-radius: 8px;
+  max-height: 300px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 16px;
+  scrollbar-color: rgba(95, 45, 56, 0.22) transparent;
+  scrollbar-width: thin;
+}
+
+/* Custom scrollbar styling */
+.admin-image-selector-body::-webkit-scrollbar,
+.admin-image-window::-webkit-scrollbar {
+  height: 5px;
+  width: 5px;
+}
+
+.admin-image-selector-body::-webkit-scrollbar-track,
+.admin-image-window::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-image-selector-body::-webkit-scrollbar-thumb,
+.admin-image-window::-webkit-scrollbar-thumb {
+  background: rgba(95, 45, 56, 0.2);
+  border-radius: 999px;
+}
+
+.admin-image-selector-body::-webkit-scrollbar-thumb:hover,
+.admin-image-window::-webkit-scrollbar-thumb:hover {
+  background: rgba(95, 45, 56, 0.32);
+}
+
+/* Uploaded image grid and cards */
+.admin-image-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+
+.admin-image-card {
+  background: #fffefe;
+  border: 1px solid #ead9de;
+  border-radius: 8px;
+  padding: 12px;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    transform 0.2s;
+}
+
+.admin-image-card:hover,
+.admin-image-card:focus-within {
+  border-color: rgba(212, 126, 146, 0.58);
+  box-shadow: 0 12px 28px rgba(33, 37, 41, 0.12);
+  transform: translateY(-1px);
+}
+
+.admin-image-preview {
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+  display: block;
+  object-fit: cover;
+  width: 100%;
+}
+
+.admin-image-card h3 {
+  color: #5f2d38;
+  font-size: 15px;
+  font-weight: 700;
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+/* Image card actions */
+.admin-image-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+/* Mobile image selector layout */
+@media (max-width: 576px) {
+  .modal-dialog {
+    margin: 88px auto 18px;
+    max-width: calc(100vw - 20px);
+  }
+
+  .admin-image-selector-body {
+    padding: 16px;
+  }
+
+  .admin-image-upload,
+  .admin-image-library {
+    padding: 14px;
+  }
+
+  .admin-image-window {
+    max-height: 280px;
+    padding: 12px;
+  }
+
+  .admin-image-selector-actions .admin-primary-action,
+  .admin-image-actions .admin-row-action,
+  .admin-image-actions .admin-danger-action {
+    width: 100%;
+  }
 }

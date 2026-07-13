@@ -16,4 +16,9 @@ export class StyleService {
   setBodyStyle(style: string, value: string) {
     this.renderer.setStyle(document.body, style, value);
   }
+
+  // Remove a page-specific body style when its owning component is destroyed
+  removeBodyStyle(style: string) {
+    this.renderer.removeStyle(document.body, style);
+  }
 }

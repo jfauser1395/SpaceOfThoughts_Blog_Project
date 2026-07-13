@@ -1,0 +1,126 @@
+/* Blogs summary editor layout */
+.blog-summary-editor-layout {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+}
+
+/* Blogs summary editor actions and feedback */
+.blog-summary-editor-actions {
+  border-top: 0;
+  padding: 4px 0 0;
+}
+
+.admin-editor-alert {
+  border-radius: 8px;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+}
+
+.admin-editor-alert-error {
+  background: #f8d7da;
+  border: 1px solid #f1aeb5;
+  color: #842029;
+}
+
+.admin-editor-alert-success {
+  background: #d1e7dd;
+  border: 1px solid #a3cfbb;
+  color: #0f5132;
+}
+
+/* Blogs summary live preview */
+.blog-summary-editor-preview {
+  background: #f8f3f5;
+  border: 1px solid #ead9de;
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.blog-summary-editor-preview-stage {
+  background-color: #17191d;
+  background-position: center;
+  background-size: cover;
+  border-radius: 8px;
+  min-height: 360px;
+  overflow: hidden;
+  padding: 32px;
+  position: relative;
+}
+
+.blog-summary-editor-preview-stage::before {
+  background:
+    linear-gradient(90deg, rgba(15, 17, 20, 0.82), rgba(15, 17, 20, 0.48)),
+    linear-gradient(0deg, rgba(15, 17, 20, 0.34), rgba(15, 17, 20, 0.12));
+  content: "";
+  inset: 0;
+  position: absolute;
+}
+
+/* Preview card inside the blogs page background */
+.blog-summary-editor-preview-card {
+  background: rgba(17, 19, 23, 0.68);
+  border: 1px solid rgba(255, 254, 254, 0.22);
+  border-radius: 8px;
+  box-shadow: 0 22px 58px rgba(0, 0, 0, 0.36);
+  color: #fffefe;
+  display: grid;
+  grid-template-rows: 140px 1fr;
+  max-width: 280px;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+  -webkit-backdrop-filter: blur(22px);
+  backdrop-filter: blur(22px);
+}
+
+.blog-summary-editor-preview-image {
+  background: rgba(255, 254, 254, 0.1);
+}
+
+.blog-summary-editor-preview-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+}
+
+.blog-summary-editor-preview-meta {
+  color: #f1c2cc;
+  display: flex;
+  font-size: 10px;
+  font-weight: 700;
+  justify-content: space-between;
+  text-transform: uppercase;
+}
+
+.blog-summary-editor-preview-body strong {
+  color: #fffefe;
+  font-family: NavFont, serif;
+  font-size: 24px;
+  line-height: 1.05;
+}
+
+.blog-summary-editor-preview-body span:last-child {
+  color: #f4e9ec;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/* Responsive blogs summary editor layout */
+@media (max-width: 992px) {
+  .blog-summary-editor-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Mobile blogs summary preview sizing */
+@media (max-width: 576px) {
+  .blog-summary-editor-preview-stage {
+    padding: 18px;
+  }
+
+  .blog-summary-editor-preview-card {
+    max-width: none;
+  }
+}

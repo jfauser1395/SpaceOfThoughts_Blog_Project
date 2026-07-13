@@ -1,0 +1,138 @@
+<div class="cover-editor-page">
+  <div class="container cover-editor-shell">
+    <!-- Cover editor page header -->
+    <header class="cover-editor-header">
+      <div>
+        <h1>Cover page</h1>
+        <p>Edit the first page visitors see before they enter the blog.</p>
+      </div>
+      <a class="btn btn-outline-secondary" [routerLink]="['/']">
+        <i class="bi bi-eye" aria-hidden="true"></i>
+        View cover
+      </a>
+    </header>
+
+    <!-- Save and load feedback messages -->
+    @if (errorMessage) {
+      <div class="cover-editor-alert cover-editor-alert-error">
+        {{ errorMessage }}
+      </div>
+    }
+    @if (successMessage) {
+      <div class="cover-editor-alert cover-editor-alert-success">
+        {{ successMessage }}
+      </div>
+    }
+
+    @if (model) {
+      <!-- Cover page editing form with live preview -->
+      <form
+        class="cover-editor-layout"
+        #form="ngForm"
+        (ngSubmit)="onFormSubmit()"
+      >
+        <!-- Editable cover page fields -->
+        <section
+          class="cover-editor-fields"
+          aria-labelledby="cover-content-heading"
+        >
+          <h2 id="cover-content-heading">Welcome copy</h2>
+
+          <div class="cover-editor-field">
+            <label for="welcomeTitle">Welcome title</label>
+            <input
+              id="welcomeTitle"
+              name="welcomeTitle"
+              class="form-control"
+              type="text"
+              maxlength="160"
+              required
+              [(ngModel)]="model.welcomeTitle"
+            />
+          </div>
+
+          <div class="cover-editor-field">
+            <label for="introduction">Introduction speech</label>
+            <textarea
+              id="introduction"
+              name="introduction"
+              class="form-control scroll scroll--simple"
+              maxlength="2000"
+              required
+              rows="8"
+              [(ngModel)]="model.introduction"
+            ></textarea>
+          </div>
+
+          <!-- Background image URL can also be filled through the image selector modal -->
+          <div class="cover-editor-field">
+            <label for="backgroundImageUrl">Background image URL</label>
+            <div class="input-group">
+              <input
+                id="backgroundImageUrl"
+                name="backgroundImageUrl"
+                class="form-control"
+                type="text"
+                [(ngModel)]="model.backgroundImageUrl"
+              />
+              <button
+                type="button"
+                class="btn btn-secondary"
+                data-bs-toggle="modal"
+                data-bs-target="#coverBackgroundModal"
+              >
+                <i class="bi bi-image" aria-hidden="true"></i>
+                Select image
+              </button>
+            </div>
+          </div>
+
+          <div class="cover-editor-actions">
+            <button
+              class="btn btnPrimary"
+              type="submit"
+              [disabled]="isSaving || form.invalid"
+            >
+              <i class="bi bi-save" aria-hidden="true"></i>
+              {{ isSaving ? "Saving..." : "Save cover page" }}
+            </button>
+          </div>
+        </section>
+
+        <!-- Live preview of the public cover page -->
+        <section
+          class="cover-editor-preview"
+          aria-labelledby="cover-preview-heading"
+        >
+          <h2 id="cover-preview-heading">Preview</h2>
+          <div
+            class="cover-editor-preview-image"
+            [style.background-image]="'url(' + previewBackgroundImageUrl + ')'"
+          >
+            <div>
+              <span>Cover page</span>
+              <strong>{{ model.welcomeTitle }}</strong>
+              <p>{{ model.introduction }}</p>
+            </div>
+          </div>
+        </section>
+      </form>
+    } @else if (!errorMessage) {
+      <!-- Loading state while the cover page request is pending -->
+      <div class="cover-editor-loading">Loading cover page...</div>
+    }
+  </div>
+</div>
+
+<!-- Shared image selector modal for choosing the cover background -->
+<div
+  class="modal fade"
+  id="coverBackgroundModal"
+  data-bs-backdrop="true"
+  data-bs-keyboard="true"
+  tabindex="-1"
+  aria-labelledby="selectModalLabel"
+  aria-hidden="true"
+>
+  <app-image-selector></app-image-selector>
+</div>

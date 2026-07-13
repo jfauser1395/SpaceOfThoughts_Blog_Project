@@ -1,89 +1,106 @@
-<div class="mt-3 p-3">
-  <div class="row align-items-start justify-content-center">
-    <!-- Check if there are no blogs -->
-    @if (!noBlogs) {
-      <!-- Check if the blogs observable has emitted data -->
-      @if (blogs$ | async; as blogs) {
-        <!-- Loop through the blogs and display each blog -->
-        @for (blog of blogs; track blog) {
-          <!-- Check if the blog is visible -->
-          @if (blog.isVisible) {
-            <div class="col-md-6 col-lg-6 col-xl-4 col-xxl-3 d-flex mb-2 p-2">
-              <!-- Blog post card -->
-              <div class="card d-flex cardBackground w-100 cardBackground">
-                <!-- Blog post featured image -->
-                <img
-                  [src]="blog.featuredImageUrl"
-                  [alt]="blog.title"
-                  class="card-img-top"
-                  (load)="loadImageOff()"
-                  aria-label="Blog post featured image"
-                />
-                <div class="d-flex justify-content-between mt-1">
-                  <div class="d-flex">
-                    <!-- Loop through the categories and display each category -->
-                    @for (category of blog.categories; track category) {
-                      <span class="badge bg-gradient border border-1 ms-3 mt-1">
-                        {{ category.name }}
-                      </span>
-                    }
-                  </div>
-                  <div class="d-flex justify-content-end">
-                    <!-- Display the published date of the blog post -->
-                    <span class="blogFontTheme me-3">
-                      {{ blog.publishedDate | date: "yyyy-MM-dd" }}
+<div
+  class="blog-summary-page"
+  [style.background-image]="'url(' + backgroundImageUrl + ')'"
+>
+  <!-- Block the page while its required posts, categories, or settings are loading -->
+  <app-loading-overlay [loading]="isPageLoading" />
+
+  <div class="blog-summary-content">
+    @if (categories$ | async; as categories) {
+      <!-- Category filter bar for public blog posts -->
+      <nav class="category-filter-bar" aria-label="Filter blogs by category">
+        <button
+          type="button"
+          class="category-filter-button"
+          [class.is-active]="selectedCategoryId === 'all'"
+          [class.is-rolling]="isCategoryRolling('all')"
+          [class.is-roll-forward]="rollingDirection === 'forward'"
+          [class.is-roll-backward]="rollingDirection === 'backward'"
+          [class.is-roll-target]="selectedCategoryId === 'all'"
+          [style.--category-roll-index]="getCategoryRollIndex('all')"
+          (click)="selectCategory('all')"
+        >
+          All
+        </button>
+        @for (category of categories; track category.id) {
+          <button
+            type="button"
+            class="category-filter-button"
+            [class.is-active]="selectedCategoryId === category.id"
+            [class.is-rolling]="isCategoryRolling(category.id)"
+            [class.is-roll-forward]="rollingDirection === 'forward'"
+            [class.is-roll-backward]="rollingDirection === 'backward'"
+            [class.is-roll-target]="selectedCategoryId === category.id"
+            [style.--category-roll-index]="getCategoryRollIndex(category.id)"
+            (click)="selectCategory(category.id)"
+          >
+            {{ category.name }}
+          </button>
+        }
+      </nav>
+    }
+
+    <!-- Blog summary results and loading state -->
+    <section class="category-results" aria-label="Blog posts">
+      @if (!isLoadingBlogs) {
+        @if (filteredBlogs.length > 0) {
+          <!-- Grid of public blog summary cards -->
+          <div class="blog-summary-grid">
+            @for (blog of filteredBlogs; track blog.id) {
+              <a
+                class="blog-summary-card"
+                [routerLink]="['/blog', blog.urlHandle]"
+                [attr.aria-label]="'Read blog ' + blog.title"
+              >
+                <span class="blog-summary-image">
+                  <img
+                    [src]="blog.featuredImageUrl"
+                    [alt]="blog.title"
+                    aria-label="Blog post featured image"
+                  />
+                </span>
+
+                <span class="blog-summary-card-body">
+                  <span class="blog-summary-meta">
+                    <span class="blog-summary-categories">
+                      @for (category of blog.categories; track category) {
+                        <span class="blog-category-badge">
+                          {{ category.name }}
+                        </span>
+                      }
                     </span>
-                  </div>
-                </div>
-                <div class="card-body d-flex flex-column">
-                  <!-- Blog post title -->
-                  <h5 class="card-title text-center">
-                    {{ blog.title }}
-                  </h5>
-                  <!-- Blog post short description -->
-                  <p class="card-text scroll scroll--simple p-2">
-                    {{ blog.shortDescription }}
-                  </p>
-                  <!-- Read more link -->
-                  <span class="d-flex justify-content-center mt-auto">
-                    @if (user === undefined) {
-                      <a
-                        [routerLink]="['/login']"
-                        class="btn btn-outline-dark border border-0 blogFontTheme"
-                        aria-label="Read more link"
-                        name="read about blog"
-                      >
-                        Read blog
-                      </a>
-                    } @else {
-                      <a
-                        [routerLink]="['/blog', blog.urlHandle]"
-                        class="btn btn-outline-dark border border-0 blogFontTheme"
-                        aria-label="Read more link"
-                        name="read about blog"
-                      >
-                        Read blog
-                      </a>
-                    }
+                    <time [attr.datetime]="blog.publishedDate">
+                      {{ blog.publishedDate | date: "yyyy-MM-dd" }}
+                    </time>
                   </span>
-                </div>
-              </div>
-            </div>
-          }
+
+                  <span class="blog-summary-title">{{ blog.title }}</span>
+                  <span class="blog-summary-description">
+                    {{ blog.shortDescription }}
+                  </span>
+                </span>
+              </a>
+            }
+          </div>
+        } @else {
+          <!-- Empty state when no blog posts match the active filter -->
+          <div class="category-empty-state">
+            <img
+              src="assets/loadIcon.svg"
+              alt=""
+              class="category-empty-icon"
+              aria-hidden="true"
+            />
+            <p>
+              @if (selectedCategoryId === "all") {
+                No blogs found.
+              } @else {
+                No blogs in this category yet.
+              }
+            </p>
+          </div>
         }
       }
-    } @else {
-      <!-- Loading animation if blogs data is not available -->
-      <div class="loadAnimation ms-5">
-        <img
-          src="assets/loadIcon.svg"
-          alt="loading data..."
-          height="450"
-          width="450"
-          (load)="loadImageOn()"
-          aria-label="Loading animation"
-        />
-      </div>
-    }
+    </section>
   </div>
 </div>

@@ -1,7 +1,13 @@
+<!-- Main site navigation -->
 <header>
   <app-navbar></app-navbar>
 </header>
 
-<main id="main-content">
+<!-- Routed page content with optional fade transition classes -->
+<main
+  id="main-content"
+  [class.route-fade-fallback]="useRouteFadeFallback"
+  [class.route-fade-out]="isRouteFadingOut"
+>
   <router-outlet />
 </main>

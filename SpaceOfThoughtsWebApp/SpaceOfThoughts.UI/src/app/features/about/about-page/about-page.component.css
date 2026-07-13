@@ -1,0 +1,194 @@
+/* Host and page background layout */
+:host {
+  display: block;
+}
+
+.about-page {
+  background:
+    radial-gradient(
+      circle at 50% 0%,
+      rgba(212, 126, 146, 0.18),
+      transparent 34%
+    ),
+    #f8f3f5;
+  color: #2b2528;
+  min-height: 100vh;
+  padding: 96px clamp(16px, 4vw, 56px) 56px;
+}
+
+/* Author signature section */
+.about-signature {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 auto 28px;
+  text-align: center;
+}
+
+.about-signature-icon {
+  animation: about-signature-settle 900ms ease-out both;
+  height: clamp(140px, 18vw, 210px);
+  width: clamp(140px, 18vw, 210px);
+}
+
+.about-signature p {
+  color: #72535b;
+  font-size: 14px;
+  font-style: italic;
+  margin: 0;
+}
+
+/* Main about page content shell */
+.about-shell {
+  margin: 0 auto;
+  max-width: 1040px;
+}
+
+/* About page heading */
+.about-header {
+  border-bottom: 1px solid rgba(166, 103, 118, 0.26);
+  margin-bottom: 24px;
+  padding-bottom: 18px;
+  text-align: center;
+}
+
+.about-kicker {
+  color: #a66776;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+/* About section typography */
+.about-header h1,
+.about-section h2 {
+  color: #5f2d38;
+  font-family: NavFont, serif;
+}
+
+.about-header h1 {
+  font-size: clamp(46px, 7vw, 78px);
+  line-height: 1;
+  margin: 8px 0 0;
+}
+
+.about-section {
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid rgba(166, 103, 118, 0.2);
+  border-radius: 8px;
+  box-shadow: 0 18px 48px rgba(95, 45, 56, 0.08);
+  margin-bottom: 18px;
+  padding: clamp(22px, 4vw, 36px);
+}
+
+/* Author image and placeholder */
+.about-author {
+  align-items: center;
+  display: grid;
+  gap: clamp(20px, 4vw, 34px);
+  grid-template-columns: minmax(180px, 260px) 1fr;
+}
+
+.about-photo-placeholder {
+  align-items: center;
+  aspect-ratio: 1;
+  background: linear-gradient(135deg, #ddd2d6, #bba9af);
+  border: 1px dashed rgba(95, 45, 56, 0.42);
+  border-radius: 8px;
+  color: rgba(95, 45, 56, 0.54);
+  display: flex;
+  font-family: NavFont, serif;
+  font-size: clamp(58px, 9vw, 92px);
+  justify-content: center;
+  width: 100%;
+}
+
+.about-profile-image {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  object-fit: cover;
+  width: 100%;
+}
+
+/* Terms and contact styles */
+.about-section h2 {
+  font-size: clamp(30px, 4vw, 44px);
+  line-height: 1.05;
+  margin: 0 0 14px;
+}
+
+.about-section p,
+.terms-list {
+  color: #473d41;
+  font-size: clamp(16px, 1.5vw, 18px);
+  line-height: 1.72;
+}
+
+.about-section p {
+  margin: 0 0 14px;
+}
+
+.about-section p:last-child {
+  margin-bottom: 0;
+}
+
+.terms-list {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding-left: 22px;
+}
+
+.terms-list li::marker {
+  color: #d47e92;
+}
+
+.about-contact a {
+  color: #8e4455;
+  font-weight: 700;
+}
+
+.about-contact a:hover {
+  color: #5f2d38;
+}
+
+/* Signature entrance animation */
+@keyframes about-signature-settle {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.92) rotate(-2deg);
+  }
+
+  65% {
+    opacity: 1;
+    transform: translateY(0) scale(1.04) rotate(1deg);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0);
+  }
+}
+
+/* Mobile layout adjustments */
+@media (max-width: 720px) {
+  .about-page {
+    padding-top: 88px;
+  }
+
+  .about-author {
+    grid-template-columns: 1fr;
+  }
+
+  .about-photo-placeholder {
+    max-width: 240px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .about-signature-icon {
+    animation: none;
+  }
+}

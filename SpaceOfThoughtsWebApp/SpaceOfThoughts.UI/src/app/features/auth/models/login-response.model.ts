@@ -5,4 +5,6 @@ export interface LoginResponse {
     email: string; // User's email address
     token: string; // JWT token for authentication
     roles: string[]; // Array of roles assigned to the user
+    profileImageUrl?: string | null; // Optional profile picture URL
+    profileImagePosition?: string | null; // Optional profile picture position and zoom
 }

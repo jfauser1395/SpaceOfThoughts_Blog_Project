@@ -20,6 +20,7 @@ namespace SpaceOfThoughts.API.Data
         public required DbSet<AboutPage> AboutPages { get; set; } // Table to store about page content
         public required DbSet<BlogSummaryPage> BlogSummaryPages { get; set; } // Table to store blog summary page content
 
+        // Configure comment relationships, cascade behavior, and reaction uniqueness constraints
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

@@ -1,11 +1,14 @@
-<!-- Check if the blogPost observable has emitted data -->
-@if(blogPost$ | async; as blogPost) {
+<!-- Show the shared loader while the initial article request is pending -->
+<app-loading-overlay [loading]="isBlogPostLoading" />
+
+<!-- Render article content after the route request returns successfully -->
+@if (blogPost) {
   <div class="container">
     <div class="py-5">
       <div class="col-12 col-md-12 col-lg-12 mx-auto">
         <!-- Blog post title -->
         <h1 class="mb-4 text-center">{{ blogPost.title }}</h1>
-        
+
         <!-- Featured image of the blog post -->
         <img
           [src]="blogPost.featuredImageUrl"
@@ -13,25 +16,25 @@
           class="img-fluid full-width mt-2 rounded-3"
           aria-label="Featured image"
         />
-        
+
         <!-- Blog post categories and published date -->
-        @if(blogPost.categories) {
-        <div class="d-flex justify-content-between mt-4 mb-3">
-          <div class="d-flex">
-            <!-- Loop through the categories and display each category -->
-            @for(category of blogPost.categories; track category) {
-            <span class="badge bg-gradient border border-1 me-2">
-              {{ category.name }}
-            </span>
-            }
+        @if (blogPost.categories) {
+          <div class="d-flex justify-content-between flex-wrap gap-2 mt-4 mb-3">
+            <div class="d-flex flex-wrap gap-2">
+              <!-- Loop through the categories and display each category -->
+              @for (category of blogPost.categories; track category) {
+                <span class="blog-category-badge">
+                  {{ category.name }}
+                </span>
+              }
+            </div>
+            <div class="d-flex justify-content-end">
+              <!-- Display the published date of the blog post -->
+              <span>{{ blogPost.publishedDate | date: "MM-dd-yy" }}</span>
+            </div>
           </div>
-          <div class="d-flex justify-content-end">
-            <!-- Display the published date of the blog post -->
-            <span>{{ blogPost.publishedDate | date : "MM-dd-yy" }}</span>
-          </div>
-        </div>
         }
-        
+
         <!-- Blog post content -->
         <div class="mt-4 blog-content p-3">
           <markdown [data]="blogPost.content"></markdown>
@@ -40,19 +43,360 @@
             Article published by: {{ blogPost.author }}
           </h6>
         </div>
+
+        @if (blogPost.isVisible) {
+          <!-- Blog post comments -->
+          <section
+            class="comments-section mt-5"
+            aria-labelledby="comments-heading"
+          >
+            <div class="comments-header">
+              <div>
+                <h2 id="comments-heading" class="comments-title">Comments</h2>
+                <p class="comments-count mb-0">
+                  {{ totalCommentCount }}
+                  {{ totalCommentCount === 1 ? "comment" : "comments" }}
+                </p>
+              </div>
+
+              @if (currentUser) {
+                <span class="comment-author-pill">
+                  {{ currentUser.userName }}
+                </span>
+              }
+            </div>
+
+            @if (currentUser) {
+              <form
+                [formGroup]="commentForm"
+                (ngSubmit)="onSubmitComment()"
+                class="comment-form"
+              >
+                <label for="comment" class="comment-label">Add a comment</label>
+                <textarea
+                  id="comment"
+                  class="form-control comment-textarea"
+                  rows="4"
+                  maxlength="2000"
+                  formControlName="comment"
+                  aria-label="Comment text"
+                ></textarea>
+
+                <div class="comment-toolbar">
+                  <div class="comment-validation">
+                    @if (commentControl.invalid && commentControl.touched) {
+                      <small>
+                        @if (commentControl.hasError("required")) {
+                          A comment is required.
+                        } @else if (commentControl.hasError("maxlength")) {
+                          Comments can be up to 2000 characters.
+                        }
+                      </small>
+                    }
+                  </div>
+                  <small class="comment-characters">
+                    {{ remainingCommentCharacters }} characters left
+                  </small>
+                </div>
+
+                <div class="comment-actions">
+                  <button
+                    type="submit"
+                    class="btn btnPrimary comment-submit-button"
+                    [disabled]="isSubmittingComment || commentControl.invalid"
+                    aria-label="Post comment button"
+                  >
+                    @if (isSubmittingComment) {
+                      Posting...
+                    } @else {
+                      Post comment
+                    }
+                  </button>
+                </div>
+              </form>
+            } @else {
+              <div class="comment-login-prompt">
+                <a [routerLink]="['/login']">Sign in</a>
+                <span>to comment on this post.</span>
+              </div>
+            }
+
+            @if (commentError) {
+              <div class="comment-alert comment-alert-error" role="alert">
+                {{ commentError }}
+              </div>
+            }
+
+            @if (commentSuccess) {
+              <div class="comment-alert comment-alert-success" role="status">
+                {{ commentSuccess }}
+              </div>
+            }
+
+            @if (isCommentsLoading) {
+              <div class="comments-empty-state">Loading comments...</div>
+            } @else if (comments.length > 0) {
+              <div class="comment-list">
+                @for (comment of comments; track comment.id) {
+                  <ng-container
+                    [ngTemplateOutlet]="threadedCommentTemplate"
+                    [ngTemplateOutletContext]="{
+                      $implicit: comment,
+                      isThreadItem: false,
+                    }"
+                  ></ng-container>
+                }
+              </div>
+
+              <ng-template
+                #threadedCommentTemplate
+                let-comment
+                let-isThreadItem="isThreadItem"
+              >
+                <article
+                  class="comment-card"
+                  [class.reply-card]="(comment.depth ?? 1) > 1"
+                >
+                  <div
+                    class="comment-avatar"
+                    [class.reply-avatar]="(comment.depth ?? 1) > 1"
+                    aria-hidden="true"
+                  >
+                    @if (comment.isDeleted || comment.isAuthorDeleted) {
+                      <i class="bi bi-person-x" aria-hidden="true"></i>
+                    } @else if (comment.authorProfileImageUrl) {
+                      <img
+                        [src]="comment.authorProfileImageUrl"
+                        [alt]="comment.authorName + ' profile picture'"
+                        [style.height.%]="
+                          getAvatarImageZoom(comment.authorProfileImagePosition)
+                        "
+                        [style.object-position]="
+                          getAvatarImagePosition(
+                            comment.authorProfileImagePosition
+                          )
+                        "
+                        [style.transform]="
+                          getAvatarImageTransform(
+                            comment.authorProfileImagePosition
+                          )
+                        "
+                        [style.width.%]="
+                          getAvatarImageZoom(comment.authorProfileImagePosition)
+                        "
+                      />
+                    } @else {
+                      <span>{{ getAvatarInitial(comment.authorName) }}</span>
+                    }
+                  </div>
+                  <div class="comment-body">
+                    <div class="comment-meta">
+                      <strong class="comment-author">{{
+                        comment.authorName
+                      }}</strong>
+                      <time class="comment-date">
+                        {{ comment.createdAt | date: "yyyy-MM-dd HH:mm" }}
+                      </time>
+                    </div>
+                    @if (getReplyTargetName(comment); as replyTargetName) {
+                      <div class="reply-target">
+                        Replying to <span>{{ replyTargetName }}</span>
+                      </div>
+                    }
+                    <p class="comment-content">{{ comment.content }}</p>
+
+                    <div class="comment-controls">
+                      @if (!comment.isDeleted) {
+                        <button
+                          type="button"
+                          class="comment-control-button reaction-button"
+                          [class.is-active]="comment.userReaction === 'like'"
+                          [disabled]="isReacting(comment.id)"
+                          (click)="onToggleReaction(comment, 'like')"
+                          aria-label="Like comment"
+                        >
+                          <i
+                            class="bi bi-hand-thumbs-up-fill reaction-icon"
+                            aria-hidden="true"
+                          ></i>
+                          <span class="reaction-count">{{
+                            comment.likeCount
+                          }}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          class="comment-control-button reaction-button"
+                          [class.is-active]="comment.userReaction === 'dislike'"
+                          [disabled]="isReacting(comment.id)"
+                          (click)="onToggleReaction(comment, 'dislike')"
+                          aria-label="Dislike comment"
+                        >
+                          <i
+                            class="bi bi-hand-thumbs-down-fill reaction-icon"
+                            aria-hidden="true"
+                          ></i>
+                          <span class="reaction-count">{{
+                            comment.dislikeCount
+                          }}</span>
+                        </button>
+                      }
+
+                      @if (currentUser && canReplyToComment(comment)) {
+                        <button
+                          type="button"
+                          class="comment-control-button"
+                          (click)="onToggleReplyForm(comment.id)"
+                          aria-label="Reply to comment"
+                        >
+                          Reply
+                        </button>
+                      }
+
+                      @if (canDeleteComment(comment)) {
+                        <button
+                          type="button"
+                          class="comment-control-button"
+                          [disabled]="isDeletingComment(comment.id)"
+                          (click)="onDeleteComment(comment)"
+                          aria-label="Delete comment"
+                        >
+                          <i class="bi bi-trash3" aria-hidden="true"></i>
+                          {{ isDeletingComment(comment.id) ? "Deleting..." : "Delete" }}
+                        </button>
+                      }
+                    </div>
+
+                    @if (activeReplyCommentId === comment.id) {
+                      <form
+                        [formGroup]="replyForm"
+                        (ngSubmit)="onSubmitReply(comment)"
+                        class="reply-form"
+                      >
+                        <label
+                          class="comment-label"
+                          for="reply-{{ comment.id }}"
+                        >
+                          Reply to {{ comment.authorName }}
+                        </label>
+                        <textarea
+                          id="reply-{{ comment.id }}"
+                          class="form-control comment-textarea reply-textarea"
+                          rows="3"
+                          maxlength="2000"
+                          formControlName="reply"
+                          aria-label="Reply text"
+                        ></textarea>
+
+                        <div class="comment-toolbar">
+                          <div class="comment-validation">
+                            @if (replyControl.invalid && replyControl.touched) {
+                              <small>
+                                @if (replyControl.hasError("required")) {
+                                  A reply is required.
+                                } @else if (
+                                  replyControl.hasError("maxlength")
+                                ) {
+                                  Replies can be up to 2000 characters.
+                                }
+                              </small>
+                            }
+                          </div>
+                          <small class="comment-characters">
+                            {{ remainingReplyCharacters }} characters left
+                          </small>
+                        </div>
+
+                        <div class="reply-actions">
+                          <button
+                            type="button"
+                            class="btn btn-outline-secondary reply-cancel-button"
+                            (click)="onCancelReply()"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            class="btn btnPrimary comment-submit-button"
+                            [disabled]="
+                              isSubmittingReply || replyControl.invalid
+                            "
+                            aria-label="Post reply button"
+                          >
+                            @if (isSubmittingReply) {
+                              Posting...
+                            } @else {
+                              Post reply
+                            }
+                          </button>
+                        </div>
+                      </form>
+                    }
+
+                    @if (
+                      !isThreadItem &&
+                      (comment.depth ?? 1) === 1 &&
+                      comment.replies.length > 0
+                    ) {
+                      <button
+                        type="button"
+                        class="thread-toggle-button"
+                        (click)="onToggleThread(comment.id)"
+                        aria-label="Toggle replies"
+                      >
+                        <i
+                          class="bi thread-toggle-icon"
+                          [class.bi-chevron-right]="
+                            !isThreadExpanded(comment.id)
+                          "
+                          [class.bi-chevron-down]="isThreadExpanded(comment.id)"
+                          aria-hidden="true"
+                        ></i>
+                        <span>
+                          {{
+                            isThreadExpanded(comment.id)
+                              ? "Hide replies"
+                              : "Show replies"
+                          }}
+                        </span>
+                        <span class="thread-toggle-count">{{
+                          getReplyCount(comment)
+                        }}</span>
+                      </button>
+
+                      @if (isThreadExpanded(comment.id)) {
+                        <div class="comment-replies">
+                          @for (
+                            reply of getThreadReplies(comment);
+                            track reply.id
+                          ) {
+                            <ng-container
+                              [ngTemplateOutlet]="threadedCommentTemplate"
+                              [ngTemplateOutletContext]="{
+                                $implicit: reply,
+                                isThreadItem: true,
+                              }"
+                            ></ng-container>
+                          }
+                        </div>
+                      }
+                    }
+                  </div>
+                </article>
+              </ng-template>
+            } @else {
+              <p class="comments-empty-state mb-0">No comments yet.</p>
+            }
+          </section>
+        }
       </div>
     </div>
   </div>
-  }
-  @else {
-  <!-- Loading animation if blog post data is not available -->
-  <div class="loadAnimation ms-5">
-    <img
-      src="assets/loadIcon.svg"
-      alt="loading data..."
-      height="450"
-      width="450"
-    />
+} @else if (!isBlogPostLoading) {
+  <!-- Keep request failures visible after the loading overlay closes -->
+  <div class="container py-5" role="alert">
+    <div class="comment-alert comment-alert-error">
+      {{ commentError || "Unable to load this blog post." }}
+    </div>
   </div>
-  }
-  
+}

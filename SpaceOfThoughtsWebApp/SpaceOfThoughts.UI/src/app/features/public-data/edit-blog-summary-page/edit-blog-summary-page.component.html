@@ -1,0 +1,132 @@
+<div class="admin-page">
+  <section class="admin-panel admin-form-panel">
+    <!-- Blogs page editor header -->
+    <header class="admin-panel-header">
+      <div>
+        <h1>Blogs page</h1>
+      </div>
+
+      <a class="admin-row-action" [routerLink]="['/blogs']">
+        <i class="bi bi-eye" aria-hidden="true"></i>
+        <span>View blogs</span>
+      </a>
+    </header>
+
+    <div class="admin-form-body">
+      <!-- Save and load feedback messages -->
+      @if (errorMessage) {
+        <div class="admin-editor-alert admin-editor-alert-error">
+          {{ errorMessage }}
+        </div>
+      }
+      @if (successMessage) {
+        <div class="admin-editor-alert admin-editor-alert-success">
+          {{ successMessage }}
+        </div>
+      }
+
+      @if (model) {
+        <!-- Blogs page settings form with live preview -->
+        <form
+          class="blog-summary-editor-layout"
+          #form="ngForm"
+          (ngSubmit)="onFormSubmit()"
+        >
+          <!-- Editable background image setting -->
+          <section aria-labelledby="blog-summary-background-heading">
+            <h2
+              class="admin-form-section-title"
+              id="blog-summary-background-heading"
+            >
+              Background
+            </h2>
+
+            <div class="admin-form-field">
+              <label for="backgroundImageUrl">Background image URL</label>
+              <div class="admin-input-group">
+                <input
+                  id="backgroundImageUrl"
+                  name="backgroundImageUrl"
+                  class="form-control"
+                  type="text"
+                  maxlength="2048"
+                  [(ngModel)]="model.backgroundImageUrl"
+                />
+                <button
+                  type="button"
+                  class="admin-row-action admin-input-action"
+                  data-bs-toggle="modal"
+                  data-bs-target="#blogSummaryBackgroundModal"
+                >
+                  <i class="bi bi-image" aria-hidden="true"></i>
+                  <span>Select image</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="admin-form-actions blog-summary-editor-actions">
+              <button
+                class="admin-primary-action"
+                type="submit"
+                [disabled]="isSaving || form.invalid"
+              >
+                <i class="bi bi-save" aria-hidden="true"></i>
+                <span>{{ isSaving ? "Saving..." : "Save blogs page" }}</span>
+              </button>
+            </div>
+          </section>
+
+          <!-- Live preview of the blogs summary page background -->
+          <section
+            class="blog-summary-editor-preview"
+            aria-labelledby="blog-summary-preview-heading"
+          >
+            <h2
+              class="admin-form-section-title"
+              id="blog-summary-preview-heading"
+            >
+              Preview
+            </h2>
+            <div
+              class="blog-summary-editor-preview-stage"
+              [style.background-image]="
+                'url(' + previewBackgroundImageUrl + ')'
+              "
+            >
+              <article class="blog-summary-editor-preview-card">
+                <span class="blog-summary-editor-preview-image"></span>
+                <span class="blog-summary-editor-preview-body">
+                  <span class="blog-summary-editor-preview-meta">
+                    <span>Selected posts</span>
+                    <span>Preview</span>
+                  </span>
+                  <strong>Blog summary cards</strong>
+                  <span>
+                    The blogs page uses this background behind the translucent
+                    card grid.
+                  </span>
+                </span>
+              </article>
+            </div>
+          </section>
+        </form>
+      } @else if (!errorMessage) {
+        <!-- Loading state while the blogs page request is pending -->
+        <div class="admin-empty-state">Loading blogs page...</div>
+      }
+    </div>
+  </section>
+</div>
+
+<!-- Shared image selector modal for choosing the blogs page background -->
+<div
+  class="modal fade"
+  id="blogSummaryBackgroundModal"
+  data-bs-backdrop="true"
+  data-bs-keyboard="true"
+  tabindex="-1"
+  aria-labelledby="selectModalLabel"
+  aria-hidden="true"
+>
+  <app-image-selector></app-image-selector>
+</div>

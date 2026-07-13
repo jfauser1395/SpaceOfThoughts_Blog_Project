@@ -7,25 +7,25 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { Router } from '@angular/router';
-import { MarkdownComponent } from 'ngx-markdown';
 import { CategoryService } from '../../category/services/category.service';
 import { Category } from '../../category/models/category.model';
 import { UpdateBlogPost } from '../models/update-blog-post.model';
 import { ImageSelectorComponent } from '../shared/components/image-selector/image-selector.component';
 import { ImageService } from '../shared/components/services/image.service';
 import { ViewportScroller } from '@angular/common';
+import { MarkdownEditorComponent } from '../shared/components/markdown-editor/markdown-editor.component';
 
 @Component({
-    selector: 'app-edit-blogpost',
-    templateUrl: './edit-blogpost.component.html',
-    styleUrl: './edit-blogpost.component.css',
-    imports: [
-        CommonModule,
-        FormsModule,
-        MarkdownComponent,
-        DatePipe,
-        ImageSelectorComponent,
-    ]
+  selector: 'app-edit-blogpost',
+  templateUrl: './edit-blogpost.component.html',
+  styleUrl: './edit-blogpost.component.css',
+  imports: [
+    CommonModule,
+    FormsModule,
+    DatePipe,
+    ImageSelectorComponent,
+    MarkdownEditorComponent,
+  ],
 })
 export class EditBlogpostComponent implements OnInit, OnDestroy {
   id: string | null = null; // ID of the blog post to be edited

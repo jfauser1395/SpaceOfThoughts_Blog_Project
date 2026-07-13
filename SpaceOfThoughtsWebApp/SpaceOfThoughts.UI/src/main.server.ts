@@ -6,6 +6,7 @@ import {
 import { AppComponent } from './app/app.component';
 import { config } from './app/app.config.server';
 
+// Bootstrap the server-rendered version of the Angular application
 const bootstrap = (context: BootstrapContext) =>
   bootstrapApplication(
     AppComponent,

@@ -6,6 +6,8 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { UpdateBlogPost } from '../models/update-blog-post.model';
 import { map } from 'rxjs/operators';
+import { BlogComment, BlogCommentReaction } from '../models/blog-comment.model';
+import { AddBlogComment } from '../models/add-blog-comment.model';
 
 @Injectable({
   providedIn: 'root', // This service will be provided at the root level
@@ -77,6 +79,43 @@ export class BlogPostService {
   getBlogPostByUrlHandle(urlHandle: string): Observable<BlogPost> {
     return this.http.get<BlogPost>(
       `${environment.apiBaseUrl}/api/Blogposts/${urlHandle}`,
+    );
+  }
+
+  // Get all comments for a blog post
+  getCommentsForBlogPost(blogPostId: string): Observable<BlogComment[]> {
+    return this.http.get<BlogComment[]>(
+      `${environment.apiBaseUrl}/api/Blogposts/${blogPostId}/comments`,
+    );
+  }
+
+  // Create a comment for a blog post
+  createBlogComment(
+    blogPostId: string,
+    data: AddBlogComment,
+  ): Observable<BlogComment> {
+    return this.http.post<BlogComment>(
+      `${environment.apiBaseUrl}/api/Blogposts/${blogPostId}/comments?addAuth=true`,
+      data,
+    );
+  }
+
+  // Toggle a like or dislike for a comment
+  toggleBlogCommentReaction(
+    blogPostId: string,
+    commentId: string,
+    reaction: Exclude<BlogCommentReaction, null>,
+  ): Observable<BlogComment> {
+    return this.http.post<BlogComment>(
+      `${environment.apiBaseUrl}/api/Blogposts/${blogPostId}/comments/${commentId}/reaction?addAuth=true`,
+      { reaction },
+    );
+  }
+
+  // Soft-delete a comment while preserving its reply thread
+  deleteBlogComment(blogPostId: string, commentId: string): Observable<BlogComment> {
+    return this.http.delete<BlogComment>(
+      `${environment.apiBaseUrl}/api/Blogposts/${blogPostId}/comments/${commentId}?addAuth=true`,
     );
   }
 

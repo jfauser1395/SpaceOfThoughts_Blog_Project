@@ -14,7 +14,7 @@ import { provideServiceWorker } from '@angular/service-worker';
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideRouter(routes), // Provide application routes
+    provideRouter(routes), // Register routes without preloading lazy page bundles
     importProvidersFrom(), // Import additional providers
     provideMarkdown(), // Provide Markdown support
     provideHttpClient(withFetch()), // Provide HTTP client with fetch API

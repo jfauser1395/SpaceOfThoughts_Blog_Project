@@ -1,0 +1,183 @@
+<div class="admin-rich-editor">
+  <!-- Formatting toolbar for the rich text editor -->
+  <div
+    class="admin-rich-editor-toolbar"
+    role="toolbar"
+    aria-label="Content formatting tools"
+  >
+    <!-- Text style and emphasis tools -->
+    <div class="admin-rich-editor-group" aria-label="Text style">
+      <button
+        type="button"
+        class="admin-editor-tool"
+        [class.is-active]="activeFormatting.bold"
+        [attr.aria-pressed]="activeFormatting.bold"
+        (mousedown)="onToolbarMouseDown($event)"
+        (click)="applyBold()"
+        title="Bold"
+      >
+        <i class="bi bi-type-bold" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        class="admin-editor-tool"
+        [class.is-active]="activeFormatting.italic"
+        [attr.aria-pressed]="activeFormatting.italic"
+        (mousedown)="onToolbarMouseDown($event)"
+        (click)="applyItalic()"
+        title="Italic"
+      >
+        <i class="bi bi-type-italic" aria-hidden="true"></i>
+      </button>
+      <div class="admin-editor-dropdown" [class.is-open]="isTextStyleMenuOpen">
+        <button
+          type="button"
+          class="admin-editor-select-shell"
+          [class.is-active]="activeFormatting.textStyle !== 'p'"
+          aria-label="Text size"
+          aria-haspopup="listbox"
+          [attr.aria-expanded]="isTextStyleMenuOpen"
+          (mousedown)="onToolbarMouseDown($event)"
+          (click)="toggleTextStyleMenu()"
+        >
+          <span class="admin-editor-select-label">{{
+            activeTextStyleLabel
+          }}</span>
+          <i class="bi bi-chevron-down" aria-hidden="true"></i>
+        </button>
+
+        @if (isTextStyleMenuOpen) {
+          <div
+            class="admin-editor-select-menu"
+            role="listbox"
+            aria-label="Text size"
+          >
+            @for (option of textStyleOptions; track option.value) {
+              <button
+                type="button"
+                class="admin-editor-select-option"
+                role="option"
+                [class.is-selected]="
+                  activeFormatting.textStyle === option.value
+                "
+                [attr.aria-selected]="
+                  activeFormatting.textStyle === option.value
+                "
+                (mousedown)="onToolbarMouseDown($event)"
+                (click)="selectTextStyle(option.value)"
+              >
+                {{ option.label }}
+              </button>
+            }
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- List, quote, and divider tools -->
+    <div class="admin-rich-editor-group" aria-label="Lists and blocks">
+      <button
+        type="button"
+        class="admin-editor-tool"
+        [class.is-active]="activeFormatting.bulletList"
+        [attr.aria-pressed]="activeFormatting.bulletList"
+        (mousedown)="onToolbarMouseDown($event)"
+        (click)="applyBulletList()"
+        title="Bullet list"
+      >
+        <i class="bi bi-list-ul" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        class="admin-editor-tool"
+        [class.is-active]="activeFormatting.numberedList"
+        [attr.aria-pressed]="activeFormatting.numberedList"
+        (mousedown)="onToolbarMouseDown($event)"
+        (click)="applyNumberedList()"
+        title="Numbered list"
+      >
+        <i class="bi bi-list-ol" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        class="admin-editor-tool"
+        [class.is-active]="activeFormatting.quote"
+        [attr.aria-pressed]="activeFormatting.quote"
+        (mousedown)="onToolbarMouseDown($event)"
+        (click)="applyQuote()"
+        title="Quote"
+      >
+        <i class="bi bi-quote" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        class="admin-editor-tool"
+        (mousedown)="onToolbarMouseDown($event)"
+        (click)="insertDivider()"
+        title="Divider"
+      >
+        <i class="bi bi-hr" aria-hidden="true"></i>
+      </button>
+    </div>
+
+    <!-- Link, code, and undo tools -->
+    <div class="admin-rich-editor-group" aria-label="Insert">
+      <button
+        type="button"
+        class="admin-editor-tool"
+        [class.is-active]="activeFormatting.link"
+        [attr.aria-pressed]="activeFormatting.link"
+        (mousedown)="onToolbarMouseDown($event)"
+        (click)="applyLink()"
+        title="Link"
+      >
+        <i class="bi bi-link-45deg" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        class="admin-editor-tool"
+        [class.is-active]="activeFormatting.code"
+        [attr.aria-pressed]="activeFormatting.code"
+        (mousedown)="onToolbarMouseDown($event)"
+        (click)="applyCode()"
+        title="Code"
+      >
+        <i class="bi bi-code-slash" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        class="admin-editor-tool"
+        (mousedown)="onToolbarMouseDown($event)"
+        (click)="undoLastFormatting()"
+        title="Undo formatting"
+      >
+        <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Contenteditable document area -->
+  <div class="admin-rich-editor-body">
+    <div
+      #visualEditor
+      [id]="editorId"
+      class="admin-rich-editor-document scroll scroll--simple"
+      contenteditable="true"
+      role="textbox"
+      aria-multiline="true"
+      data-placeholder="Content"
+      [attr.aria-labelledby]="ariaLabelledBy"
+      (input)="onEditorInput()"
+      (blur)="onEditorBlur()"
+      (keydown)="onEditorKeydown($event)"
+      (keyup)="onEditorKeyup()"
+      (mouseup)="onEditorMouseup()"
+    ></div>
+  </div>
+
+  <!-- Live writing statistics -->
+  <div class="admin-rich-editor-status" aria-live="polite">
+    <span>{{ wordCount }} words</span>
+    <span>{{ characterCount }} characters</span>
+  </div>
+</div>

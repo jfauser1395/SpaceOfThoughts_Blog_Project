@@ -1,0 +1,373 @@
+<div class="about-editor-page">
+  <div class="container about-editor-shell">
+    <!-- About editor page header -->
+    <header class="about-editor-header">
+      <div>
+        <h1>About page</h1>
+        <p>Edit the author bio, blog description, and community terms.</p>
+      </div>
+      <a class="btn btn-outline-secondary" [routerLink]="['/about']">
+        <i class="bi bi-eye" aria-hidden="true"></i>
+        View about
+      </a>
+    </header>
+
+    <!-- Save and load feedback messages -->
+    @if (errorMessage) {
+      <div class="about-editor-alert about-editor-alert-error">
+        {{ errorMessage }}
+      </div>
+    }
+    @if (successMessage) {
+      <div class="about-editor-alert about-editor-alert-success">
+        {{ successMessage }}
+      </div>
+    }
+
+    @if (model) {
+      <!-- About page editing form with live preview -->
+      <form
+        class="about-editor-layout"
+        #form="ngForm"
+        (ngSubmit)="onFormSubmit()"
+      >
+        <!-- Editable about page fields -->
+        <section
+          class="about-editor-fields"
+          aria-labelledby="about-editor-content-heading"
+        >
+          <h2 id="about-editor-content-heading">About content</h2>
+
+          <div class="about-editor-grid">
+            <div class="about-editor-field">
+              <label for="authorName">Author name</label>
+              <input
+                id="authorName"
+                name="authorName"
+                class="form-control"
+                type="text"
+                maxlength="120"
+                required
+                [(ngModel)]="model.authorName"
+              />
+            </div>
+
+            <div class="about-editor-field">
+              <label for="authorRole">Author role</label>
+              <input
+                id="authorRole"
+                name="authorRole"
+                class="form-control"
+                type="text"
+                maxlength="180"
+                required
+                [(ngModel)]="model.authorRole"
+              />
+            </div>
+          </div>
+
+          <div class="about-editor-field">
+            <label for="signatureCaption">Signature caption</label>
+            <input
+              id="signatureCaption"
+              name="signatureCaption"
+              class="form-control"
+              type="text"
+              maxlength="240"
+              required
+              [(ngModel)]="model.signatureCaption"
+            />
+          </div>
+
+          <!-- Profile image URL can also be filled through the image selector modal -->
+          <div class="about-editor-field">
+            <label for="profileImageUrl">Profile image URL</label>
+            <div class="admin-input-group">
+              <input
+                id="profileImageUrl"
+                name="profileImageUrl"
+                class="form-control"
+                type="text"
+                maxlength="2048"
+                [(ngModel)]="model.profileImageUrl"
+              />
+              <button
+                type="button"
+                class="admin-primary-action admin-input-action"
+                name="selectAboutImageButton"
+                data-bs-toggle="modal"
+                data-bs-target="#aboutImageSelectModal"
+              >
+                <i class="bi bi-image" aria-hidden="true"></i>
+                Select Image
+              </button>
+            </div>
+          </div>
+
+          <h3>Author introduction</h3>
+          <div class="about-editor-field">
+            <label for="authorIntro">Bio</label>
+            <textarea
+              id="authorIntro"
+              name="authorIntro"
+              class="form-control scroll scroll--simple"
+              maxlength="2400"
+              required
+              rows="5"
+              [(ngModel)]="model.authorIntro"
+            ></textarea>
+          </div>
+
+          <div class="about-editor-field">
+            <label for="authorAside">Personal note</label>
+            <textarea
+              id="authorAside"
+              name="authorAside"
+              class="form-control scroll scroll--simple"
+              maxlength="2400"
+              required
+              rows="4"
+              [(ngModel)]="model.authorAside"
+            ></textarea>
+          </div>
+
+          <h3>Blog description</h3>
+          <div class="about-editor-field">
+            <label for="blogOverview">What the blog covers</label>
+            <textarea
+              id="blogOverview"
+              name="blogOverview"
+              class="form-control scroll scroll--simple"
+              maxlength="2400"
+              required
+              rows="4"
+              [(ngModel)]="model.blogOverview"
+            ></textarea>
+          </div>
+
+          <div class="about-editor-field">
+            <label for="blogAudience">Who it is for</label>
+            <textarea
+              id="blogAudience"
+              name="blogAudience"
+              class="form-control scroll scroll--simple"
+              maxlength="2400"
+              required
+              rows="4"
+              [(ngModel)]="model.blogAudience"
+            ></textarea>
+          </div>
+
+          <div class="about-editor-field">
+            <label for="blogDifference">What makes it different</label>
+            <textarea
+              id="blogDifference"
+              name="blogDifference"
+              class="form-control scroll scroll--simple"
+              maxlength="2400"
+              required
+              rows="4"
+              [(ngModel)]="model.blogDifference"
+            ></textarea>
+          </div>
+
+          <h3>Community terms</h3>
+          <div class="about-editor-field">
+            <label for="communityIntro">Introduction</label>
+            <textarea
+              id="communityIntro"
+              name="communityIntro"
+              class="form-control scroll scroll--simple"
+              maxlength="2400"
+              required
+              rows="4"
+              [(ngModel)]="model.communityIntro"
+            ></textarea>
+          </div>
+
+          <div class="about-editor-grid">
+            <div class="about-editor-field">
+              <label for="respectGuideline">Respect guideline</label>
+              <textarea
+                id="respectGuideline"
+                name="respectGuideline"
+                class="form-control scroll scroll--simple"
+                maxlength="1000"
+                required
+                rows="3"
+                [(ngModel)]="model.respectGuideline"
+              ></textarea>
+            </div>
+
+            <div class="about-editor-field">
+              <label for="topicGuideline">Topic guideline</label>
+              <textarea
+                id="topicGuideline"
+                name="topicGuideline"
+                class="form-control scroll scroll--simple"
+                maxlength="1000"
+                required
+                rows="3"
+                [(ngModel)]="model.topicGuideline"
+              ></textarea>
+            </div>
+
+            <div class="about-editor-field">
+              <label for="spamGuideline">Spam guideline</label>
+              <textarea
+                id="spamGuideline"
+                name="spamGuideline"
+                class="form-control scroll scroll--simple"
+                maxlength="1000"
+                required
+                rows="3"
+                [(ngModel)]="model.spamGuideline"
+              ></textarea>
+            </div>
+
+            <div class="about-editor-field">
+              <label for="moderationGuideline">Moderation guideline</label>
+              <textarea
+                id="moderationGuideline"
+                name="moderationGuideline"
+                class="form-control scroll scroll--simple"
+                maxlength="1000"
+                required
+                rows="3"
+                [(ngModel)]="model.moderationGuideline"
+              ></textarea>
+            </div>
+          </div>
+
+          <div class="about-editor-field">
+            <label for="agreementGuideline">Agreement guideline</label>
+            <textarea
+              id="agreementGuideline"
+              name="agreementGuideline"
+              class="form-control scroll scroll--simple"
+              maxlength="1000"
+              required
+              rows="3"
+              [(ngModel)]="model.agreementGuideline"
+            ></textarea>
+          </div>
+
+          <div class="about-editor-field">
+            <label for="consequences">Consequences</label>
+            <textarea
+              id="consequences"
+              name="consequences"
+              class="form-control scroll scroll--simple"
+              maxlength="2000"
+              required
+              rows="4"
+              [(ngModel)]="model.consequences"
+            ></textarea>
+          </div>
+
+          <div class="about-editor-field">
+            <label for="contactEmail">Contact email</label>
+            <input
+              id="contactEmail"
+              name="contactEmail"
+              class="form-control"
+              type="email"
+              maxlength="320"
+              required
+              [(ngModel)]="model.contactEmail"
+            />
+          </div>
+
+          <div class="about-editor-actions">
+            <button
+              class="btn btnPrimary"
+              type="submit"
+              [disabled]="isSaving || form.invalid"
+            >
+              <i class="bi bi-save" aria-hidden="true"></i>
+              {{ isSaving ? "Saving..." : "Save about page" }}
+            </button>
+          </div>
+        </section>
+
+        <!-- Live preview of the public about page content -->
+        <aside
+          class="about-editor-preview"
+          aria-labelledby="about-preview-heading"
+        >
+          <h2 id="about-preview-heading">Preview</h2>
+          <div class="about-editor-preview-card">
+            <div class="about-editor-preview-signature">
+              <img src="assets/loadIcon.svg" alt="" aria-hidden="true" />
+              <p class="about-editor-preview-caption">
+                {{ model.signatureCaption }}
+              </p>
+            </div>
+
+            <section
+              class="about-editor-preview-section about-editor-preview-author"
+              aria-label="Author preview"
+            >
+              @if (model.profileImageUrl) {
+                <img
+                  class="about-editor-preview-photo"
+                  [src]="model.profileImageUrl"
+                  [alt]="model.authorName"
+                />
+              } @else {
+                <div class="about-editor-preview-photo-placeholder">
+                  {{ previewInitial }}
+                </div>
+              }
+              <div>
+                <h3>{{ model.authorName }}</h3>
+                <p class="about-editor-preview-role">{{ model.authorRole }}</p>
+                <p>{{ model.authorIntro }}</p>
+                <p>{{ model.authorAside }}</p>
+              </div>
+            </section>
+
+            <section class="about-editor-preview-section">
+              <h3>About This Blog</h3>
+              <p>{{ model.blogOverview }}</p>
+              <p>{{ model.blogAudience }}</p>
+              <p>{{ model.blogDifference }}</p>
+            </section>
+
+            <section class="about-editor-preview-section">
+              <h3>Community Guidelines &amp; Terms</h3>
+              <p>{{ model.communityIntro }}</p>
+              <ul class="about-editor-preview-terms">
+                <li>{{ model.respectGuideline }}</li>
+                <li>{{ model.topicGuideline }}</li>
+                <li>{{ model.spamGuideline }}</li>
+                <li>{{ model.moderationGuideline }}</li>
+                <li>{{ model.agreementGuideline }}</li>
+              </ul>
+              <p>{{ model.consequences }}</p>
+              <p class="about-editor-preview-contact">
+                {{ model.contactEmail }}
+              </p>
+            </section>
+          </div>
+        </aside>
+      </form>
+    } @else if (!errorMessage) {
+      <!-- Loading state while the about page request is pending -->
+      <div class="about-editor-loading">Loading about page...</div>
+    }
+  </div>
+</div>
+
+<!-- Shared image selector modal for choosing the author profile image -->
+<div
+  class="modal fade admin-modal"
+  id="aboutImageSelectModal"
+  tabindex="-1"
+  data-bs-backdrop="true"
+  data-bs-keyboard="true"
+  aria-labelledby="selectModalLabel"
+  aria-hidden="true"
+>
+  <app-image-selector></app-image-selector>
+</div>

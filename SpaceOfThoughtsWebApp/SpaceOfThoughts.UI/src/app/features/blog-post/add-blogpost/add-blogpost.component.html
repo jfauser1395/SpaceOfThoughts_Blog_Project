@@ -1,184 +1,173 @@
-<div class="container p-4">
+<div class="admin-page">
+  <!-- Admin panel for creating a new blog post -->
+  <section class="admin-panel admin-form-panel">
+    <header class="admin-panel-header">
+      <h1>Add Blogpost</h1>
+    </header>
 
-  <h1>Add BlogPost</h1>
-
-  <!-- Form for blog infos with Angular's two-way binding, submitting on ngSubmit -->
-  <form #form="ngForm" (ngSubmit)="onFormSubmit()" name="blogEntries">
-    <div class="mb-5 mt-2">
-      <!-- Title input field, binds to 'model.title' -->
-      <div class="mt-3">
-        <label for="title" class="form-label">Title</label>
-        <input
-          type="text"
-          id="title"
-          name="title"
-          class="form-control"
-          [(ngModel)]="model.title"
-        />
-      </div>
-
-      <!-- URL Handle input field, binds to 'model.urlHandle' -->
-      <div class="mt-3">
-        <label for="urlHandle" class="form-label">Url Handle</label>
-        <input
-          type="text"
-          id="urlHandle"
-          name="urlHandle"
-          class="form-control"
-          [(ngModel)]="model.urlHandle"
-        />
-      </div>
-      <!-- Shows error massage if the Url handle field is not field out -->
-      <small class="text-danger justify-content-start mt-2">
-        {{ this.urlHandleWarning }}
-      </small>
-
-      <!-- Short Description input field -->
-      <div class="mt-3">
-        <label for="shortDescription" class="form-label"
-          >Short Description</label
-        >
-        <input
-          type="text"
-          id="shortDescription"
-          name="shortDescription"
-          class="form-control"
-          [(ngModel)]="model.shortDescription"
-        />
-      </div>
-
-      <!-- Featured Image URL input field with an option to select from a modal -->
-      <div class="mt-3">
-        <label for="featuredImageUrl" class="form-label"
-          >Featured Image Url</label
-        >
-        <div class="input-group">
-          <input
-            type="text"
-            id="featuredImageUrl"
-            name="featuredImageUrl"
-            class="form-control"
-            [(ngModel)]="model.featuredImageUrl"
-          />
-          <!-- Button to trigger image selection modal -->
-          <button
-            type="button"
-            class="btn btn-secondary"
-            name="selectImageButton"
-            data-bs-toggle="modal"
-            data-bs-target="#selectModal"
-          >
-            Select Image
-          </button>
-        </div>
-
-        <!-- Display the selected image if URL is not empty -->
-        @if (model.featuredImageUrl != '') {
-          <div>
-            <img
-              [src]="model.featuredImageUrl"
-              height="100"
-              class="rounded-2 ms-1 mt-2"
+    <!-- Form for new blog post data -->
+    <form #form="ngForm" (ngSubmit)="onFormSubmit()" name="blogEntries">
+      <div class="admin-form-body">
+        <div class="admin-form-grid">
+          <!-- Basic blog post details -->
+          <div class="admin-form-field">
+            <label for="title">Title</label>
+            <input
+              type="text"
+              id="title"
+              name="title"
+              class="form-control"
+              [(ngModel)]="model.title"
             />
           </div>
-        }
-      </div>
 
-      <!-- Content editor with live markdown preview -->
-      <div class="card mt-4">
-        <div class="card-header">Content</div>
-        <div class="d-flex card-body flex-row">
-          <!-- Textarea for editing blog content -->
-          <div class="col-6 p-2">
-            <textarea
-              id="content"
-              name="content"
-              class="form-control scroll scroll--simple"
-              style="height: 350px; max-height: 350px; overflow: auto"
-              [(ngModel)]="model.content"
-            ></textarea>
+          <div class="admin-form-field">
+            <label for="urlHandle">Url Handle</label>
+            <input
+              type="text"
+              id="urlHandle"
+              name="urlHandle"
+              class="form-control"
+              [(ngModel)]="model.urlHandle"
+            />
+            @if (urlHandleWarning) {
+              <small class="admin-form-warning">{{ urlHandleWarning }}</small>
+            }
           </div>
-          <!-- Live markdown preview of the blog content -->
-          <div
-            class="col-6 scroll scroll--simple p-2"
-            style="max-height: 350px; overflow: auto"
-          >
-            <markdown [data]="model.content"></markdown>
+
+          <div class="admin-form-field is-full">
+            <label for="shortDescription">Short Description</label>
+            <input
+              type="text"
+              id="shortDescription"
+              name="shortDescription"
+              class="form-control"
+              [(ngModel)]="model.shortDescription"
+            />
+          </div>
+
+          <!-- Featured image URL and preview -->
+          <div class="admin-form-field is-full">
+            <label for="featuredImageUrl">Featured Image Url</label>
+            <div class="admin-input-group">
+              <input
+                type="text"
+                id="featuredImageUrl"
+                name="featuredImageUrl"
+                class="form-control"
+                [(ngModel)]="model.featuredImageUrl"
+              />
+              <button
+                type="button"
+                class="admin-primary-action admin-input-action"
+                name="selectImageButton"
+                data-bs-toggle="modal"
+                data-bs-target="#selectModal"
+              >
+                <i class="bi bi-image" aria-hidden="true"></i>
+                Select Picture
+              </button>
+            </div>
+
+            @if (model.featuredImageUrl != "") {
+              <div class="admin-form-media-preview">
+                <img
+                  [src]="model.featuredImageUrl"
+                  alt="Selected featured image"
+                />
+              </div>
+            }
+          </div>
+
+          <!-- Rich content editor for the blog post body -->
+          <div class="admin-form-field is-full">
+            <section class="admin-editor-card" aria-labelledby="contentLabel">
+              <label
+                class="admin-editor-card-header"
+                for="content"
+                id="contentLabel"
+              >
+                Content
+              </label>
+              <app-markdown-editor
+                editorId="content"
+                ariaLabelledBy="contentLabel"
+                [(content)]="model.content"
+              ></app-markdown-editor>
+            </section>
+          </div>
+
+          <!-- Publishing metadata and category selection -->
+          <div class="admin-form-field">
+            <label for="publishedDate">Published Date</label>
+            <input
+              type="date"
+              id="publishedDate"
+              name="publishedDate"
+              class="form-control"
+              [value]="model.publishedDate | date: 'yyyy-MM-dd'"
+              [ngModel]="model.publishedDate | date: 'yyyy-MM-dd'"
+              (ngModelChange)="model.publishedDate = $event"
+            />
+          </div>
+
+          <div class="admin-form-field">
+            <label for="author">Author</label>
+            <input
+              type="text"
+              id="author"
+              name="author"
+              class="form-control"
+              [(ngModel)]="model.author"
+            />
+          </div>
+
+          <div class="admin-form-field">
+            <label class="admin-form-section-title">Status</label>
+            <div class="form-check admin-form-check">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="isVisible"
+                name="isVisible"
+                [(ngModel)]="model.isVisible"
+              />
+              <label class="form-check-label" for="isVisible">Publish</label>
+            </div>
+          </div>
+
+          <div class="admin-form-field">
+            @if (categories$ | async; as categories) {
+              <label for="categories">Categories</label>
+              <select
+                class="form-select scroll scroll--simple admin-multi-select"
+                [(ngModel)]="model.categories"
+                id="categories"
+                name="categories"
+                multiple
+              >
+                @for (category of categories; track category) {
+                  <option [value]="category.id">{{ category.name }}</option>
+                }
+              </select>
+            }
           </div>
         </div>
       </div>
 
-      <!-- Published Date input field -->
-      <div class="mt-3">
-        <label for="publishedDate" class="form-label">Published Date</label>
-        <input
-          type="date"
-          id="publishedDate"
-          name="publishedDate"
-          class="form-control"
-          [value]="model.publishedDate | date: 'yyyy-MM-dd'"
-          [ngModel]="model.publishedDate | date: 'yyyy-MM-dd'"
-          (ngModelChange)="model.publishedDate = $event"
-        />
-      </div>
-
-      <!-- Author input field -->
-      <div class="mt-3">
-        <label for="author" class="form-label">Author</label>
-        <input
-          type="text"
-          id="author"
-          name="author"
-          class="form-control"
-          [(ngModel)]="model.author"
-        />
-      </div>
-
-      <!-- Checkbox to toggle visibility of the blog post -->
-      <div class="form-check mt-3">
-        <input
-          class="form-check-input"
-          type="checkbox"
-          id="isVisible"
-          name="isVisible"
-          [(ngModel)]="model.isVisible"
-        />
-        <label class="form-check-label" for="isVisible">publish</label>
-      </div>
-
-      <!-- Categories selection dropdown (allows multiple selections) -->
-      <div class="mt-3">
-        @if (categories$ | async; as categories) {
-          <label for="categories" class="form-label">Categories</label>
-          <select
-            class="form-control scroll scroll--simple"
-            [(ngModel)]="model.categories"
-            id="categories"
-            name="categories"
-            multiple
-            style="height: 70px; overflow: auto"
-          >
-            <!-- Loop through categories to create options -->
-            @for (category of categories; track category) {
-              <option [value]="category.id">{{ category.name }}</option>
-            }
-          </select>
-        }
-      </div>
-
-      <!-- Button to submit the form -->
-      <div class="mt-3">
-        <button type="submit" class="btn btn-success" name="saveButton">
+      <footer class="admin-form-actions">
+        <button type="submit" class="admin-primary-action" name="saveButton">
+          <i class="bi bi-check2" aria-hidden="true"></i>
           Save
         </button>
-      </div>
-    </div>
-  </form>
+      </footer>
+    </form>
+  </section>
 </div>
 
-<!-- Modal for image selection component -->
+<!-- Shared image selector modal for choosing the featured image -->
 <div
-  class="modal fade"
+  class="modal fade admin-modal"
   id="selectModal"
   tabindex="-1"
   data-bs-backdrop="true"
@@ -186,6 +175,5 @@
   aria-labelledby="selectModalLabel"
   aria-hidden="true"
 >
-  <!-- Custom image selector component to choose a featured image -->
   <app-image-selector></app-image-selector>
 </div>
