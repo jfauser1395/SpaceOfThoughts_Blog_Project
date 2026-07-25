@@ -15,7 +15,7 @@ export class CategoryService {
   // Add a new category
   addCategory(model: AddCategoryRequest): Observable<void> {
     return this.http.post<void>(
-      `${environment.apiBaseUrl}/api/Categories?addAuth=true`,
+      `${environment.apiBaseUrl}/api/Categories`,
       model,
     );
   }
@@ -70,7 +70,7 @@ export class CategoryService {
     updateCategoryRequest: UpdateCategoryRequest,
   ): Observable<Category> {
     return this.http.put<Category>(
-      `${environment.apiBaseUrl}/api/Categories/${id}?addAuth=true`,
+      `${environment.apiBaseUrl}/api/Categories/${id}`,
       updateCategoryRequest,
     );
   }
@@ -78,7 +78,7 @@ export class CategoryService {
   // Delete a category by its ID
   deleteCategory(id: string): Observable<Category> {
     return this.http.delete<Category>(
-      `${environment.apiBaseUrl}/api/Categories/${id}?addAuth=true`,
+      `${environment.apiBaseUrl}/api/Categories/${id}`,
     );
   }
 }

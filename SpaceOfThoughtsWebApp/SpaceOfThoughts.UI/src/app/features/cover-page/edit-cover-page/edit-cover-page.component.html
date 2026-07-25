@@ -23,6 +23,12 @@
         {{ successMessage }}
       </div>
     }
+    @if (isCreatingNewPage) {
+      <div class="cover-editor-alert cover-editor-alert-info">
+        No Cover page has been published yet. Enter the cover kicker, welcome
+        title, and introduction you want visitors to see.
+      </div>
+    }
 
     @if (model) {
       <!-- Cover page editing form with live preview -->
@@ -37,6 +43,19 @@
           aria-labelledby="cover-content-heading"
         >
           <h2 id="cover-content-heading">Welcome copy</h2>
+
+          <div class="cover-editor-field">
+            <label for="kicker">Cover kicker</label>
+            <input
+              id="kicker"
+              name="kicker"
+              class="form-control"
+              type="text"
+              maxlength="160"
+              required
+              [(ngModel)]="model.kicker"
+            />
+          </div>
 
           <div class="cover-editor-field">
             <label for="welcomeTitle">Welcome title</label>
@@ -80,23 +99,78 @@
                 class="btn btn-secondary"
                 data-bs-toggle="modal"
                 data-bs-target="#coverBackgroundModal"
+                [disabled]="isRemovingImage || isRemoving"
               >
                 <i class="bi bi-image" aria-hidden="true"></i>
                 Select image
               </button>
+              @if (model.backgroundImageUrl) {
+                <button
+                  type="button"
+                  class="btn btn-outline-danger"
+                  [disabled]="isRemovingImage || isRemoving"
+                  (click)="onRemoveBackgroundImage()"
+                >
+                  <i class="bi bi-image-alt" aria-hidden="true"></i>
+                  {{ isRemovingImage ? "Removing..." : "Remove picture" }}
+                </button>
+              }
             </div>
           </div>
 
           <div class="cover-editor-actions">
+            @if (!isCreatingNewPage) {
+              <button
+                class="btn btn-outline-danger cover-editor-remove-button"
+                type="button"
+                [disabled]="isSaving || isRemoving || isRemovingImage"
+                (click)="openRemoveConfirmation()"
+              >
+                <i class="bi bi-trash3" aria-hidden="true"></i>
+                Remove current page
+              </button>
+            }
             <button
               class="btn btnPrimary"
               type="submit"
-              [disabled]="isSaving || form.invalid"
+              [disabled]="
+                isSaving || isRemoving || isRemovingImage || form.invalid
+              "
             >
               <i class="bi bi-save" aria-hidden="true"></i>
               {{ isSaving ? "Saving..." : "Save cover page" }}
             </button>
           </div>
+
+          @if (isRemoveConfirmationOpen) {
+            <!-- Explicit confirmation keeps the published page from being removed accidentally -->
+            <div class="cover-editor-remove-confirmation" role="alert">
+              <strong>Remove the current cover page?</strong>
+              <p>
+                The public cover content will return to its unpublished state.
+                The shared background image itself will not be deleted.
+              </p>
+              <div>
+                <button
+                  class="btn btn-outline-secondary"
+                  type="button"
+                  [disabled]="isRemoving"
+                  (click)="closeRemoveConfirmation()"
+                >
+                  Cancel
+                </button>
+                <button
+                  class="btn btn-danger"
+                  type="button"
+                  [disabled]="isRemoving"
+                  (click)="onRemoveCoverPage()"
+                >
+                  <i class="bi bi-trash3" aria-hidden="true"></i>
+                  {{ isRemoving ? "Removing..." : "Remove cover page" }}
+                </button>
+              </div>
+            </div>
+          }
         </section>
 
         <!-- Live preview of the public cover page -->
@@ -107,12 +181,48 @@
           <h2 id="cover-preview-heading">Preview</h2>
           <div
             class="cover-editor-preview-image"
-            [style.background-image]="'url(' + previewBackgroundImageUrl + ')'"
+            [style.--cover-overlay-opacity]="previewBackgroundOverlayOpacity"
           >
-            <div>
-              <span>Cover page</span>
+            <div
+              class="cover-editor-preview-background"
+              [style.background-image]="
+                previewBackgroundImageUrl
+                  ? 'url(' + previewBackgroundImageUrl + ')'
+                  : 'none'
+              "
+              aria-hidden="true"
+            ></div>
+            <div class="cover-editor-preview-copy">
+              <span>{{ model.kicker }}</span>
               <strong>{{ model.welcomeTitle }}</strong>
               <p>{{ model.introduction }}</p>
+            </div>
+          </div>
+
+          <!-- Overlay scale updates the milky gradient without softening the picture -->
+          <div class="cover-editor-overlay-control">
+            <label for="cover-background-overlay-strength">
+              <span>Milky overlay</span>
+              <output for="cover-background-overlay-strength">
+                {{ previewBackgroundOverlayStrength }}%
+              </output>
+            </label>
+            <input
+              id="cover-background-overlay-strength"
+              name="backgroundOverlayStrength"
+              type="range"
+              [min]="minimumBackgroundOverlayStrength"
+              [max]="maximumBackgroundOverlayStrength"
+              [step]="backgroundOverlayStrengthStep"
+              [value]="previewBackgroundOverlayStrength"
+              [disabled]="
+                !previewBackgroundImageUrl || isRemovingImage || isRemoving
+              "
+              (input)="onBackgroundOverlayStrengthChange($event)"
+            />
+            <div class="cover-editor-overlay-scale" aria-hidden="true">
+              <span>Clear</span>
+              <span>Milky</span>
             </div>
           </div>
         </section>

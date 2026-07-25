@@ -1,33 +1,35 @@
-import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
-import { RouterModule } from '@angular/router';
-import { Subscription } from 'rxjs';
-import { StyleService } from '../../../../services/style.service';
-import { AuthService } from '../../auth/services/auth.service';
-import { User } from '../../auth/models/user.model';
-import { BlogPost } from '../../blog-post/models/blog-post.model';
-import { BlogPostService } from '../../blog-post/services/blog-post.service';
-import { CoverPage } from '../models/cover-page.model';
-import { CoverPageService } from '../services/cover-page.service';
-import { LoadingOverlayComponent } from '../../../core/loading-overlay/loading-overlay.component';
+import { CommonModule } from "@angular/common";
+import { HttpErrorResponse } from "@angular/common/http";
+import { Component, OnDestroy, OnInit } from "@angular/core";
+import { RouterModule } from "@angular/router";
+import { Subscription } from "rxjs";
+import { StyleService } from "../../../../services/style.service";
+import { AuthService } from "../../auth/services/auth.service";
+import { User } from "../../auth/models/user.model";
+import { BlogPost } from "../../blog-post/models/blog-post.model";
+import { BlogPostService } from "../../blog-post/services/blog-post.service";
+import { CoverPage } from "../models/cover-page.model";
+import { CoverPageService } from "../services/cover-page.service";
+import { LoadingOverlayComponent } from "../../../core/loading-overlay/loading-overlay.component";
+import { ThemeService } from "../../../core/theme/theme.service";
 
 @Component({
-  selector: 'app-cover-page',
+  selector: "app-cover-page",
   imports: [CommonModule, RouterModule, LoadingOverlayComponent],
-  templateUrl: './cover-page.component.html',
-  styleUrl: './cover-page.component.css',
+  templateUrl: "./cover-page.component.html",
+  styleUrl: "./cover-page.component.css",
 })
 export class CoverPageComponent implements OnInit, OnDestroy {
   // Cover page content loaded from the API
   coverPage?: CoverPage;
   isLoading = true; // Flag for the required cover page API content
-  isCoverImageLoading = true; // Flag for the hero image that must be ready before reveal
+  isNotPublished = false; // Flag for a missing persisted Cover page
+  isCoverImageLoading = false; // Flag for an optional hero image that must be ready before reveal
   user?: User;
   blogPreviewPosts: BlogPost[] = [];
   activeBlogPreviewIndex = 0;
   private readonly visibleBlogPreviewCount = 3;
-  private readonly defaultBackgroundImageUrl = 'assets/cover-default.png';
-  backgroundImageUrl = this.defaultBackgroundImageUrl;
+  backgroundImageUrl?: string;
   private backgroundImageLoadId = 0;
   private coverPageRetryTimeoutId?: number;
   private blogPreviewRetryTimeoutId?: number;
@@ -41,18 +43,17 @@ export class CoverPageComponent implements OnInit, OnDestroy {
     private blogPostService: BlogPostService,
     private styleService: StyleService,
     private authService: AuthService,
+    public readonly themeService: ThemeService,
   ) {}
 
   ngOnInit(): void {
     // Set full-screen body styles for the immersive cover page
-    this.styleService.setBodyStyle('box-sizing', 'border-box');
-    this.styleService.setBodyStyle('height', '100svh');
-    this.styleService.setBodyStyle('overflow', 'hidden');
-    this.styleService.setBodyStyle('padding-top', '0');
+    this.styleService.setBodyStyle("box-sizing", "border-box");
+    this.styleService.setBodyStyle("height", "100svh");
+    this.styleService.setBodyStyle("overflow", "hidden");
+    this.styleService.setBodyStyle("padding-top", "0");
 
-    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
-    this.preloadBackgroundImage(this.defaultBackgroundImageUrl);
-
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
     // Get the current user so the cover page can show a personal greeting
     this.user = this.authService.getUser();
     this.userSubscription = this.authService.user().subscribe({
@@ -92,10 +93,10 @@ export class CoverPageComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     // Remove body styles that only belong to the cover page
-    this.styleService.removeBodyStyle('box-sizing');
-    this.styleService.removeBodyStyle('height');
-    this.styleService.removeBodyStyle('overflow');
-    this.styleService.removeBodyStyle('padding-top');
+    this.styleService.removeBodyStyle("box-sizing");
+    this.styleService.removeBodyStyle("height");
+    this.styleService.removeBodyStyle("overflow");
+    this.styleService.removeBodyStyle("padding-top");
 
     // Unsubscribe and clear timers to prevent memory leaks
     this.coverPageSubscription?.unsubscribe();
@@ -109,6 +110,7 @@ export class CoverPageComponent implements OnInit, OnDestroy {
   // Load cover page content and retry if the API is temporarily unavailable
   private loadCoverPage(): void {
     this.isLoading = true;
+    this.isNotPublished = false;
     this.clearCoverPageRetry();
     this.coverPageSubscription?.unsubscribe();
     this.coverPageSubscription = this.coverPageService
@@ -116,12 +118,25 @@ export class CoverPageComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (coverPage) => {
           this.coverPage = coverPage;
-          this.preloadBackgroundImage(
-            this.getCoverBackgroundImageUrl(coverPage),
-          );
+          const backgroundImageUrl = coverPage.backgroundImageUrl?.trim();
+          if (backgroundImageUrl) {
+            this.preloadBackgroundImage(backgroundImageUrl);
+          } else {
+            // A removed image intentionally leaves the dark cover background blank
+            this.clearBackgroundImage();
+          }
           this.isLoading = false;
         },
-        error: () => {
+        error: (error: HttpErrorResponse) => {
+          if (error.status === 404) {
+            // Stop loading when the administrator has not published Cover content yet
+            this.coverPage = undefined;
+            this.isNotPublished = true;
+            this.clearBackgroundImage();
+            this.isLoading = false;
+            return;
+          }
+
           // Keep retrying so the cover page can recover when the API comes back
           this.coverPageRetryTimeoutId = window.setTimeout(() => {
             this.loadCoverPage();
@@ -135,7 +150,7 @@ export class CoverPageComponent implements OnInit, OnDestroy {
     this.clearBlogPreviewRetry();
     this.blogPreviewSubscription?.unsubscribe();
     this.blogPreviewSubscription = this.blogPostService
-      .getAllBlogPosts(undefined, 'publishedDate', 'desc')
+      .getAllBlogPosts(undefined, "publishedDate", "desc")
       .subscribe({
         next: (blogs) => {
           this.blogPreviewPosts = this.shuffleBlogs(
@@ -151,11 +166,6 @@ export class CoverPageComponent implements OnInit, OnDestroy {
           }, 5000);
         },
       });
-  }
-
-  // Use the saved background image when available, otherwise fall back to the bundled cover
-  private getCoverBackgroundImageUrl(coverPage?: CoverPage): string {
-    return coverPage?.backgroundImageUrl || this.defaultBackgroundImageUrl;
   }
 
   // Clear the pending cover page retry timer
@@ -238,16 +248,17 @@ export class CoverPageComponent implements OnInit, OnDestroy {
     };
     image.onerror = () => {
       if (loadId === this.backgroundImageLoadId) {
-        // Fall back to the bundled background if a saved custom image fails
-        if (imageUrl !== this.defaultBackgroundImageUrl) {
-          this.preloadBackgroundImage(this.defaultBackgroundImageUrl);
-          return;
-        }
-
-        this.backgroundImageUrl = this.defaultBackgroundImageUrl;
-        this.isCoverImageLoading = false;
+        // Keep the cover usable with its solid background if the saved image fails
+        this.clearBackgroundImage();
       }
     };
     image.src = imageUrl;
+  }
+
+  // Clear the optional cover image and invalidate any older image preload
+  private clearBackgroundImage(): void {
+    this.backgroundImageLoadId++;
+    this.backgroundImageUrl = undefined;
+    this.isCoverImageLoading = false;
   }
 }

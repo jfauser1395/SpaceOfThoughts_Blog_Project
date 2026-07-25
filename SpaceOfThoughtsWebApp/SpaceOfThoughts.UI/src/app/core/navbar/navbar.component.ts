@@ -1,6 +1,7 @@
 import {
   Component,
   ElementRef,
+  OnDestroy,
   OnInit,
   ViewChild,
   HostListener,
@@ -10,31 +11,19 @@ import { AuthService } from '../../features/auth/services/auth.service';
 import { User } from '../../features/auth/models/user.model';
 import { Subscription } from 'rxjs';
 
-declare global {
-  interface Window {
-    bootstrap?: {
-      Collapse?: {
-        getOrCreateInstance: (
-          element: Element,
-          config?: { toggle?: boolean },
-        ) => { hide: () => void };
-      };
-    };
-  }
-}
-
 @Component({
   selector: 'app-navbar',
   imports: [RouterModule],
   templateUrl: './navbar.component.html',
   styleUrl: './navbar.component.css',
 })
-export class NavbarComponent implements OnInit {
+export class NavbarComponent implements OnInit, OnDestroy {
   user?: User; // Holds the current user information
   isSmallScreen = false; // Flag to check if the screen size is small
   isMediumScreen = false; // Flag to check if the screen size is medium
   searchExpanded = false; // Flag to check if the search bar is expanded
   navBarExpanded = false; // Flag to check if the navbar is expanded
+  isPageInteractionLocked = false; // Keeps routed content inert while mobile navigation is moving
   brandLinkColorReset = false; // Temporarily remove focus color after pointer navigation
   // Avatar framing limits mirror the values accepted by the profile editor
   private readonly defaultAvatarPosition = '50% 50% 100%';
@@ -42,6 +31,11 @@ export class NavbarComponent implements OnInit {
   private readonly minimumAvatarZoom = 85;
   private readonly maximumAvatarZoom = 170;
   private userSubscription?: Subscription; // Subscription for user authentication changes
+  private pageUnlockTimeoutId?: number;
+  @ViewChild('mobileSearchInput')
+  private mobileSearchInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('mobileSearchToggle')
+  private mobileSearchToggle?: ElementRef<HTMLElement>;
   @ViewChild('searchInput') searchInput!: ElementRef; // Reference to the search input element
 
   constructor(
@@ -62,12 +56,6 @@ export class NavbarComponent implements OnInit {
 
     // Check the screen size
     this.checkScreenSize();
-  }
-
-  // Log out the user and navigate to the home page
-  onLogout(): void {
-    this.authService.logout();
-    this.router.navigateByUrl('/');
   }
 
   // Return a stable fallback initial when a user has no profile image
@@ -98,16 +86,50 @@ export class NavbarComponent implements OnInit {
     this.checkScreenSize();
   }
 
+  // Close the expanded mobile search after a click outside its controls
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: Event): void {
+    if (!this.isSmallScreen || !this.searchExpanded) {
+      return;
+    }
+
+    const clickedElement = event.target as Node | null;
+
+    if (!clickedElement) {
+      return;
+    }
+
+    const clickedInput =
+      this.mobileSearchInput?.nativeElement.contains(clickedElement) ?? false;
+    const clickedToggle =
+      this.mobileSearchToggle?.nativeElement.contains(clickedElement) ?? false;
+
+    if (!clickedInput && !clickedToggle) {
+      this.searchExpanded = false;
+    }
+  }
+
   // Check screen size to set flags for responsive behavior
   checkScreenSize() {
     const width = window.innerWidth;
     this.isSmallScreen = width < 576;
     this.isMediumScreen = width < 992;
+
+    if (!this.isMediumScreen) {
+      this.navBarExpanded = false;
+      this.unlockPageInteraction();
+    }
   }
 
   // Monitor the navbar toggle state
   navToggled() {
     this.navBarExpanded = !this.navBarExpanded;
+
+    if (this.navBarExpanded && this.isMediumScreen) {
+      this.lockPageInteraction();
+    } else {
+      this.unlockPageInteraction(true);
+    }
   }
 
   // Collapse mobile navigation and clear pointer-only focus styling on brand navigation
@@ -130,6 +152,10 @@ export class NavbarComponent implements OnInit {
     const navbar = document.getElementById('navbarSupportedContent');
     const navbarToggler =
       document.querySelector<HTMLElement>('.navbar-toggler');
+    const wasExpanded =
+      this.navBarExpanded ||
+      !!navbar?.classList.contains('show') ||
+      !!navbar?.classList.contains('collapsing');
 
     if (navbar?.classList.contains('show')) {
       const collapse = window.bootstrap?.Collapse?.getOrCreateInstance(navbar, {
@@ -146,6 +172,7 @@ export class NavbarComponent implements OnInit {
     navbarToggler?.classList.add('collapsed');
     navbarToggler?.setAttribute('aria-expanded', 'false');
     this.navBarExpanded = false;
+    this.unlockPageInteraction(wasExpanded && this.isMediumScreen);
   }
 
   // Toggle the search bar state and handle navbar collapse if necessary
@@ -155,15 +182,7 @@ export class NavbarComponent implements OnInit {
 
     // If the search bar is expanded, collapse the navbar
     if (this.navBarExpanded) {
-      const navbarToggler = document.querySelector('.navbar-toggler');
-      if (navbarToggler) {
-        navbarToggler.classList.toggle('collapsed');
-      }
-      const navbar = document.getElementById('navbarSupportedContent');
-      if (navbar && navbar.classList.contains('show')) {
-        navbar.classList.remove('show');
-      }
-      this.navBarExpanded = false;
+      this.collapseNavbar();
     }
 
     if (wasExpanded && query.trim()) {
@@ -190,6 +209,42 @@ export class NavbarComponent implements OnInit {
   // Unsubscribe form subscriptions to prevent memory leaks
   ngOnDestroy(): void {
     this.userSubscription?.unsubscribe();
+    this.unlockPageInteraction();
+  }
+
+  // Prevent pointer, keyboard, and scroll interaction with routed content under mobile navigation
+  private lockPageInteraction(): void {
+    if (this.pageUnlockTimeoutId !== undefined) {
+      window.clearTimeout(this.pageUnlockTimeoutId);
+      this.pageUnlockTimeoutId = undefined;
+    }
+
+    this.applyPageInteractionLock(true);
+  }
+
+  // Keep the page locked until Bootstrap's collapse animation has fully retracted
+  private unlockPageInteraction(afterCollapse = false): void {
+    if (this.pageUnlockTimeoutId !== undefined) {
+      window.clearTimeout(this.pageUnlockTimeoutId);
+      this.pageUnlockTimeoutId = undefined;
+    }
+
+    if (afterCollapse) {
+      this.pageUnlockTimeoutId = window.setTimeout(() => {
+        this.pageUnlockTimeoutId = undefined;
+        this.applyPageInteractionLock(false);
+      }, 360);
+      return;
+    }
+
+    this.applyPageInteractionLock(false);
+  }
+
+  // Native inert handles focus and clicks while the body class prevents background scrolling
+  private applyPageInteractionLock(locked: boolean): void {
+    this.isPageInteractionLocked = locked;
+    document.body.classList.toggle('mobile-navbar-open', locked);
+    document.getElementById('main-content')?.toggleAttribute('inert', locked);
   }
 
   // Calculate the translation required to preserve a focal point at the selected zoom

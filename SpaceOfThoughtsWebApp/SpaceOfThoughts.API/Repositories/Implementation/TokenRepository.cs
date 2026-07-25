@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
+using SpaceOfThoughts.API.Authentication;
 using SpaceOfThoughts.API.Repositories.Interface;
 
 namespace SpaceOfThoughts.API.Repositories.Implementation
@@ -51,7 +52,7 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
                 issuer: jwtIssuer,
                 audience: jwtAudience,
                 claims: claims,
-                expires: DateTime.Now.AddMinutes(15),
+                expires: DateTime.UtcNow.Add(JwtCookieDefaults.Lifetime),
                 signingCredentials: credentials
             );
 

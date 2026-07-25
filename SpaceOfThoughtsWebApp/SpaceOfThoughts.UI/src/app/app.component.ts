@@ -24,7 +24,7 @@ export class AppComponent implements OnInit, OnDestroy {
   useRouteFadeFallback = false;
 
   // Route transition state is kept in the shell so public pages fade consistently
-  private readonly routeFadeOutMinimumMs = 180;
+  private readonly routeFadeOutMinimumMs = 280;
   private hasCompletedInitialNavigation = false;
   private routeFadeStartedAt = 0;
   private routeFadeTimeoutId?: number;

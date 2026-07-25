@@ -56,6 +56,14 @@ namespace SpaceOfThoughts.API.Data
                     .HasForeignKey(reaction => reaction.BlogCommentId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
+
+            modelBuilder.Entity<CoverPage>(entity =>
+            {
+                // Preserve the current designed scrim for existing and newly added covers
+                entity
+                    .Property(coverPage => coverPage.BackgroundOverlayStrength)
+                    .HasDefaultValue(100);
+            });
         }
     }
 }

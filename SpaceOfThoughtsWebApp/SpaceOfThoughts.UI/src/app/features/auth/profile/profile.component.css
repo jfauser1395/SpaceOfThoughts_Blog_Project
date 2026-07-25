@@ -1,7 +1,7 @@
 /* Profile page layout */
 .profile-page {
-  background: #f8f5f7;
-  color: #212529;
+  background: var(--color-background);
+  color: var(--color-text);
   min-height: 100vh;
   padding: 96px 0 40px;
 }
@@ -22,14 +22,20 @@
 }
 
 .profile-header p {
-  color: #5f2d38;
+  color: var(--color-text-muted);
   margin: 4px 0 0;
   overflow-wrap: anywhere;
 }
 
+.profile-header-actions {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
 /* Profile content panels */
 .profile-layout {
-  align-items: start;
+  align-items: stretch;
   display: grid;
   gap: 24px;
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
@@ -37,15 +43,16 @@
 
 .avatar-panel,
 .credentials-panel {
-  background: #fffefe;
-  border: 1px solid #ead9de;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
+  height: 100%;
   padding: 22px;
 }
 
 .avatar-panel h2,
 .credentials-panel h2 {
-  color: #5f2d38;
+  color: var(--color-heading);
   font-size: 20px;
   margin: 0 0 18px;
 }
@@ -53,10 +60,10 @@
 /* Avatar preview and editor */
 .avatar-preview {
   align-items: center;
-  background: #17191d;
+  background: var(--media-background);
   border: 0;
   border-radius: 50%;
-  color: #d5dfe9;
+  color: var(--media-text-muted);
   display: flex;
   height: 220px;
   justify-content: center;
@@ -80,6 +87,7 @@
 }
 
 .avatar-preview img {
+  background: var(--media-background);
   display: block;
   flex: 0 0 auto;
   height: 134%;
@@ -114,21 +122,21 @@
 
 .avatar-zoom-control label {
   align-items: center;
-  color: #5f2d38;
+  color: var(--color-heading);
   display: flex;
   font-weight: 700;
   justify-content: space-between;
 }
 
 .avatar-zoom-control input[type="range"] {
-  accent-color: #d47e92;
+  accent-color: var(--color-primary);
   cursor: pointer;
   width: 100%;
 }
 
 .profile-page .btn-outline-secondary {
-  border-color: #a66776;
-  color: #5f2d38;
+  border-color: var(--color-primary-hover);
+  color: var(--color-heading);
 }
 
 .avatar-controls {
@@ -153,19 +161,19 @@
 
 /* Profile credential form fields */
 .form-field label {
-  color: #5f2d38;
+  color: var(--color-heading);
   font-weight: 700;
 }
 
 .profile-page .form-control {
-  background: #fffefe;
-  border-color: #dec8ce;
-  color: #212529;
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
 }
 
 .profile-page .form-control:focus {
-  border-color: #d47e92;
-  box-shadow: 0 0 0 0.2rem rgba(212, 126, 146, 0.2);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 0.2rem var(--color-focus-ring);
 }
 
 .form-field {
@@ -175,7 +183,7 @@
 }
 
 .form-field small {
-  color: #b02a37;
+  color: var(--color-error);
 }
 
 .form-grid {
@@ -198,23 +206,75 @@
 }
 
 .profile-alert-error {
-  background: #f8d7da;
-  border: 1px solid #f1aeb5;
-  color: #842029;
+  background: var(--color-error-surface);
+  border: 1px solid var(--color-error-border);
+  color: var(--color-error);
 }
 
 .profile-alert-success {
-  background: #d1e7dd;
-  border: 1px solid #a3cfbb;
-  color: #0f5132;
+  background: var(--color-success-surface);
+  border: 1px solid var(--color-success-border);
+  color: var(--color-success);
+}
+
+/* Destructive self-service account action */
+.delete-account-panel {
+  align-items: flex-start;
+  background: var(--color-surface);
+  border: 1px solid var(--color-error-border);
+  border-left: 4px solid var(--color-error-strong);
+  border-radius: 8px;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  margin-top: 24px;
+  padding: 22px;
+}
+
+.delete-account-copy {
+  flex: 1 1 auto;
+}
+
+.delete-account-copy h2 {
+  color: var(--color-error);
+  font-size: 20px;
+  margin: 0 0 8px;
+}
+
+.delete-account-copy p,
+.delete-account-confirmation p {
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.delete-account-confirmation {
+  background: var(--color-error-surface);
+  border: 1px solid var(--color-error-border);
+  border-radius: 8px;
+  flex: 0 1 560px;
+  padding: 16px;
+}
+
+.delete-account-confirmation strong {
+  color: var(--color-error);
+  display: block;
+  margin-bottom: 6px;
+}
+
+.delete-account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 16px;
 }
 
 /* Loading state */
 .profile-status {
-  background: #fffefe;
-  border: 1px dashed #d6b5bd;
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border-strong);
   border-radius: 8px;
-  color: #7d4a55;
+  color: var(--color-text-muted);
   padding: 20px;
   text-align: center;
 }
@@ -225,6 +285,15 @@
   .form-grid {
     grid-template-columns: 1fr;
   }
+
+  .delete-account-panel {
+    flex-direction: column;
+  }
+
+  .delete-account-confirmation {
+    flex-basis: auto;
+    width: 100%;
+  }
 }
 
 /* Mobile profile layout */
@@ -232,6 +301,10 @@
   .profile-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .profile-header-actions {
+    width: 100%;
   }
 
   .avatar-preview {
@@ -244,6 +317,14 @@
   }
 
   .profile-actions-footer .btn {
+    width: 100%;
+  }
+
+  .delete-account-actions {
+    flex-direction: column;
+  }
+
+  .delete-account-actions .btn {
     width: 100%;
   }
 }

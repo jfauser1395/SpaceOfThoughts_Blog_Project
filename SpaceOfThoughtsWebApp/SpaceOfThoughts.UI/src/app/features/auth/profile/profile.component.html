@@ -6,10 +6,19 @@
         <h1>Profile</h1>
         <p>{{ currentUser?.email }}</p>
       </div>
-      <a class="btn btn-outline-secondary" [routerLink]="['/blogs']">
-        <i class="bi bi-arrow-left" aria-hidden="true"></i>
-        Blogs
-      </a>
+      <div class="profile-header-actions">
+        <a class="btn btn-outline-secondary" [routerLink]="['/blogs']">
+          <i class="bi bi-arrow-left" aria-hidden="true"></i>
+          Blogs
+        </a>
+        <button
+          type="button"
+          class="btn btn-outline-secondary profile-sign-out-button"
+          (click)="onLogout()"
+        >
+          Sign out
+        </button>
+      </div>
     </header>
 
     @if (isLoading) {
@@ -86,9 +95,6 @@
                 title="Drag to position picture"
                 aria-label="Profile picture preview"
                 (pointerdown)="onAvatarPointerDown($event)"
-                (pointermove)="onAvatarPointerMove($event)"
-                (pointerup)="onAvatarPointerUp($event)"
-                (pointercancel)="onAvatarPointerUp($event)"
               >
                 @if (avatarImageUrl) {
                   <img
@@ -168,7 +174,9 @@
                 formControlName="userName"
                 autocomplete="username"
               />
-              @if (profileForm.controls.userName.invalid && profileForm.controls.userName.touched) {
+              @if (profileForm.controls.userName.hasError("duplicate")) {
+                <small>Username is already taken.</small>
+              } @else if (profileForm.controls.userName.invalid && profileForm.controls.userName.touched) {
                 <small>Username is required.</small>
               }
             </div>
@@ -182,7 +190,9 @@
                 formControlName="email"
                 autocomplete="email"
               />
-              @if (profileForm.controls.email.invalid && profileForm.controls.email.touched) {
+              @if (profileForm.controls.email.hasError("duplicate")) {
+                <small>Email is already taken.</small>
+              } @else if (profileForm.controls.email.invalid && profileForm.controls.email.touched) {
                 <small>Enter a valid email address.</small>
               }
             </div>
@@ -252,6 +262,62 @@
           </form>
         </section>
       </div>
+
+      @if (canDeleteAccount) {
+        <!-- Self-service account deletion is intentionally hidden for the protected Admin account -->
+        <section class="delete-account-panel" aria-labelledby="delete-account-heading">
+          <div class="delete-account-copy">
+            <h2 id="delete-account-heading">Delete account</h2>
+            <p>
+              Permanently remove your sign-in account and profile picture. This action cannot be
+              undone.
+            </p>
+          </div>
+
+          @if (!isDeleteAccountConfirmationOpen) {
+            <button
+              type="button"
+              class="btn btn-outline-danger"
+              (click)="openDeleteAccountConfirmation()"
+            >
+              <i class="bi bi-trash3" aria-hidden="true"></i>
+              Delete my account
+            </button>
+          } @else {
+            <!-- A second explicit action prevents accidental permanent deletion -->
+            <div class="delete-account-confirmation" role="alert">
+              <strong>Are you sure you want to delete your account?</strong>
+              <p>You will be signed out immediately after the account is deleted.</p>
+
+              @if (deleteAccountError) {
+                <div class="profile-alert profile-alert-error" aria-live="assertive">
+                  {{ deleteAccountError }}
+                </div>
+              }
+
+              <div class="delete-account-actions">
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary"
+                  [disabled]="isDeletingAccount"
+                  (click)="closeDeleteAccountConfirmation()"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-danger"
+                  [disabled]="isDeletingAccount"
+                  (click)="onDeleteAccount()"
+                >
+                  <i class="bi bi-trash3" aria-hidden="true"></i>
+                  {{ isDeletingAccount ? "Deleting..." : "Delete account permanently" }}
+                </button>
+              </div>
+            </div>
+          }
+        </section>
+      }
     }
   </div>
 </div>

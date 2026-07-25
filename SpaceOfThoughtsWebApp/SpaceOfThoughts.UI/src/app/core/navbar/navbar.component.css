@@ -1,7 +1,7 @@
 /* Override button styling */
 .btnPrimary {
-  background: #212529;
-  color: #d5dfe9;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
   border: 0px;
   white-space: nowrap; /* To prevent the text from breaking into a new line */
   position: relative;
@@ -22,10 +22,10 @@
 
 .profile-avatar-button {
   align-items: center;
-  background: #212529;
+  background: #000;
   border: 0;
   border-radius: 50%;
-  color: #ffffff;
+  color: var(--media-text);
   cursor: pointer;
   display: inline-flex;
   flex: 0 0 42px;
@@ -38,6 +38,7 @@
 }
 
 .profile-avatar-button img {
+  background: #000;
   display: block;
   flex: 0 0 auto;
   height: 134%;
@@ -53,23 +54,81 @@
   line-height: 1;
 }
 
+.navbar-mobile-avatar {
+  opacity: 1;
+  position: absolute;
+  right: 52px;
+  top: 14px;
+  transform: translateY(0);
+  transition:
+    opacity 0.22s ease 0.7s,
+    transform 0.3s ease 0.7s,
+    visibility 0s linear 0.7s;
+  visibility: visible;
+}
+
+.navbar-mobile-avatar.is-search-expanded {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(18px);
+  transition:
+    opacity 0.22s ease,
+    transform 0.3s ease,
+    visibility 0s linear 0.3s;
+  visibility: hidden;
+}
+
 .navbar-auth-actions {
   align-items: center;
 }
 
 .navbar-login-link {
   align-items: center;
+  background: color-mix(in srgb, var(--color-surface-muted) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
+  border-radius: 50%;
+  color: var(--color-text-muted);
   display: inline-flex;
+  height: 42px;
   justify-content: center;
-  line-height: 1;
+  padding: 0;
+  text-decoration: none;
+  transition: 180ms ease;
+  width: 42px;
+}
+
+.navbar-login-link i {
+  font-size: 21px;
+}
+
+.navbar-login-link:hover {
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-primary) 52%, transparent);
+  box-shadow: 0 5px 14px color-mix(in srgb, var(--color-heading) 10%, transparent);
+  color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.navbar-login-link:focus-visible {
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-focus-ring) 28%, transparent);
+  color: var(--color-primary);
+  outline: 0;
 }
 
 .blogFontThemeNav.is-brand-click-reset,
 .blogFontThemeNav.is-brand-click-reset:hover,
 .blogFontThemeNav.is-brand-click-reset:focus,
 .blogFontThemeNav.is-brand-click-reset:active {
-  color: #d47e92;
+  color: var(--color-navbar-brand);
   text-shadow: none;
+  transform: translateY(0);
+}
+
+.blogFontThemeNav.is-brand-click-reset::after {
+  opacity: 0;
+  transform: scaleX(0.35);
 }
 
 /* Search icon styling */
@@ -77,12 +136,17 @@
   position: absolute;
   transition:
     width 0.7s,
-    transform 0.7s;
+    transform 0.7s,
+    box-shadow 0s,
+    outline-color 0s;
   width: 35px;
   height: 35px;
-  background: #212529;
+  background: var(--color-surface);
   box-sizing: border-box;
   border-radius: 25px;
+  box-shadow: none;
+  outline: 1px solid transparent;
+  outline-offset: 0;
   padding: 5px;
   z-index: 1;
 }
@@ -95,13 +159,14 @@
   width: 80%;
   height: 35px;
   line-height: 30px;
-  background: white;
+  background: var(--color-surface);
   outline: none;
   border: none;
   font-size: 1em;
   border-radius: 20px;
   padding: 0 20px;
-  color: black;
+  caret-color: var(--color-primary-hover);
+  color: var(--color-text);
   opacity: 0;
   transition: opacity 0.7s;
 }
@@ -111,7 +176,7 @@
   position: absolute;
   top: 6px;
   right: 8px;
-  color: #a66776;
+  color: var(--color-primary-hover);
   text-align: center;
   font-size: 1.2em;
   transition: all 0.7s;
@@ -119,9 +184,20 @@
 
 /* Expanded state of search icon */
 .searchIconAnimation.expanded {
-  width: 94vw;
+  box-shadow: 0 0 0 2px rgba(var(--color-focus-ring-rgb), 0.08);
   cursor: pointer;
-  transform: translateX(-75%);
+  outline-color: color-mix(
+    in srgb,
+    var(--color-primary) 32%,
+    var(--color-border-strong)
+  );
+  transform: translateX(calc(-100vw + 140px));
+  transition:
+    width 0.7s,
+    transform 0.7s,
+    box-shadow 0s linear 0.7s,
+    outline-color 0s linear 0.7s;
+  width: calc(100vw - 8px);
 }
 
 /* Make search input visible in expanded state */
@@ -182,12 +258,12 @@
 
 .custom-input {
   align-items: center;
-  background: #fffefe;
-  border: 1px solid rgba(166, 103, 118, 0.46);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
   border-radius: 999px;
   box-shadow:
-    0 0 0 1px rgba(166, 103, 118, 0.22),
-    0 0 18px rgba(166, 103, 118, 0.2);
+    0 0 0 1px var(--color-border),
+    0 0 18px rgba(var(--color-focus-ring-rgb), 0.2);
   height: 38px;
   min-width: 320px;
   overflow: hidden;
@@ -200,23 +276,23 @@
 
 .custom-input:hover,
 .custom-input:focus-within {
-  border-color: #a66776;
+  border-color: var(--color-primary-hover);
   box-shadow:
-    0 0 0 1px rgba(166, 103, 118, 0.5),
-    0 0 0 4px rgba(166, 103, 118, 0.14),
-    0 0 30px rgba(166, 103, 118, 0.32);
+    0 0 0 1px var(--color-primary),
+    0 0 0 4px rgba(var(--color-focus-ring-rgb), 0.2),
+    0 0 30px rgba(var(--color-focus-ring-rgb), 0.32);
 }
 
 .custom-input .form-control {
   background: transparent;
-  caret-color: #a66776;
-  color: #000;
+  caret-color: var(--color-primary-hover);
+  color: var(--color-text);
   height: 100%;
   padding: 0 12px 0 16px;
 }
 
 .custom-input .form-control::placeholder {
-  color: #757575;
+  color: var(--color-text-muted);
   opacity: 1;
 }
 
@@ -226,9 +302,9 @@
 
 .custom-input .inside-btn {
   align-items: center;
-  background: rgba(166, 103, 118, 0.12);
+  background: var(--color-surface-muted);
   border-radius: 50%;
-  color: #a66776;
+  color: var(--color-primary-hover);
   display: inline-flex;
   flex: 0 0 32px;
   height: 32px;
@@ -253,6 +329,10 @@
 }
 
 @media (max-width: 991.98px) {
+  .navbar-toggler-wrap {
+    transform: translateX(-2px);
+  }
+
   .navbar-auth-actions {
     justify-content: flex-start;
     padding-left: 0;
@@ -260,8 +340,7 @@
 
   .navbar-login-link {
     margin-right: 0 !important;
-    padding-left: 0;
-    padding-right: 0.5rem;
+    padding: 0;
   }
 }
 
@@ -325,7 +404,7 @@
   position: absolute;
   height: 3px;
   width: 100%;
-  background: white;
+  background: var(--color-primary);
   border-radius: 1px;
   opacity: 1;
   left: 0;
@@ -377,5 +456,18 @@
 
 /* Color of the 3 lines in toggler icon */
 .navbar-toggler.collapsed .toggler-icon {
-  background: linear-gradient(263deg, #a66776 0%, white 100%);
+  background: var(--color-primary);
+}
+
+.navbar-toggler:focus-visible {
+  border-radius: 4px;
+  box-shadow: 0 0 0 5px rgba(var(--color-focus-ring-rgb), 0.28);
+  outline: 3px solid var(--color-primary);
+  outline-offset: 4px;
+}
+
+@media (max-width: 575.98px) {
+  .searchIconSmallScreen {
+    left: calc(100% - 136px);
+  }
 }

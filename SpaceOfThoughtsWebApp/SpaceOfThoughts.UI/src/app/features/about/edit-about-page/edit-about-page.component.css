@@ -1,7 +1,7 @@
 /* About editor page layout */
 .about-editor-page {
-  background: #f8f5f7;
-  color: #212529;
+  background: var(--color-background);
+  color: var(--color-text);
   min-height: 100vh;
   padding: 96px 0 40px;
 }
@@ -21,7 +21,7 @@
 }
 
 .about-editor-header p {
-  color: #5f2d38;
+  color: var(--color-text-muted);
   margin: 4px 0 0;
 }
 
@@ -36,22 +36,22 @@
 .about-editor-fields,
 .about-editor-preview,
 .about-editor-loading {
-  background: #fffefe;
-  border: 1px solid #ead9de;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 22px;
 }
 
 .about-editor-fields h2,
 .about-editor-preview h2 {
-  color: #5f2d38;
+  color: var(--color-heading);
   font-size: 20px;
   margin: 0 0 18px;
 }
 
 .about-editor-fields h3 {
-  border-top: 1px solid #ead9de;
-  color: #5f2d38;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-heading);
   font-size: 18px;
   margin: 24px 0 14px;
   padding-top: 18px;
@@ -70,14 +70,73 @@
 }
 
 .about-editor-field label {
-  color: #5f2d38;
+  color: var(--color-heading);
   font-weight: 700;
 }
 
+/* Profile picture upload and selection control */
+.about-editor-image-field {
+  border: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.about-editor-image-field legend {
+  color: var(--color-heading);
+  float: none;
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 7px;
+}
+
+.about-editor-image-control {
+  align-items: center;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 120px minmax(0, 1fr);
+  padding: 14px;
+}
+
+.about-editor-image-preview,
+.about-editor-image-empty {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  width: 120px;
+}
+
+.about-editor-image-preview {
+  object-fit: cover;
+}
+
+.about-editor-image-empty {
+  align-items: center;
+  background: var(--color-surface-muted);
+  border: 1px dashed var(--color-border-strong);
+  color: var(--color-text-muted);
+  display: flex;
+  font-size: 13px;
+  justify-content: center;
+  padding: 12px;
+  text-align: center;
+}
+
+.about-editor-image-copy p {
+  color: var(--color-text-muted);
+  margin: 0 0 12px;
+}
+
+.about-editor-image-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .about-editor-page .form-control {
-  background: #fffefe;
-  border-color: #dec8ce;
-  color: #212529;
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
 }
 
 /* Editor actions and feedback messages */
@@ -99,15 +158,21 @@
 }
 
 .about-editor-alert-error {
-  background: #f8d7da;
-  border: 1px solid #f1aeb5;
-  color: #842029;
+  background: var(--color-error-surface);
+  border: 1px solid var(--color-error-border);
+  color: var(--color-error);
 }
 
 .about-editor-alert-success {
-  background: #d1e7dd;
-  border: 1px solid #a3cfbb;
-  color: #0f5132;
+  background: var(--color-success-surface);
+  border: 1px solid var(--color-success-border);
+  color: var(--color-success);
+}
+
+.about-editor-alert-info {
+  background: var(--color-info-surface);
+  border: 1px solid var(--color-info-border);
+  color: var(--color-info);
 }
 
 /* Live preview panel */
@@ -127,15 +192,15 @@
 }
 
 .about-editor-preview::-webkit-scrollbar-thumb {
-  background: rgba(95, 45, 56, 0.22);
+  background: var(--color-border-strong);
   border-radius: 999px;
 }
 
 /* Live preview card content */
 .about-editor-preview-card {
   align-items: stretch;
-  background: #f8f3f5;
-  border: 1px solid rgba(166, 103, 118, 0.22);
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   display: flex;
   flex-direction: column;
@@ -158,14 +223,14 @@
 }
 
 .about-editor-preview-card .about-editor-preview-caption {
-  color: #72535b;
+  color: var(--color-text-muted);
   font-size: 13px;
   font-style: italic;
   margin: 0;
 }
 
 .about-editor-preview-section {
-  border-top: 1px solid #ead9de;
+  border-top: 1px solid var(--color-border);
   padding-top: 14px;
 }
 
@@ -176,8 +241,11 @@
   grid-template-columns: 96px minmax(0, 1fr);
 }
 
-.about-editor-preview-photo,
-.about-editor-preview-photo-placeholder {
+.about-editor-preview-author-without-image {
+  grid-template-columns: 1fr;
+}
+
+.about-editor-preview-photo {
   aspect-ratio: 1;
   border-radius: 8px;
   height: 96px;
@@ -188,18 +256,8 @@
   object-fit: cover;
 }
 
-.about-editor-preview-photo-placeholder {
-  align-items: center;
-  background: linear-gradient(135deg, #ddd2d6, #bba9af);
-  color: rgba(95, 45, 56, 0.54);
-  display: flex;
-  font-family: NavFont, serif;
-  font-size: 40px;
-  justify-content: center;
-}
-
 .about-editor-preview-card h3 {
-  color: #5f2d38;
+  color: var(--color-heading);
   font-size: 18px;
   margin: 0 0 8px;
 }
@@ -211,7 +269,7 @@
 }
 
 .about-editor-preview-card p {
-  color: #473d41;
+  color: var(--color-text);
   font-size: 13px;
   line-height: 1.55;
   margin: 0 0 8px;
@@ -222,12 +280,12 @@
 }
 
 .about-editor-preview-card .about-editor-preview-role {
-  color: #72535b;
+  color: var(--color-text-muted);
   font-weight: 700;
 }
 
 .about-editor-preview-terms {
-  color: #473d41;
+  color: var(--color-text);
   display: grid;
   font-size: 13px;
   gap: 6px;
@@ -237,7 +295,7 @@
 }
 
 .about-editor-preview-card .about-editor-preview-contact {
-  color: #8e4455;
+  color: var(--color-primary-hover);
   font-weight: 700;
 }
 
@@ -259,6 +317,10 @@
   .about-editor-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .about-editor-image-control {
+    grid-template-columns: 1fr;
   }
 
   .about-editor-actions .btn {

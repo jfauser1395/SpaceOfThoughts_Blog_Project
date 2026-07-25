@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { User } from '../models/user.model';
 import { AuthService } from '../services/auth.service';
@@ -27,6 +27,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
   private readonly croppedAvatarSize = 512;
   private readonly defaultAvatarZoom = 100;
   private readonly selectedImageDefaultAvatarZoom = 134;
+  private readonly minimumAvatarPanOffsetPercent = 12.5;
   private readonly defaultAvatarPosition = '50% 50% 100%';
   private readonly savedCroppedAvatarPosition = '50% 50%';
   avatarPositionX = 50;
@@ -35,18 +36,23 @@ export class ProfileComponent implements OnInit, OnDestroy {
   isProfilePictureEditorOpen = false;
   isDraggingAvatar = false;
 
-  // Drag start values used to calculate the new avatar position
-  private dragStartClientX = 0;
-  private dragStartClientY = 0;
-  private dragStartAvatarPositionX = 50;
-  private dragStartAvatarPositionY = 50;
+  // Active pointer and incremental drag values used for smooth two-axis movement
+  private activeAvatarPointerId?: number;
+  private avatarDragTarget?: HTMLElement;
+  private dragLastClientX = 0;
+  private dragLastClientY = 0;
+  private dragPositionX = 50;
+  private dragPositionY = 50;
   isLoading = true;
   isSavingProfile = false;
   isUploadingProfileImage = false;
+  isDeletingAccount = false;
+  isDeleteAccountConfirmationOpen = false;
   profileError?: string;
   profileSuccess?: string;
   imageError?: string;
   imageSuccess?: string;
+  deleteAccountError?: string;
 
   // Reactive form for profile credentials and optional password change
   profileForm = new FormGroup({
@@ -66,8 +72,12 @@ export class ProfileComponent implements OnInit, OnDestroy {
   private profileSubscription?: Subscription;
   private updateProfileSubscription?: Subscription;
   private uploadProfileImageSubscription?: Subscription;
+  private deleteAccountSubscription?: Subscription;
 
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private router: Router,
+  ) {}
 
   ngOnInit(): void {
     // Scroll up after loading the profile page
@@ -75,6 +85,12 @@ export class ProfileComponent implements OnInit, OnDestroy {
 
     // Load the editable profile data
     this.loadProfile();
+  }
+
+  // End the current session from the account profile page
+  onLogout(): void {
+    this.authService.logout();
+    void this.router.navigateByUrl('/', { replaceUrl: true });
   }
 
   // Handle profile image file selection
@@ -120,6 +136,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
     this.imageSuccess = undefined;
     this.selectedProfileImageFile = undefined;
     this.revokeSelectedProfileImagePreview();
+    this.finishAvatarDrag(this.activeAvatarPointerId);
     this.applyAvatarPosition(this.currentUser);
     this.isProfilePictureEditorOpen = false;
   }
@@ -218,6 +235,25 @@ export class ProfileComponent implements OnInit, OnDestroy {
           this.isSavingProfile = false;
         },
         error: (error) => {
+          const validationErrors = error?.error?.errors;
+          if (validationErrors?.userName) {
+            const userNameControl = this.profileForm.controls.userName;
+            userNameControl.setErrors({
+              ...userNameControl.errors,
+              duplicate: true,
+            });
+            userNameControl.markAsTouched();
+          }
+
+          if (validationErrors?.email) {
+            const emailControl = this.profileForm.controls.email;
+            emailControl.setErrors({
+              ...emailControl.errors,
+              duplicate: true,
+            });
+            emailControl.markAsTouched();
+          }
+
           this.profileError =
             this.getRequestErrorMessage(error) || 'Unable to update your profile.';
           this.isSavingProfile = false;
@@ -225,38 +261,103 @@ export class ProfileComponent implements OnInit, OnDestroy {
       });
   }
 
-  // Start dragging the avatar preview
-  onAvatarPointerDown(event: PointerEvent): void {
-    if (!this.avatarImageUrl) {
+  // Show the explicit confirmation step before allowing permanent account deletion
+  openDeleteAccountConfirmation(): void {
+    this.deleteAccountError = undefined;
+    this.isDeleteAccountConfirmationOpen = true;
+  }
+
+  // Return to the normal profile view without deleting the account
+  closeDeleteAccountConfirmation(): void {
+    if (this.isDeletingAccount) {
       return;
     }
 
-    this.isDraggingAvatar = true;
-    this.dragStartClientX = event.clientX;
-    this.dragStartClientY = event.clientY;
-    this.dragStartAvatarPositionX = this.avatarPositionX;
-    this.dragStartAvatarPositionY = this.avatarPositionY;
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    this.deleteAccountError = undefined;
+    this.isDeleteAccountConfirmationOpen = false;
   }
 
-  // Update avatar position while dragging
-  onAvatarPointerMove(event: PointerEvent): void {
-    if (!this.isDraggingAvatar) {
+  // Delete the signed-in user's account and clear the now-invalid local session
+  onDeleteAccount(): void {
+    if (!this.canDeleteAccount || this.isDeletingAccount) {
       return;
+    }
+
+    this.deleteAccountError = undefined;
+    this.isDeletingAccount = true;
+    this.deleteAccountSubscription?.unsubscribe();
+
+    this.deleteAccountSubscription = this.authService.deleteCurrentAccount().subscribe({
+      next: () => {
+        // Remove all local authentication state before leaving the protected profile page
+        this.authService.logout();
+        void this.router.navigateByUrl('/', { replaceUrl: true });
+      },
+      error: (error) => {
+        this.deleteAccountError = this.getDeleteAccountErrorMessage(error);
+        this.isDeletingAccount = false;
+      },
+    });
+  }
+
+  // Start dragging the avatar preview
+  onAvatarPointerDown(event: PointerEvent): void {
+    if (
+      !this.avatarImageUrl ||
+      (event.pointerType === 'mouse' && event.button !== 0)
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    const avatar = event.currentTarget as HTMLElement;
+    this.activeAvatarPointerId = event.pointerId;
+    this.avatarDragTarget = avatar;
+    this.isDraggingAvatar = true;
+    this.dragLastClientX = event.clientX;
+    this.dragLastClientY = event.clientY;
+    this.dragPositionX = this.avatarPositionX;
+    this.dragPositionY = this.avatarPositionY;
+    avatar.setPointerCapture(event.pointerId);
+  }
+
+  // Track pointer movement on the window so vertical dragging is not lost to the popup
+  @HostListener('window:pointermove', ['$event'])
+  onAvatarPointerMove(event: PointerEvent): void {
+    if (
+      !this.isDraggingAvatar ||
+      event.pointerId !== this.activeAvatarPointerId
+    ) {
+      return;
+    }
+
+    if (event.cancelable) {
+      event.preventDefault();
     }
 
     this.updateAvatarPositionFromDrag(event);
   }
 
   // Finish dragging the avatar preview
+  @HostListener('window:pointerup', ['$event'])
   onAvatarPointerUp(event: PointerEvent): void {
-    if (!this.isDraggingAvatar) {
+    if (
+      !this.isDraggingAvatar ||
+      event.pointerId !== this.activeAvatarPointerId
+    ) {
       return;
     }
 
     this.updateAvatarPositionFromDrag(event);
-    this.isDraggingAvatar = false;
-    (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId);
+    this.finishAvatarDrag(event.pointerId);
+  }
+
+  // Cancel an interrupted drag without applying an unreliable final pointer position
+  @HostListener('window:pointercancel', ['$event'])
+  onAvatarPointerCancel(event: PointerEvent): void {
+    if (event.pointerId === this.activeAvatarPointerId) {
+      this.finishAvatarDrag(event.pointerId);
+    }
   }
 
   // Update avatar zoom from the range input
@@ -295,11 +396,18 @@ export class ProfileComponent implements OnInit, OnDestroy {
     return userName ? userName.charAt(0).toUpperCase() : '?';
   }
 
+  // The initial seeded administrator is intentionally excluded from self-service deletion
+  get canDeleteAccount(): boolean {
+    return !!this.currentUser && !this.currentUser.roles.includes('InitialAdmin');
+  }
+
   ngOnDestroy(): void {
     // Unsubscribe from subscriptions and release preview URLs to prevent memory leaks
     this.profileSubscription?.unsubscribe();
     this.updateProfileSubscription?.unsubscribe();
     this.uploadProfileImageSubscription?.unsubscribe();
+    this.deleteAccountSubscription?.unsubscribe();
+    this.finishAvatarDrag(this.activeAvatarPointerId);
     this.revokeSelectedProfileImagePreview();
   }
 
@@ -352,17 +460,39 @@ export class ProfileComponent implements OnInit, OnDestroy {
 
   // Convert pointer movement into percentage-based avatar position
   private updateAvatarPositionFromDrag(event: PointerEvent): void {
-    const avatar = event.currentTarget as HTMLElement;
-    const bounds = avatar.getBoundingClientRect();
-    const deltaX = ((event.clientX - this.dragStartClientX) / bounds.width) * 100;
-    const deltaY = ((event.clientY - this.dragStartClientY) / bounds.height) * 100;
+    const avatar = this.avatarDragTarget;
+    if (!avatar) {
+      return;
+    }
 
-    this.avatarPositionX = this.clampPercent(
-      Math.round(this.dragStartAvatarPositionX - deltaX),
-    );
-    this.avatarPositionY = this.clampPercent(
-      Math.round(this.dragStartAvatarPositionY - deltaY),
-    );
+    const bounds = avatar.getBoundingClientRect();
+    if (bounds.width <= 0 || bounds.height <= 0) {
+      return;
+    }
+
+    const deltaX = ((event.clientX - this.dragLastClientX) / bounds.width) * 100;
+    const deltaY = ((event.clientY - this.dragLastClientY) / bounds.height) * 100;
+
+    this.dragPositionX = this.clampPercent(this.dragPositionX - deltaX);
+    this.dragPositionY = this.clampPercent(this.dragPositionY - deltaY);
+    this.avatarPositionX = Math.round(this.dragPositionX);
+    this.avatarPositionY = Math.round(this.dragPositionY);
+    this.dragLastClientX = event.clientX;
+    this.dragLastClientY = event.clientY;
+  }
+
+  // Release pointer capture and clear all state associated with the current drag
+  private finishAvatarDrag(pointerId?: number): void {
+    if (
+      pointerId !== undefined &&
+      this.avatarDragTarget?.hasPointerCapture(pointerId)
+    ) {
+      this.avatarDragTarget.releasePointerCapture(pointerId);
+    }
+
+    this.isDraggingAvatar = false;
+    this.activeAvatarPointerId = undefined;
+    this.avatarDragTarget = undefined;
   }
 
   // Keep avatar position inside the preview frame
@@ -382,7 +512,10 @@ export class ProfileComponent implements OnInit, OnDestroy {
   // Build the translate transform that visually pans a zoomed avatar image
   private buildAvatarTransform(x: number, y: number, zoom: number): string {
     const zoomPercent = this.clampZoom(zoom);
-    const maxOffset = Math.max(0, ((zoomPercent - 100) / (2 * zoomPercent)) * 100);
+    const maxOffset = Math.max(
+      this.minimumAvatarPanOffsetPercent,
+      (Math.abs(zoomPercent - 100) / (2 * zoomPercent)) * 100,
+    );
     const offsetX = (((50 - x) / 50) * maxOffset).toFixed(2);
     const offsetY = (((50 - y) / 50) * maxOffset).toFixed(2);
 
@@ -457,7 +590,11 @@ export class ProfileComponent implements OnInit, OnDestroy {
     const canvasSize = this.croppedAvatarSize;
     const zoom = this.clampZoom(this.avatarZoom);
     const imageBoxSize = (canvasSize * zoom) / 100;
-    const maxOffset = Math.max(0, ((zoom - 100) / (2 * zoom)) * 100);
+    // Keep both axes movable even when the image exactly fills the crop frame
+    const maxOffset = Math.max(
+      this.minimumAvatarPanOffsetPercent,
+      (Math.abs(zoom - 100) / (2 * zoom)) * 100,
+    );
     const offsetX = ((((50 - this.avatarPositionX) / 50) * maxOffset) / 100) * imageBoxSize;
     const offsetY = ((((50 - this.avatarPositionY) / 50) * maxOffset) / 100) * imageBoxSize;
     const imageBoxX = (canvasSize - imageBoxSize) / 2 + offsetX;
@@ -470,7 +607,8 @@ export class ProfileComponent implements OnInit, OnDestroy {
     const drawX = imageBoxX - overflowX * (this.avatarPositionX / 100);
     const drawY = imageBoxY - overflowY * (this.avatarPositionY / 100);
 
-    context.fillStyle = '#ffffff';
+    // Fill transparency and any exposed crop area with the required black background
+    context.fillStyle = '#000000';
     context.fillRect(0, 0, canvasSize, canvasSize);
     context.drawImage(image, drawX, drawY, drawWidth, drawHeight);
   }
@@ -552,5 +690,18 @@ export class ProfileComponent implements OnInit, OnDestroy {
 
     const firstError = Object.values(errors).flat().find((message) => !!message);
     return typeof firstError === 'string' ? firstError : undefined;
+  }
+
+  // Provide deletion-specific guidance while preserving API validation details
+  private getDeleteAccountErrorMessage(error: any): string {
+    if (error?.status === 404 || error?.status === 405) {
+      return 'The running API has not loaded account deletion yet. Restart the API and try again.';
+    }
+
+    if (error?.status === 401) {
+      return 'Your session expired. Sign in again before deleting your account.';
+    }
+
+    return this.getRequestErrorMessage(error) || 'Unable to delete your account.';
   }
 }

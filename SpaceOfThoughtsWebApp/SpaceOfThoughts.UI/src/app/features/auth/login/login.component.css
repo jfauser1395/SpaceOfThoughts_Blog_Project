@@ -8,5 +8,5 @@
 
 /* Apply red border to invalid and touched input fields */
 input.ng-invalid.ng-touched {
-  border: red 2px solid; /* Red border with 2px width for invalid input fields */
+  border: var(--color-error) 2px solid; /* Theme-aware error border for invalid inputs */
 }

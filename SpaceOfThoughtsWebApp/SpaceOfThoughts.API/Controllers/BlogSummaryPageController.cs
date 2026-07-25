@@ -52,6 +52,34 @@ namespace SpaceOfThoughts.API.Controllers
             return Ok(MapToDto(updatedBlogSummaryPage));
         }
 
+        // DELETE: {apiBaseUrl}/api/BlogSummaryPage - Remove current blogs page settings for writers
+        [HttpDelete]
+        [Authorize(Roles = "Writer")]
+        public async Task<IActionResult> DeleteBlogSummaryPage()
+        {
+            var wasDeleted = await blogSummaryPageRepository.DeleteAsync();
+            if (!wasDeleted)
+            {
+                return NotFound();
+            }
+
+            return NoContent();
+        }
+
+        // DELETE: {apiBaseUrl}/api/BlogSummaryPage/background-image - Clear only its picture
+        [HttpDelete("background-image")]
+        [Authorize(Roles = "Writer")]
+        public async Task<IActionResult> RemoveBlogSummaryBackgroundImage()
+        {
+            var blogSummaryPage = await blogSummaryPageRepository.RemoveBackgroundImageAsync();
+            if (blogSummaryPage is null)
+            {
+                return NotFound();
+            }
+
+            return Ok(MapToDto(blogSummaryPage));
+        }
+
         // Convert BlogSummaryPage domain model to DTO
         private static BlogSummaryPageDto MapToDto(BlogSummaryPage blogSummaryPage)
         {

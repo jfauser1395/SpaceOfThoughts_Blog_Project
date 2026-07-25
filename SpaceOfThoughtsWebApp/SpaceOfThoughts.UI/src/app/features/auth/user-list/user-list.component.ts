@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit } from '@angular/core';
 import { User } from '../models/user.model';
 import { Observable, of, Subscription } from 'rxjs';
 import { AuthService } from '../services/auth.service';
@@ -12,9 +12,10 @@ import { CommonModule } from '@angular/common';
 })
 export class UserListComponent implements OnInit, OnDestroy {
   users$?: Observable<User[]>; // Observable for the list of users
-  id: string | null = null; // ID of the selected user for deletion
+  id: string | null = null; // ID of the user selected by an action modal
   deleteUserSubscription$?: Subscription; // Subscription for delete user request
   banUserSubscription$?: Subscription; // Subscription for ban or unban user request
+  writingPrivilegesSubscription$?: Subscription; // Subscription for changing Writer access
   usersQuant$?: Subscription; // Subscription for getting total user count
   usersSubscription$?: Subscription; // Subscription for getting user rows
   totalCount!: number; // Total number of users
@@ -22,11 +23,20 @@ export class UserListComponent implements OnInit, OnDestroy {
   pageNumber = 1; // Current page number
   pageSize = 8; // Number of users per page
   query = ''; // Current search query
-  sortedBy = ''; // Field to sort by
+  sortedBy = 'userName'; // Sort users alphabetically by username by default
   sortDirection: 'asc' | 'desc' = 'asc'; // Direction of sorting
+  currentUser?: User; // Signed-in user used only to control privileged UI visibility
+  selectedUser?: User; // User targeted by the currently open confirmation modal
+  updatingWritingPrivilegesForId?: string;
+  privilegeMessage?: string;
+  privilegeError?: string;
   private allUsers: User[] = [];
+  private actionButtonResetTimeoutId?: number;
 
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private readonly hostElement: ElementRef<HTMLElement>,
+  ) {}
 
   ngOnInit(): void {
     // Scroll to the top of the page smoothly on component initialization
@@ -35,6 +45,8 @@ export class UserListComponent implements OnInit, OnDestroy {
       left: 0,
       behavior: 'smooth',
     });
+
+    this.currentUser = this.authService.getUser();
 
     // Get the total user count
     this.usersQuant$ = this.authService.getUserCount().subscribe({
@@ -57,9 +69,30 @@ export class UserListComponent implements OnInit, OnDestroy {
     });
   }
 
-  // Set the ID of the user to be deleted
-  setUserId(userId: string) {
-    this.id = userId;
+  // Select one row for the independent ban, writing-rights, or delete modal
+  selectUser(user: User): void {
+    this.selectedUser = user;
+    this.id = user.id;
+  }
+
+  // Bootstrap restores focus to a modal trigger after the hidden event finishes.
+  // Reset on the next task so Cancel, Close, and Submit all return every row action
+  // to its untouched visual state.
+  resetActionButtonState(): void {
+    if (this.actionButtonResetTimeoutId !== undefined) {
+      window.clearTimeout(this.actionButtonResetTimeoutId);
+    }
+
+    this.actionButtonResetTimeoutId = window.setTimeout(() => {
+      this.hostElement.nativeElement
+        .querySelectorAll<HTMLButtonElement>('.admin-user-actions > button')
+        .forEach((button) => {
+          button.blur();
+          button.classList.remove('active', 'show');
+        });
+
+      this.actionButtonResetTimeoutId = undefined;
+    }, 0);
   }
 
   // Delete the selected user
@@ -68,18 +101,26 @@ export class UserListComponent implements OnInit, OnDestroy {
       this.deleteUserSubscription$ = this.authService
         .deleteUser(this.id)
         .subscribe({
-          next: (response) => {
-            this.ngOnInit(); // Refresh the user list after deletion
+          next: () => {
+            this.allUsers = this.allUsers.filter((user) => user.id !== this.id);
+            this.selectedUser = undefined;
+            this.id = null;
+            this.loadUsers();
           },
         });
     }
   }
 
   // Ban or unban the selected user
-  onBanToggle(user: User): void {
-    const request$ = user.isBanned
-      ? this.authService.unbanUser(user.id)
-      : this.authService.banUser(user.id);
+  onBanToggle(user?: User): void {
+    const targetUser = user ?? this.selectedUser;
+    if (!targetUser) {
+      return;
+    }
+
+    const request$ = targetUser.isBanned
+      ? this.authService.unbanUser(targetUser.id)
+      : this.authService.banUser(targetUser.id);
 
     this.banUserSubscription$?.unsubscribe();
     this.banUserSubscription$ = request$.subscribe({
@@ -87,7 +128,59 @@ export class UserListComponent implements OnInit, OnDestroy {
         this.allUsers = this.allUsers.map((existingUser) =>
           existingUser.id === updatedUser.id ? updatedUser : existingUser,
         );
+        this.selectedUser = updatedUser;
         this.loadUsers();
+      },
+    });
+  }
+
+  // Only the seeded initial admin receives the non-delegable role behind this control
+  get canGrantWritingPrivileges(): boolean {
+    return this.currentUser?.roles.includes('InitialAdmin') ?? false;
+  }
+
+  // Check the target's current persisted role state
+  hasWritingPrivileges(user: User): boolean {
+    return user.roles.includes('Writer');
+  }
+
+  // Grant or revoke Writer access and update the row without a full page refresh
+  onWritingPrivilegesToggle(user?: User): void {
+    const targetUser = user ?? this.selectedUser;
+    if (
+      !targetUser ||
+      !this.canGrantWritingPrivileges ||
+      this.updatingWritingPrivilegesForId
+    ) {
+      return;
+    }
+
+    this.privilegeMessage = undefined;
+    this.privilegeError = undefined;
+    this.updatingWritingPrivilegesForId = targetUser.id;
+    const isRevoking = this.hasWritingPrivileges(targetUser);
+    const request$ = isRevoking
+      ? this.authService.revokeWritingPrivileges(targetUser.id)
+      : this.authService.grantWritingPrivileges(targetUser.id);
+
+    this.writingPrivilegesSubscription$?.unsubscribe();
+    this.writingPrivilegesSubscription$ = request$.subscribe({
+      next: (updatedUser) => {
+        this.allUsers = this.allUsers.map((existingUser) =>
+          existingUser.id === updatedUser.id ? updatedUser : existingUser,
+        );
+        this.loadUsers();
+        this.selectedUser = updatedUser;
+        this.updatingWritingPrivilegesForId = undefined;
+        this.privilegeMessage = isRevoking
+          ? 'Writing access removed.'
+          : 'Writing access granted.';
+      },
+      error: () => {
+        this.updatingWritingPrivilegesForId = undefined;
+        this.privilegeError = isRevoking
+          ? 'Writing privileges could not be removed.'
+          : 'Writing privileges could not be granted.';
       },
     });
   }
@@ -167,15 +260,19 @@ export class UserListComponent implements OnInit, OnDestroy {
 
     if (normalizedQuery) {
       users = users.filter((user) =>
-        user.userName.toLowerCase().includes(normalizedQuery),
+        user.userName.toLowerCase().startsWith(normalizedQuery),
       );
     }
 
     if (this.sortedBy) {
       users.sort((first, second) => {
-        const result = first.userName
+        const firstValue =
+          this.sortedBy === 'email' ? first.email : first.userName;
+        const secondValue =
+          this.sortedBy === 'email' ? second.email : second.userName;
+        const result = firstValue
           .toLowerCase()
-          .localeCompare(second.userName.toLowerCase());
+          .localeCompare(secondValue.toLowerCase());
 
         return this.sortDirection === 'asc' ? result : -result;
       });
@@ -193,8 +290,13 @@ export class UserListComponent implements OnInit, OnDestroy {
   }
   // Unsubscribe form subscriptions to prevent memory leaks
   ngOnDestroy(): void {
+    if (this.actionButtonResetTimeoutId !== undefined) {
+      window.clearTimeout(this.actionButtonResetTimeoutId);
+    }
+
     this.deleteUserSubscription$?.unsubscribe();
     this.banUserSubscription$?.unsubscribe();
+    this.writingPrivilegesSubscription$?.unsubscribe();
     this.usersQuant$?.unsubscribe();
     this.usersSubscription$?.unsubscribe();
   }

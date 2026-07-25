@@ -10,5 +10,11 @@ namespace SpaceOfThoughts.API.Repositories.Interface
 
         // Method to update blogs summary page settings
         Task<BlogSummaryPage> UpdateAsync(BlogSummaryPage blogSummaryPage);
+
+        // Method to remove stored blogs summary page settings and report whether they existed
+        Task<bool> DeleteAsync();
+
+        // Method to clear only the stored blogs page background image reference
+        Task<BlogSummaryPage?> RemoveBackgroundImageAsync();
     }
 }

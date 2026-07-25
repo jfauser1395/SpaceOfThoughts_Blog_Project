@@ -23,6 +23,12 @@
         {{ successMessage }}
       </div>
     }
+    @if (isCreatingNewPage) {
+      <div class="about-editor-alert about-editor-alert-info">
+        No About page has been published yet. Saving this form will publish the
+        first one.
+      </div>
+    }
 
     @if (model) {
       <!-- About page editing form with live preview -->
@@ -79,30 +85,52 @@
             />
           </div>
 
-          <!-- Profile image URL can also be filled through the image selector modal -->
-          <div class="about-editor-field">
-            <label for="profileImageUrl">Profile image URL</label>
-            <div class="admin-input-group">
-              <input
-                id="profileImageUrl"
-                name="profileImageUrl"
-                class="form-control"
-                type="text"
-                maxlength="2048"
-                [(ngModel)]="model.profileImageUrl"
-              />
-              <button
-                type="button"
-                class="admin-primary-action admin-input-action"
-                name="selectAboutImageButton"
-                data-bs-toggle="modal"
-                data-bs-target="#aboutImageSelectModal"
-              >
-                <i class="bi bi-image" aria-hidden="true"></i>
-                Select Image
-              </button>
+          <!-- Profile picture is uploaded or selected through the shared admin image library -->
+          <fieldset class="about-editor-field about-editor-image-field">
+            <legend>Author profile picture</legend>
+            <div class="about-editor-image-control">
+              @if (model.profileImageUrl) {
+                <img
+                  class="about-editor-image-preview"
+                  [src]="model.profileImageUrl"
+                  [alt]="model.authorName + ' profile picture preview'"
+                />
+              } @else {
+                <div class="about-editor-image-empty">No picture selected</div>
+              }
+
+              <div class="about-editor-image-copy">
+                <p>
+                  Upload a new picture or choose one from the existing image
+                  library.
+                </p>
+                <div class="about-editor-image-actions">
+                  <button
+                    type="button"
+                    class="admin-primary-action"
+                    name="selectAboutImageButton"
+                    data-bs-toggle="modal"
+                    data-bs-target="#aboutImageSelectModal"
+                  >
+                    <i class="bi bi-upload" aria-hidden="true"></i>
+                    Upload or select picture
+                  </button>
+
+                  @if (model.profileImageUrl) {
+                    <button
+                      type="button"
+                      class="admin-danger-action"
+                      name="removeAboutImageButton"
+                      (click)="removeProfileImage()"
+                    >
+                      <i class="bi bi-x-lg" aria-hidden="true"></i>
+                      Remove picture
+                    </button>
+                  }
+                </div>
+              </div>
             </div>
-          </div>
+          </fieldset>
 
           <h3>Author introduction</h3>
           <div class="about-editor-field">
@@ -306,6 +334,9 @@
 
             <section
               class="about-editor-preview-section about-editor-preview-author"
+              [class.about-editor-preview-author-without-image]="
+                !model.profileImageUrl
+              "
               aria-label="Author preview"
             >
               @if (model.profileImageUrl) {
@@ -314,10 +345,6 @@
                   [src]="model.profileImageUrl"
                   [alt]="model.authorName"
                 />
-              } @else {
-                <div class="about-editor-preview-photo-placeholder">
-                  {{ previewInitial }}
-                </div>
               }
               <div>
                 <h3>{{ model.authorName }}</h3>

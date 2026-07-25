@@ -3,7 +3,6 @@ import { LoginRequest } from '../models/login-request.model';
 import { CommonModule } from '@angular/common';
 import { FormsModule, FormGroup, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../services/auth.service';
-import { CookieService } from 'ngx-cookie-service';
 import { Router, RouterModule } from '@angular/router';
 import { StyleService } from '../../../../services/style.service';
 import { Subscription } from 'rxjs';
@@ -25,7 +24,6 @@ export class LoginComponent implements OnInit, OnDestroy {
 
   constructor(
     private authService: AuthService, // Inject AuthService for authentication
-    private cookieService: CookieService, // Inject CookieService for handling cookies
     private router: Router, // Inject Router for navigation
     private styleService: StyleService, // Inject StyleService for styling
   ) {
@@ -76,24 +74,8 @@ export class LoginComponent implements OnInit, OnDestroy {
       // Call the login method from AuthService
       this.user = this.authService.login(this.model).subscribe({
         next: (response) => {
-          // Set authorization cookie with the received token
-          this.cookieService.set(
-            'Authorization',
-            `Bearer ${response.token}`,
-            undefined,
-            '/',
-            undefined,
-            true,
-            'Strict',
-          );
-
-          // Set the user in the AuthService
-          this.authService.setUser({
-            id: response.id,
-            userName: response.userName,
-            email: response.email,
-            roles: response.roles,
-          });
+          // Set authorization cookie and user session from the login response
+          this.authService.setUserFromLoginResponse(response);
 
           // Redirect to the home page
           this.router.navigateByUrl('/');

@@ -18,7 +18,7 @@ export class BlogPostService {
   // Create a new blog post
   createBlogPost(data: AddBlogPost): Observable<BlogPost> {
     return this.http.post<BlogPost>(
-      `${environment.apiBaseUrl}/api/Blogposts?addAuth=true`,
+      `${environment.apiBaseUrl}/api/Blogposts`,
       data,
     );
   }
@@ -95,7 +95,7 @@ export class BlogPostService {
     data: AddBlogComment,
   ): Observable<BlogComment> {
     return this.http.post<BlogComment>(
-      `${environment.apiBaseUrl}/api/Blogposts/${blogPostId}/comments?addAuth=true`,
+      `${environment.apiBaseUrl}/api/Blogposts/${blogPostId}/comments`,
       data,
     );
   }
@@ -107,7 +107,7 @@ export class BlogPostService {
     reaction: Exclude<BlogCommentReaction, null>,
   ): Observable<BlogComment> {
     return this.http.post<BlogComment>(
-      `${environment.apiBaseUrl}/api/Blogposts/${blogPostId}/comments/${commentId}/reaction?addAuth=true`,
+      `${environment.apiBaseUrl}/api/Blogposts/${blogPostId}/comments/${commentId}/reaction`,
       { reaction },
     );
   }
@@ -115,7 +115,7 @@ export class BlogPostService {
   // Soft-delete a comment while preserving its reply thread
   deleteBlogComment(blogPostId: string, commentId: string): Observable<BlogComment> {
     return this.http.delete<BlogComment>(
-      `${environment.apiBaseUrl}/api/Blogposts/${blogPostId}/comments/${commentId}?addAuth=true`,
+      `${environment.apiBaseUrl}/api/Blogposts/${blogPostId}/comments/${commentId}`,
     );
   }
 
@@ -125,7 +125,7 @@ export class BlogPostService {
     updateBlogPost: UpdateBlogPost,
   ): Observable<BlogPost> {
     return this.http.put<BlogPost>(
-      `${environment.apiBaseUrl}/api/Blogposts/${id}?addAuth=true`,
+      `${environment.apiBaseUrl}/api/Blogposts/${id}`,
       updateBlogPost,
     );
   }
@@ -133,7 +133,7 @@ export class BlogPostService {
   // Delete a blog post by its ID
   deleteBlogPost(id: string): Observable<BlogPost> {
     return this.http.delete<BlogPost>(
-      `${environment.apiBaseUrl}/api/blogposts/${id}?addAuth=true`,
+      `${environment.apiBaseUrl}/api/blogposts/${id}`,
     );
   }
 }

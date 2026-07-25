@@ -2,9 +2,18 @@
   <!-- Full-screen cover hero with dynamic background image -->
   <section
     class="cover-hero"
-    [style.background-image]="'url(' + backgroundImageUrl + ')'"
     aria-labelledby="cover-title"
+    [style.--cover-overlay-opacity]="
+      (coverPage?.backgroundOverlayStrength ?? 100) / 100
+    "
   >
+    <div
+      class="cover-hero-background media-page-background"
+      [style.background-image]="
+        backgroundImageUrl ? 'url(' + backgroundImageUrl + ')' : 'none'
+      "
+      aria-hidden="true"
+    ></div>
     <!-- Use the shared public loader while cover content and the hero image initialize -->
     <app-loading-overlay [loading]="isPageLoading" [lockPageScroll]="false" />
 
@@ -20,10 +29,15 @@
         <span class="cover-kicker">Loading</span>
         <h1 id="cover-title">Space of Thoughts</h1>
         <p>Preparing the latest welcome...</p>
-      } @else {
-        <span class="cover-kicker">Thoughtful writing</span>
-        <h1 id="cover-title">{{ coverPage?.welcomeTitle }}</h1>
-        <p>{{ coverPage?.introduction }}</p>
+      } @else if (coverPage) {
+        <span class="cover-kicker">{{ coverPage.kicker }}</span>
+        <h1 id="cover-title">{{ coverPage.welcomeTitle }}</h1>
+        <p>{{ coverPage.introduction }}</p>
+      } @else if (isNotPublished) {
+        <!-- Status only; public welcome copy is never supplied from source defaults -->
+        <span class="cover-kicker">Cover page</span>
+        <h1 id="cover-title">Not published yet</h1>
+        <p>The welcome message has not been published yet.</p>
       }
 
       <div class="cover-actions">
@@ -91,4 +105,26 @@
       </aside>
     }
   </section>
+
+  <button
+    type="button"
+    class="cover-theme-toggle"
+    (click)="themeService.toggleTheme()"
+    [attr.aria-label]="
+      themeService.isDarkTheme()
+        ? 'Switch to light theme'
+        : 'Switch to dark theme'
+    "
+    [attr.title]="
+      themeService.isDarkTheme()
+        ? 'Switch to light theme'
+        : 'Switch to dark theme'
+    "
+  >
+    @if (themeService.isDarkTheme()) {
+      <i class="bi bi-sun-fill" aria-hidden="true"></i>
+    } @else {
+      <i class="bi bi-moon-stars-fill" aria-hidden="true"></i>
+    }
+  </button>
 </main>

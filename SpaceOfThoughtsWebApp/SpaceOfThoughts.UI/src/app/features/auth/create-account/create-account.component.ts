@@ -100,7 +100,9 @@ export class CreateAccountComponent implements OnInit, OnDestroy {
         // Register the new user
         this.addedUser = this.authService.register(this.model).subscribe({
           next: (response) => {
-            this.router.navigateByUrl('/'); // Navigate to the home page on successful registration
+            // Persist the returned token and user details before opening the cover page
+            this.authService.setUserFromLoginResponse(response);
+            void this.router.navigateByUrl('/', { replaceUrl: true });
           },
           error: (error) => {
             // Handle registration errors
@@ -168,5 +170,6 @@ export class CreateAccountComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.addedUser?.unsubscribe();
     this.formSubscription?.unsubscribe();
+    this.styleService.removeBodyStyle('overflow');
   }
 }

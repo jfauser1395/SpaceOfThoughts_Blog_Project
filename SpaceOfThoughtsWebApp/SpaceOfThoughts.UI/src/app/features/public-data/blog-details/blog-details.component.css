@@ -7,18 +7,18 @@
 
 /* Comments section shell */
 .comments-section {
-  background: #fffefe;
-  border: 1px solid #ead9de;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  box-shadow: 0 12px 30px rgba(95, 45, 56, 0.08);
-  color: #212529;
+  box-shadow: 0 12px 30px var(--color-shadow);
+  color: var(--color-text);
   padding: 24px;
 }
 
 /* Comments header and counters */
 .comments-header {
   align-items: flex-start;
-  border-bottom: 1px solid #ead9de;
+  border-bottom: 1px solid var(--color-border);
   display: flex;
   gap: 16px;
   justify-content: space-between;
@@ -27,7 +27,7 @@
 }
 
 .comments-title {
-  color: #5f2d38;
+  color: var(--color-heading);
   font-size: 28px;
   line-height: 1.2;
   margin: 0;
@@ -36,14 +36,14 @@
 .comments-count,
 .comment-date,
 .comment-characters {
-  color: #72535b;
+  color: var(--color-text-muted);
 }
 
 .comment-author-pill {
-  background: #f8f3f5;
-  border: 1px solid #dec8ce;
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border-strong);
   border-radius: 999px;
-  color: #5f2d38;
+  color: var(--color-heading);
   font-size: 14px;
   font-weight: 600;
   max-width: 100%;
@@ -53,32 +53,32 @@
 
 /* Comment form */
 .comment-form {
-  background: #f8f5f7;
-  border: 1px solid #ead9de;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   margin-bottom: 24px;
   padding: 18px;
 }
 
 .comment-label {
-  color: #5f2d38;
+  color: var(--color-heading);
   display: block;
   font-weight: 600;
   margin-bottom: 8px;
 }
 
 .comment-textarea {
-  background: #fffefe;
-  border: 1px solid #dec8ce;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
   border-radius: 8px;
-  color: #212529;
+  color: var(--color-text);
   min-height: 120px;
   resize: vertical;
 }
 
 .comment-textarea:focus {
-  border-color: #a66776;
-  box-shadow: 0 0 0 0.2rem rgba(212, 126, 146, 0.2);
+  border-color: var(--color-primary-hover);
+  box-shadow: 0 0 0 0.2rem var(--color-focus-ring);
 }
 
 .comment-toolbar {
@@ -89,7 +89,7 @@
 }
 
 .comment-validation {
-  color: #b02a37;
+  color: var(--color-error);
   min-height: 20px;
 }
 
@@ -100,19 +100,19 @@
 }
 
 .comment-submit-button {
-  background: #5f2d38;
-  border-color: #5f2d38;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
   border-radius: 8px;
-  color: #fffefe;
+  color: var(--color-on-primary);
   min-width: 132px;
   padding: 10px 16px;
 }
 
 .comment-submit-button:hover:not(:disabled),
 .comment-submit-button:focus-visible:not(:disabled) {
-  background: #a66776;
-  border-color: #a66776;
-  color: #fffefe;
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+  color: var(--color-on-primary);
 }
 
 .comment-submit-button:disabled {
@@ -123,10 +123,10 @@
 
 .comment-login-prompt {
   align-items: center;
-  background: #f8f5f7;
-  border: 1px solid #ead9de;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  color: #473d41;
+  color: var(--color-text);
   display: flex;
   gap: 4px;
   margin-bottom: 24px;
@@ -134,13 +134,13 @@
 }
 
 .comment-login-prompt a {
-  color: #a66776;
+  color: var(--color-primary-hover);
   font-weight: 700;
   text-decoration: none;
 }
 
 .comment-login-prompt a:hover {
-  color: #5f2d38;
+  color: var(--color-heading);
   text-decoration: underline;
 }
 
@@ -152,15 +152,15 @@
 }
 
 .comment-alert-error {
-  background-color: #f8d7da;
-  border: 1px solid #f1aeb5;
-  color: #842029;
+  background-color: var(--color-error-surface);
+  border: 1px solid var(--color-error-border);
+  color: var(--color-error);
 }
 
 .comment-alert-success {
-  background-color: #d1e7dd;
-  border: 1px solid #a3cfbb;
-  color: #0f5132;
+  background-color: var(--color-success-surface);
+  border: 1px solid var(--color-success-border);
+  color: var(--color-success);
 }
 
 /* Comment list and cards */
@@ -171,8 +171,8 @@
 
 .comment-card {
   align-items: flex-start;
-  background: #fffefe;
-  border: 1px solid #ead9de;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   display: flex;
   gap: 14px;
@@ -182,10 +182,10 @@
 /* Comment author avatar and metadata */
 .comment-avatar {
   align-items: center;
-  background: #5f2d38;
-  border: 1px solid #dec8ce;
+  background: var(--media-background);
+  border: 1px solid var(--color-border-strong);
   border-radius: 50%;
-  color: #fffefe;
+  color: var(--media-text);
   display: flex;
   flex: 0 0 40px;
   font-weight: 700;
@@ -196,6 +196,7 @@
 }
 
 .comment-avatar img {
+  background: var(--media-background);
   display: block;
   flex: 0 0 auto;
   height: 134%;
@@ -217,24 +218,24 @@
 }
 
 .comment-author {
-  color: #5f2d38;
+  color: var(--color-heading);
   overflow-wrap: anywhere;
 }
 
 .reply-target {
-  color: #72535b;
+  color: var(--color-text-muted);
   font-size: 13px;
   margin-top: 4px;
   overflow-wrap: anywhere;
 }
 
 .reply-target span {
-  color: #5f2d38;
+  color: var(--color-heading);
   font-weight: 700;
 }
 
 .comment-content {
-  color: #473d41;
+  color: var(--color-text);
   margin: 8px 0 0;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
@@ -251,10 +252,10 @@
 
 .comment-control-button {
   align-items: center;
-  background: #f8f5f7;
-  border: 1px solid #dec8ce;
+  background: var(--color-background);
+  border: 1px solid var(--color-border-strong);
   border-radius: 8px;
-  color: #5f2d38;
+  color: var(--color-heading);
   display: inline-flex;
   font-size: 14px;
   font-weight: 600;
@@ -265,9 +266,9 @@
 
 .comment-control-button:hover:not(:disabled),
 .comment-control-button.is-active {
-  background: #f1dfe4;
-  border-color: #a66776;
-  color: #5f2d38;
+  background: color-mix(in srgb, var(--color-primary) 16%, var(--color-surface));
+  border-color: var(--color-primary-hover);
+  color: var(--color-heading);
 }
 
 .comment-control-button:disabled {
@@ -283,8 +284,8 @@
 
 /* Reply form and threaded replies */
 .reply-form {
-  background: #f8f5f7;
-  border: 1px solid #ead9de;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   margin-top: 14px;
   padding: 14px;
@@ -298,23 +299,23 @@
 }
 
 .reply-cancel-button {
-  border-color: #dec8ce;
+  border-color: var(--color-border-strong);
   border-radius: 8px;
-  color: #5f2d38;
+  color: var(--color-heading);
 }
 
 .reply-cancel-button:hover,
 .reply-cancel-button:focus-visible {
-  background: #f1dfe4;
-  border-color: #a66776;
-  color: #5f2d38;
+  background: color-mix(in srgb, var(--color-primary) 16%, var(--color-surface));
+  border-color: var(--color-primary-hover);
+  color: var(--color-heading);
 }
 
 .thread-toggle-button {
   align-items: center;
   background-color: transparent;
   border: none;
-  color: #72535b;
+  color: var(--color-text-muted);
   display: inline-flex;
   font-size: 13px;
   font-weight: 600;
@@ -324,20 +325,20 @@
 }
 
 .thread-toggle-button:hover {
-  color: #5f2d38;
+  color: var(--color-heading);
 }
 
 .thread-toggle-count {
-  border: 1px solid #dec8ce;
+  border: 1px solid var(--color-border-strong);
   border-radius: 999px;
-  color: #5f2d38;
+  color: var(--color-heading);
   min-width: 24px;
   padding: 1px 8px;
   text-align: center;
 }
 
 .comment-replies {
-  border-left: 3px solid #ead9de;
+  border-left: 3px solid var(--color-border);
   display: grid;
   gap: 12px;
   margin-top: 16px;
@@ -345,13 +346,13 @@
 }
 
 .reply-card {
-  background: #f8f5f7;
+  background: var(--color-background);
   box-shadow: none;
   padding: 14px;
 }
 
 .reply-avatar {
-  background: #a66776;
+  background: var(--media-background);
   flex-basis: 34px;
   height: 34px;
   width: 34px;
@@ -359,10 +360,10 @@
 
 /* Empty comments state */
 .comments-empty-state {
-  background: #f8f5f7;
-  border: 1px dashed #dec8ce;
+  background: var(--color-background);
+  border: 1px dashed var(--color-border-strong);
   border-radius: 8px;
-  color: #72535b;
+  color: var(--color-text-muted);
   padding: 18px;
   text-align: center;
 }

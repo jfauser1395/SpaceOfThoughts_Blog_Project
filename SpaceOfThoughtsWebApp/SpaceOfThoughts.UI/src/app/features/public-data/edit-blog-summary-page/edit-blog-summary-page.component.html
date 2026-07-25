@@ -24,6 +24,11 @@
           {{ successMessage }}
         </div>
       }
+      @if (isCreatingNewPage) {
+        <div class="admin-editor-alert admin-editor-alert-info">
+          No blogs page settings have been saved yet. Choose a background when you are ready.
+        </div>
+      }
 
       @if (model) {
         <!-- Blogs page settings form with live preview -->
@@ -57,23 +62,76 @@
                   class="admin-row-action admin-input-action"
                   data-bs-toggle="modal"
                   data-bs-target="#blogSummaryBackgroundModal"
+                  [disabled]="isRemovingImage || isRemoving"
                 >
                   <i class="bi bi-image" aria-hidden="true"></i>
                   <span>Select image</span>
                 </button>
+                @if (model.backgroundImageUrl) {
+                  <button
+                    type="button"
+                    class="admin-danger-action admin-input-action"
+                    [disabled]="isRemovingImage || isRemoving"
+                    (click)="onRemoveBackgroundImage()"
+                  >
+                    <i class="bi bi-image-alt" aria-hidden="true"></i>
+                    <span>{{ isRemovingImage ? "Removing..." : "Remove picture" }}</span>
+                  </button>
+                }
               </div>
             </div>
 
             <div class="admin-form-actions blog-summary-editor-actions">
+              @if (!isCreatingNewPage) {
+                <button
+                  class="admin-danger-action blog-summary-remove-button"
+                  type="button"
+                  [disabled]="isSaving || isRemoving || isRemovingImage"
+                  (click)="openRemoveConfirmation()"
+                >
+                  <i class="bi bi-trash3" aria-hidden="true"></i>
+                  <span>Remove current page</span>
+                </button>
+              }
               <button
                 class="admin-primary-action"
                 type="submit"
-                [disabled]="isSaving || form.invalid"
+                [disabled]="isSaving || isRemoving || isRemovingImage || form.invalid"
               >
                 <i class="bi bi-save" aria-hidden="true"></i>
                 <span>{{ isSaving ? "Saving..." : "Save blogs page" }}</span>
               </button>
             </div>
+
+            @if (isRemoveConfirmationOpen) {
+              <!-- Explicit confirmation prevents accidental removal of page settings -->
+              <div class="blog-summary-remove-confirmation" role="alert">
+                <strong>Remove the current blogs page settings?</strong>
+                <p>
+                  The configurable page background will return to its initial state. Blog posts
+                  and shared uploaded images will not be deleted.
+                </p>
+                <div>
+                  <button
+                    class="admin-row-action"
+                    type="button"
+                    [disabled]="isRemoving"
+                    (click)="closeRemoveConfirmation()"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    class="admin-danger-action"
+                    type="button"
+                    [disabled]="isRemoving"
+                    (click)="onRemoveBlogSummaryPage()"
+                  >
+                    <i class="bi bi-trash3" aria-hidden="true"></i>
+                    <span>{{ isRemoving ? "Removing..." : "Remove blogs page" }}</span>
+                  </button>
+                </div>
+              </div>
+            }
           </section>
 
           <!-- Live preview of the blogs summary page background -->
@@ -90,7 +148,9 @@
             <div
               class="blog-summary-editor-preview-stage"
               [style.background-image]="
-                'url(' + previewBackgroundImageUrl + ')'
+                previewBackgroundImageUrl
+                  ? 'url(' + previewBackgroundImageUrl + ')'
+                  : 'none'
               "
             >
               <article class="blog-summary-editor-preview-card">

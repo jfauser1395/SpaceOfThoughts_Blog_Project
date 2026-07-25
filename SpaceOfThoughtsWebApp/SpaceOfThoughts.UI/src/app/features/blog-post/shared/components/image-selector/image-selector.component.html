@@ -87,29 +87,26 @@
               <div class="admin-image-grid">
                 @for (image of images; track image) {
                   <article class="admin-image-card">
-                    <!-- Uploaded image preview and actions -->
-                    <img
-                      [src]="image.url"
-                      [title]="image.title"
-                      class="admin-image-preview"
-                      aria-label="Uploaded image"
-                    />
+                    <!-- The image itself is the accessible selection control -->
+                    <button
+                      type="button"
+                      class="admin-image-select"
+                      data-bs-dismiss="modal"
+                      (click)="selectImage(image)"
+                      name="selectImageButton"
+                      [attr.aria-label]="'Select image: ' + image.title"
+                      [attr.title]="'Select ' + image.title"
+                    >
+                      <img
+                        [src]="image.url"
+                        alt=""
+                        class="admin-image-preview"
+                      />
+                    </button>
 
                     <h3>{{ image.title }}</h3>
 
                     <div class="admin-image-actions">
-                      <button
-                        type="button"
-                        class="admin-row-action"
-                        data-bs-dismiss="modal"
-                        (click)="selectImage(image)"
-                        name="selectImageButton"
-                        aria-label="Select image button"
-                      >
-                        <i class="bi bi-check2" aria-hidden="true"></i>
-                        Choose
-                      </button>
-
                       <button
                         type="button"
                         class="admin-danger-action"

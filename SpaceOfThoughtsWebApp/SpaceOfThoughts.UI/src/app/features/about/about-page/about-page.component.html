@@ -25,6 +25,7 @@
       <!-- Author biography section -->
       <section
         class="about-section about-author"
+        [class.about-author-without-image]="!aboutPage.profileImageUrl"
         aria-labelledby="about-me-title"
       >
         @if (aboutPage.profileImageUrl) {
@@ -33,15 +34,6 @@
             [src]="aboutPage.profileImageUrl"
             [alt]="aboutPage.authorName + ' profile photo'"
           />
-        } @else {
-          <div
-            class="about-photo-placeholder"
-            role="img"
-            aria-label="Profile image placeholder"
-          >
-            <!-- TODO: replace with real photo -->
-            <span>{{ aboutPage.authorName.charAt(0) }}</span>
-          </div>
         }
 
         <div>
@@ -78,6 +70,20 @@
           }}</a
           >.
         </p>
+      </section>
+    </div>
+  </main>
+} @else if (!isLoading && isNotPublished) {
+  <!-- Empty state shown until an administrator publishes the first About page -->
+  <main class="about-page" aria-labelledby="about-page-title">
+    <div class="about-shell">
+      <header class="about-header">
+        <span class="about-kicker">Space of Thoughts</span>
+        <h1 id="about-page-title">About</h1>
+      </header>
+
+      <section class="about-section about-empty-state">
+        <p>The About page has not been published yet.</p>
       </section>
     </div>
   </main>

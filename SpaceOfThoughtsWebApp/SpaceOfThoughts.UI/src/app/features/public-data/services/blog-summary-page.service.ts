@@ -1,9 +1,8 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { catchError, Observable, of, throwError } from 'rxjs';
+import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { BlogSummaryPage } from '../models/blog-summary-page.model';
-import { defaultBlogSummaryPage } from '../models/default-blog-summary-page';
 import { UpdateBlogSummaryPage } from '../models/update-blog-summary-page.model';
 
 @Injectable({
@@ -14,18 +13,9 @@ export class BlogSummaryPageService {
 
   // Get the public blogs summary page settings
   getBlogSummaryPage(): Observable<BlogSummaryPage> {
-    return this.http
-      .get<BlogSummaryPage>(`${environment.apiBaseUrl}/api/BlogSummaryPage`)
-      .pipe(
-        catchError((error: HttpErrorResponse) =>
-          error.status === 404
-            ? of({
-                ...defaultBlogSummaryPage,
-                updatedAt: new Date().toISOString(),
-              })
-            : throwError(() => error),
-        ),
-      );
+    return this.http.get<BlogSummaryPage>(
+      `${environment.apiBaseUrl}/api/BlogSummaryPage`,
+    );
   }
 
   // Update the blogs summary page settings for authenticated writers
@@ -33,8 +23,22 @@ export class BlogSummaryPageService {
     request: UpdateBlogSummaryPage,
   ): Observable<BlogSummaryPage> {
     return this.http.put<BlogSummaryPage>(
-      `${environment.apiBaseUrl}/api/BlogSummaryPage?addAuth=true`,
+      `${environment.apiBaseUrl}/api/BlogSummaryPage`,
       request,
+    );
+  }
+
+  // Remove the persisted blogs page settings for authenticated writers
+  deleteBlogSummaryPage(): Observable<void> {
+    return this.http.delete<void>(
+      `${environment.apiBaseUrl}/api/BlogSummaryPage`,
+    );
+  }
+
+  // Clear only the blogs page's background image reference
+  removeBackgroundImage(): Observable<BlogSummaryPage> {
+    return this.http.delete<BlogSummaryPage>(
+      `${environment.apiBaseUrl}/api/BlogSummaryPage/background-image`,
     );
   }
 }

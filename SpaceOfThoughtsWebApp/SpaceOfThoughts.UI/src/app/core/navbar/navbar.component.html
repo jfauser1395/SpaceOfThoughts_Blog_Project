@@ -1,5 +1,5 @@
 <!-- Main navigation bar -->
-<nav class="navbar navbar-expand-lg bg-body-tertiary fixed-top p-2">
+<nav class="navbar navbar-expand-lg site-navbar fixed-top p-2">
   <!-- Container div holds all elements of the navbar -->
   <div class="container">
     <!-- Brand name of the website -->
@@ -18,9 +18,11 @@
         <div
           class="searchIconAnimation searchIconSmallScreen searchIconLargerScreen"
           [class.expanded]="searchExpanded"
-          [style.width]="searchExpanded ? '94vw' : '35px'"
+          [style.width]="searchExpanded ? 'calc(100vw - 8px)' : '35px'"
           [style.transform]="
-            searchExpanded ? 'translateX(-75%)' : 'translateX(0)'
+            searchExpanded
+              ? 'translateX(calc(-100vw + 140px))'
+              : 'translateX(0)'
           "
         >
           <input
@@ -28,12 +30,16 @@
             id="searchSmall"
             name="searchSmall"
             #searchInput
+            #mobileSearchInput
             (keyup.enter)="collapseSearch(searchInput.value)"
             class="searchIconAnimationInput"
             placeholder="Search blog ..."
             [style.opacity]="searchExpanded ? '1' : '0'"
           />
-          <i class="fa" (click)="toggleSearchBar(searchInput.value)"
+          <i
+            #mobileSearchToggle
+            class="fa"
+            (click)="toggleSearchBar(searchInput.value)"
             ><svg
               xmlns="http://www.w3.org/2000/svg"
               width="21"
@@ -83,7 +89,30 @@
         </button>
       </div>
     }
-    <div class="mb-1">
+    @if (isSmallScreen && user !== undefined) {
+      <a
+        [routerLink]="['/profile']"
+        (click)="collapseNavbar()"
+        class="profile-avatar-button navbar-mobile-avatar"
+        [class.is-search-expanded]="searchExpanded"
+        title="Open profile"
+        aria-label="Open profile"
+      >
+        @if (user.profileImageUrl) {
+          <img
+            [src]="user.profileImageUrl"
+            [alt]="user.userName + ' profile picture'"
+            [style.height.%]="getProfileImageZoom(user)"
+            [style.object-position]="getProfileImagePosition(user)"
+            [style.transform]="getProfileImageTransform(user)"
+            [style.width.%]="getProfileImageZoom(user)"
+          />
+        } @else {
+          <span>{{ getUserInitial(user) }}</span>
+        }
+      </a>
+    }
+    <div class="navbar-toggler-wrap mb-1">
       <!-- Button toggles the navbar on smaller screens -->
       <button
         class="navbar-toggler collapsed d-flex d-lg-none flex-column"
@@ -214,61 +243,37 @@
           @if (user === undefined) {
             <a
               [routerLink]="['/login']"
-              class="btn btn-link btnIcons mt-1 me-2 navbar-login-link"
-              aria-label="login"
-              data-bs-toggle="collapse"
-              data-bs-target="#navbarSupportedContent"
+              (click)="collapseNavbar()"
+              class="navbar-login-link"
+              aria-label="Log in"
+              title="Log in"
             >
-              <!-- SVG is the user icon -->
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="28"
-                height="28"
-                fill="currentColor"
-                class="bi bi-person-circle"
-                viewBox="0 0 16 16"
-              >
-                <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0" />
-                <path
-                  fill-rule="evenodd"
-                  d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1"
-                />
-              </svg>
+              <i class="bi bi-person" aria-hidden="true"></i>
             </a>
           } @else {
             <div class="profile-actions">
-              <a
-                [routerLink]="['/profile']"
-                (click)="collapseNavbar()"
-                class="profile-avatar-button"
-                title="Open profile"
-                aria-label="Open profile"
-              >
-                @if (user.profileImageUrl) {
-                  <img
-                    [src]="user.profileImageUrl"
-                    [alt]="user.userName + ' profile picture'"
-                    [style.height.%]="getProfileImageZoom(user)"
-                    [style.object-position]="getProfileImagePosition(user)"
-                    [style.transform]="getProfileImageTransform(user)"
-                    [style.width.%]="getProfileImageZoom(user)"
-                  />
-                } @else {
-                  <span>{{ getUserInitial(user) }}</span>
-                }
-              </a>
-              <!--  logs the user out -->
-              <button
-                class="sign-out-button"
-                (click)="onLogout()"
-                aria-label="Sign out"
-                data-bs-toggle="collapse"
-                data-bs-target="#navbarSupportedContent"
-                name="Sign out button"
-              >
-                <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
-                <span>Sign out</span>
-              </button>
+              @if (!isSmallScreen) {
+                <a
+                  [routerLink]="['/profile']"
+                  (click)="collapseNavbar()"
+                  class="profile-avatar-button"
+                  title="Open profile"
+                  aria-label="Open profile"
+                >
+                  @if (user.profileImageUrl) {
+                    <img
+                      [src]="user.profileImageUrl"
+                      [alt]="user.userName + ' profile picture'"
+                      [style.height.%]="getProfileImageZoom(user)"
+                      [style.object-position]="getProfileImagePosition(user)"
+                      [style.transform]="getProfileImageTransform(user)"
+                      [style.width.%]="getProfileImageZoom(user)"
+                    />
+                  } @else {
+                    <span>{{ getUserInitial(user) }}</span>
+                  }
+                </a>
+              }
             </div>
           }
         </div>
@@ -384,25 +389,13 @@
           @if (user === undefined) {
             <a
               [routerLink]="['/login']"
-              class="btn btn-link btnIcons mt-1 me-2 navbar-login-link"
-              aria-label="login"
+              (click)="collapseNavbar()"
+              class="navbar-login-link"
+              aria-label="Log in"
+              title="Log in"
               name="login button"
             >
-              <!-- SVG is the user icon -->
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="28"
-                height="28"
-                fill="currentColor"
-                class="bi bi-person-circle"
-                viewBox="0 0 16 16"
-              >
-                <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0" />
-                <path
-                  fill-rule="evenodd"
-                  d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1"
-                />
-              </svg>
+              <i class="bi bi-person" aria-hidden="true"></i>
             </a>
           } @else {
             <div class="profile-actions">
@@ -426,16 +419,6 @@
                   <span>{{ getUserInitial(user) }}</span>
                 }
               </a>
-              <!--  logs the user out -->
-              <button
-                class="sign-out-button"
-                (click)="onLogout()"
-                aria-label="Sign out"
-                name="sign out button"
-              >
-                <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
-                <span>Sign out</span>
-              </button>
             </div>
           }
         </div>
@@ -443,3 +426,12 @@
     }
   </div>
 </nav>
+@if (isMediumScreen && isPageInteractionLocked) {
+  <button
+    type="button"
+    class="navbar-page-backdrop"
+    aria-label="Close navigation"
+    tabindex="-1"
+    (click)="collapseNavbar()"
+  ></button>
+}

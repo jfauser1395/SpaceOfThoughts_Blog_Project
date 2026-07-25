@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { BlogPostService } from '../../blog-post/services/blog-post.service';
 import { catchError, Observable, of, Subscription, tap } from 'rxjs';
 import { BlogPost } from '../../blog-post/models/blog-post.model';
@@ -31,16 +31,23 @@ export class PublicBlogSummeryComponent implements OnInit, OnDestroy {
   blogsSubscription$?: Subscription; // Subscription for loading blog posts
   blogSummaryPageSubscription$?: Subscription; // Subscription for loading page settings
   selectedCategoryId = 'all'; // Currently selected category filter
+  categoryResultsAnimationName = 'category-results-enter-a';
+  categoryCardsAnimationName = 'category-cards-enter-a';
   isLoadingBlogs = true; // Flag to indicate if blog posts are loading
   isLoadingCategories = true; // Flag for category options required by the filter bar
   isLoadingPageSettings = true; // Flag for the configurable public blogs background
-  backgroundImageUrl = 'assets/cover-default.png'; // Bundled fallback used if settings fail
-  rollingCategoryIds: string[] = []; // Category buttons currently playing the roll animation
-  rollingDirection: 'forward' | 'backward' = 'forward'; // Direction of the category roll
-  private categoryRollTimeoutId?: number; // Timer for clearing category roll animation state
+  backgroundImageUrl?: string; // Optional configured background; undefined keeps the dark page blank
+  canScrollCategoriesBack = false; // Show the previous-topics arrow only after the row has moved
+  canScrollCategoriesForward = false; // Show the next-topics arrow only while topics remain off-screen
   private blogRetryTimeoutId?: number; // Timer for retrying unavailable blog requests
-  private categoryOrderIds: string[] = ['all']; // Stable order used to animate between filters
-  private categoryRollIndexes = new Map<string, number>(); // Position of each rolling filter button
+  private categoryFilterElement?: HTMLElement;
+  private categoryScrollFrameId?: number;
+
+  @ViewChild('categoryFilterBar')
+  set categoryFilterBar(element: ElementRef<HTMLElement> | undefined) {
+    this.categoryFilterElement = element?.nativeElement;
+    this.queueCategoryScrollState();
+  }
 
   constructor(
     private blogPostService: BlogPostService, // Inject BlogPostService for blog post operations
@@ -80,10 +87,6 @@ export class PublicBlogSummeryComponent implements OnInit, OnDestroy {
       .getAllCategories(undefined, 'name', 'asc')
       .pipe(
         tap((categories) => {
-          this.categoryOrderIds = [
-            'all',
-            ...categories.map((category) => category.id),
-          ];
           this.isLoadingCategories = false;
         }),
         catchError(() => {
@@ -99,8 +102,7 @@ export class PublicBlogSummeryComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (blogSummaryPage) => {
           this.backgroundImageUrl =
-            blogSummaryPage.backgroundImageUrl?.trim() ||
-            this.backgroundImageUrl;
+            blogSummaryPage.backgroundImageUrl?.trim() || undefined;
           this.isLoadingPageSettings = false;
         },
         error: () => {
@@ -124,35 +126,66 @@ export class PublicBlogSummeryComponent implements OnInit, OnDestroy {
     );
   }
 
+  // Keep edge controls synchronized when the available row width changes
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.queueCategoryScrollState();
+  }
+
+  // Move by most of the visible row while preserving enough context between steps
+  scrollCategories(direction: 'back' | 'forward'): void {
+    const categoryFilter = this.categoryFilterElement;
+
+    if (!categoryFilter) {
+      return;
+    }
+
+    const distance = Math.max(categoryFilter.clientWidth * 0.72, 180);
+    categoryFilter.scrollBy({
+      behavior: 'smooth',
+      left: direction === 'forward' ? distance : -distance,
+    });
+  }
+
+  // Update arrows as native touch, wheel, or button scrolling moves the row
+  updateCategoryScrollState(): void {
+    const categoryFilter = this.categoryFilterElement;
+
+    if (!categoryFilter) {
+      this.canScrollCategoriesBack = false;
+      this.canScrollCategoriesForward = false;
+      return;
+    }
+
+    const endPosition = categoryFilter.scrollWidth - categoryFilter.clientWidth;
+    this.canScrollCategoriesBack = categoryFilter.scrollLeft > 3;
+    this.canScrollCategoriesForward =
+      endPosition > 3 && categoryFilter.scrollLeft < endPosition - 3;
+  }
+
   // Search for blog posts by query
   onSearch(query: string) {
     const searchQuery = query.trim();
     this.selectedCategoryId = 'all';
-    this.rollingCategoryIds = [];
-    this.categoryRollIndexes.clear();
     this.loadBlogs(searchQuery || undefined);
   }
 
-  // Update the active category and animate the path from the previous filter
+  // Update the active category and filter the already-loaded posts
   selectCategory(categoryId: string): void {
     if (this.selectedCategoryId === categoryId) {
       return;
     }
 
-    const previousCategoryId = this.selectedCategoryId;
-    this.startCategoryButtonRoll(previousCategoryId, categoryId);
     this.selectedCategoryId = categoryId;
+    this.categoryResultsAnimationName =
+      this.categoryResultsAnimationName === 'category-results-enter-a'
+        ? 'category-results-enter-b'
+        : 'category-results-enter-a';
+    this.categoryCardsAnimationName =
+      this.categoryCardsAnimationName === 'category-cards-enter-a'
+        ? 'category-cards-enter-b'
+        : 'category-cards-enter-a';
     this.applyCategoryFilter();
-  }
-
-  // Check whether a category button currently participates in the roll animation
-  isCategoryRolling(categoryId: string): boolean {
-    return this.rollingCategoryIds.includes(categoryId);
-  }
-
-  // Return a stable animation order for each rolling category button
-  getCategoryRollIndex(categoryId: string): number {
-    return this.categoryRollIndexes.get(categoryId) ?? 0;
   }
 
   // Load visible blog data and keep retrying temporary API failures
@@ -192,51 +225,24 @@ export class PublicBlogSummeryComponent implements OnInit, OnDestroy {
     );
   }
 
-  // Animate through category positions so distant filter changes feel connected
-  private startCategoryButtonRoll(
-    fromCategoryId: string,
-    toCategoryId: string,
-  ): void {
-    if (this.categoryRollTimeoutId) {
-      window.clearTimeout(this.categoryRollTimeoutId);
-    }
-
-    const fromIndex = this.categoryOrderIds.indexOf(fromCategoryId);
-    const toIndex = this.categoryOrderIds.indexOf(toCategoryId);
-    const isKnownPath = fromIndex >= 0 && toIndex >= 0;
-    const rollPath = isKnownPath
-      ? this.getCategoryRollPath(fromIndex, toIndex)
-      : [toCategoryId];
-
-    this.rollingDirection =
-      !isKnownPath || toIndex >= fromIndex ? 'forward' : 'backward';
-    this.rollingCategoryIds = rollPath;
-    this.categoryRollIndexes = new Map(
-      rollPath.map((categoryId, index) => [categoryId, index]),
-    );
-
-    const rollDuration = 620 + Math.max(rollPath.length - 1, 0) * 110;
-    this.categoryRollTimeoutId = window.setTimeout(() => {
-      this.rollingCategoryIds = [];
-      this.categoryRollIndexes.clear();
-    }, rollDuration);
-  }
-
-  // Build the ordered category path used by the rolling button animation
-  private getCategoryRollPath(fromIndex: number, toIndex: number): string[] {
-    if (fromIndex <= toIndex) {
-      return this.categoryOrderIds.slice(fromIndex, toIndex + 1);
-    }
-
-    return this.categoryOrderIds.slice(toIndex, fromIndex + 1).reverse();
-  }
-
   // Clear a scheduled retry before starting another blog request
   private clearBlogRetry(): void {
     if (this.blogRetryTimeoutId) {
       window.clearTimeout(this.blogRetryTimeoutId);
       this.blogRetryTimeoutId = undefined;
     }
+  }
+
+  // Wait for async category buttons to finish laying out before measuring overflow
+  private queueCategoryScrollState(): void {
+    if (this.categoryScrollFrameId !== undefined) {
+      window.cancelAnimationFrame(this.categoryScrollFrameId);
+    }
+
+    this.categoryScrollFrameId = window.requestAnimationFrame(() => {
+      this.categoryScrollFrameId = undefined;
+      this.updateCategoryScrollState();
+    });
   }
 
   // Unsubscribe from subscriptions to prevent memory leaks
@@ -246,9 +252,9 @@ export class PublicBlogSummeryComponent implements OnInit, OnDestroy {
     this.userSubscription$?.unsubscribe();
     this.blogsSubscription$?.unsubscribe();
     this.blogSummaryPageSubscription$?.unsubscribe();
-    this.clearBlogRetry();
-    if (this.categoryRollTimeoutId) {
-      window.clearTimeout(this.categoryRollTimeoutId);
+    if (this.categoryScrollFrameId !== undefined) {
+      window.cancelAnimationFrame(this.categoryScrollFrameId);
     }
+    this.clearBlogRetry();
   }
 }

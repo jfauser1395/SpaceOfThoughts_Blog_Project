@@ -76,6 +76,8 @@ builder
 // Password requirements
 builder.Services.Configure<IdentityOptions>(options =>
 {
+    // Usernames are unique by default; require the same one-account rule for email addresses.
+    options.User.RequireUniqueEmail = true;
     options.Password.RequireDigit = false; // Do not require a digit in passwords
     options.Password.RequireLowercase = false; // Do not require a lowercase letter in passwords
     options.Password.RequireUppercase = false; // Do not require an uppercase letter in passwords

@@ -10,5 +10,11 @@ namespace SpaceOfThoughts.API.Repositories.Interface
 
         // Method to update the stored cover page
         Task<CoverPage> UpdateAsync(CoverPage coverPage);
+
+        // Method to remove the stored cover page and return whether it existed
+        Task<bool> DeleteAsync();
+
+        // Method to clear only the stored cover background image reference
+        Task<CoverPage?> RemoveBackgroundImageAsync();
     }
 }

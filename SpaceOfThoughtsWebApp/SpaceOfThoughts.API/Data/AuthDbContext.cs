@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace SpaceOfThoughts.API.Data
@@ -16,6 +17,13 @@ namespace SpaceOfThoughts.API.Data
         {
             base.OnModelCreating(builder);
 
+            // Match Identity's unique normalized username index so concurrent
+            // requests cannot assign the same email address to two accounts.
+            builder.Entity<IdentityUser>()
+                .HasIndex(user => user.NormalizedEmail)
+                .HasDatabaseName("EmailIndex")
+                .IsUnique()
+                .HasFilter("[NormalizedEmail] IS NOT NULL");
         }
     }
 }

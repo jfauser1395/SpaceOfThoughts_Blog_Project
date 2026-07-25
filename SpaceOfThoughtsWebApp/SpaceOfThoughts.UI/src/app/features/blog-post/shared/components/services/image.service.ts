@@ -72,7 +72,7 @@ export class ImageService {
   // Delete an uploaded image by its ID
   deleteUploadedImage(id: string): Observable<BlogImage> {
     return this.http.delete<BlogImage>(
-      `${environment.apiBaseUrl}/api/Images/${id}?addAuth=true`,
+      `${environment.apiBaseUrl}/api/Images/${id}`,
     );
   }
 }

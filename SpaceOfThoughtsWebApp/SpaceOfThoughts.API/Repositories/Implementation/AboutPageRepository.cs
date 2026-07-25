@@ -19,13 +19,17 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
         // Get the stored about page
         public async Task<AboutPage?> GetAsync()
         {
-            return await dbContext.AboutPages.FirstOrDefaultAsync();
+            return await dbContext.AboutPages
+                .OrderBy(aboutPage => aboutPage.Id)
+                .FirstOrDefaultAsync();
         }
 
         // Update the stored about page or create it if it does not exist yet
         public async Task<AboutPage> UpdateAsync(AboutPage aboutPage)
         {
-            var existingAboutPage = await dbContext.AboutPages.FirstOrDefaultAsync();
+            var existingAboutPage = await dbContext.AboutPages
+                .OrderBy(aboutPage => aboutPage.Id)
+                .FirstOrDefaultAsync();
 
             if (existingAboutPage is null)
             {

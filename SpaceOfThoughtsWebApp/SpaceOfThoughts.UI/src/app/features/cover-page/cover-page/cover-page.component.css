@@ -5,21 +5,26 @@
 }
 
 .cover-page {
-  background: #17191d;
-  color: #fffefe;
+  background: var(--media-background);
+  color: var(--media-text);
   height: 100svh;
   min-height: 100vh;
   overflow: hidden;
 }
 
 /* Cover hero background and overlay */
+.cover-hero > .cover-hero-background {
+  inset: 0;
+  position: fixed;
+}
+
 .cover-hero {
+  --cover-muted-accent: #c18d99;
   align-items: center;
-  background-position: center;
-  background-size: cover;
   box-sizing: border-box;
   display: flex;
   height: 100%;
+  isolation: isolate;
   min-height: 100%;
   overflow: hidden;
   padding: clamp(84px, 12vh, 120px) clamp(18px, 6vw, 88px)
@@ -31,19 +36,25 @@
   background:
     linear-gradient(
       90deg,
-      rgba(15, 17, 20, 0.82),
-      rgba(15, 17, 20, 0.42) 54%,
-      rgba(15, 17, 20, 0.2)
+      var(--media-overlay-strong),
+      var(--media-overlay) 54%,
+      transparent
     ),
-    linear-gradient(0deg, rgba(15, 17, 20, 0.35), rgba(15, 17, 20, 0.08));
+    linear-gradient(0deg, var(--media-overlay), transparent);
   content: "";
   inset: 0;
-  position: absolute;
+  opacity: var(--cover-overlay-opacity, 1);
+  pointer-events: none;
+  position: fixed;
+  transition: opacity 180ms ease;
+  z-index: 1;
 }
 
 /* Cover welcome content */
 .cover-hero-content {
+  filter: none;
   max-width: 720px;
+  mix-blend-mode: normal;
   opacity: 1;
   position: relative;
   transform: translateY(0);
@@ -51,7 +62,7 @@
     opacity 520ms ease,
     transform 520ms ease;
   width: min(100%, 720px);
-  z-index: 1;
+  z-index: 2;
 }
 
 .cover-hero-content.is-loading,
@@ -61,20 +72,20 @@
 }
 
 .cover-greeting {
-  color: #fffefe;
+  color: var(--media-text);
   font-family: NavFont, serif;
   font-size: clamp(22px, 3vw, 34px);
   line-height: 1.1;
   margin-bottom: 18px;
-  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.34);
+  text-shadow: 0 2px 14px var(--media-shadow);
 }
 
 .cover-greeting span {
-  color: #f1c2cc;
+  color: var(--cover-muted-accent);
 }
 
 .cover-kicker {
-  color: #f1c2cc;
+  color: var(--media-accent);
   display: block;
   font-weight: 700;
   letter-spacing: 0;
@@ -90,11 +101,17 @@
 }
 
 .cover-hero p {
-  color: #f4e9ec;
+  color: var(--media-text-muted);
   font-size: clamp(18px, 2vw, 24px);
   line-height: 1.55;
   margin: 0;
   max-width: 650px;
+}
+
+:host-context([data-theme="light"]) .cover-hero-content > p {
+  color: #d5dfe9;
+  font-weight: 400;
+  text-shadow: none;
 }
 
 /* Cover action buttons */
@@ -114,7 +131,7 @@
 /* Rotating blog preview panel */
 .cover-blog-preview {
   bottom: clamp(28px, 7vh, 72px);
-  color: #fffefe;
+  color: var(--media-text);
   opacity: 1;
   position: absolute;
   right: clamp(18px, 6vw, 88px);
@@ -123,12 +140,12 @@
     opacity 520ms ease,
     transform 520ms ease;
   width: clamp(320px, 30vw, 440px);
-  z-index: 1;
+  z-index: 2;
 }
 
 .cover-blog-preview-header {
   align-items: center;
-  color: #f1c2cc;
+  color: var(--cover-muted-accent);
   display: flex;
   font-size: 12px;
   font-weight: 700;
@@ -138,6 +155,11 @@
   text-transform: uppercase;
 }
 
+:host-context([data-theme="light"]) .cover-blog-preview-header {
+  color: var(--cover-muted-accent);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.62);
+}
+
 /* Blog preview cards */
 .cover-blog-preview-stage {
   display: grid;
@@ -145,10 +167,10 @@
 }
 
 .cover-blog-card {
-  background: rgba(17, 19, 23, 0.68);
-  border: 1px solid rgba(255, 254, 254, 0.22);
+  background: var(--media-surface);
+  border: 1px solid var(--media-border);
   border-radius: 8px;
-  box-shadow: 0 22px 58px rgba(0, 0, 0, 0.36);
+  box-shadow: 0 22px 58px var(--media-shadow);
   color: inherit;
   display: grid;
   overflow: hidden;
@@ -173,22 +195,22 @@
 
 .cover-blog-card:hover,
 .cover-blog-card:focus-visible {
-  border-color: #a66776;
+  border-color: var(--color-primary-hover);
   box-shadow:
-    0 26px 68px rgba(0, 0, 0, 0.42),
-    0 0 0 1px rgba(166, 103, 118, 0.42),
-    0 0 24px rgba(166, 103, 118, 0.24);
-  color: #fffefe;
+    0 26px 68px var(--media-shadow),
+    0 0 0 1px var(--color-primary-hover),
+    0 0 24px var(--color-focus-ring);
+  color: var(--media-text);
   transform: translateY(-2px);
 }
 
 .cover-blog-card:focus-visible {
-  outline: 3px solid rgba(166, 103, 118, 0.44);
+  outline: 3px solid var(--color-primary-hover);
   outline-offset: 3px;
 }
 
 .cover-blog-image {
-  background: rgba(255, 254, 254, 0.08);
+  background: color-mix(in srgb, var(--media-text) 8%, transparent);
   display: block;
   min-height: 100%;
   overflow: hidden;
@@ -215,7 +237,7 @@
 
 .cover-blog-meta {
   align-items: center;
-  color: #f1c2cc;
+  color: var(--media-accent);
   display: flex;
   font-size: 11px;
   font-weight: 700;
@@ -234,7 +256,7 @@
 }
 
 .cover-blog-title {
-  color: #fffefe;
+  color: var(--media-text);
   display: -webkit-box;
   font-family: NavFont, serif;
   font-size: 24px;
@@ -250,7 +272,7 @@
 }
 
 .cover-blog-description {
-  color: #f4e9ec;
+  color: var(--media-text-muted);
   display: -webkit-box;
   font-size: 13px;
   line-height: 1.45;

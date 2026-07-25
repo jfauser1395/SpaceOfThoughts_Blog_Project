@@ -1,1 +1,235 @@
 
+.admin-user-tools-column,
+.admin-user-actions-cell {
+  text-align: right;
+}
+
+.admin-user-tools-column {
+  min-width: 420px;
+  width: 420px;
+}
+
+.admin-user-actions.admin-user-actions {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, 11.5rem);
+  inline-size: max-content;
+  min-inline-size: max-content;
+}
+
+.admin-user-actions.admin-user-actions > button {
+  inline-size: 100%;
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.admin-user-actions.admin-user-actions > button > span {
+  max-inline-size: none;
+  white-space: nowrap;
+}
+
+.admin-user-actions.admin-user-actions > button:focus-visible {
+  outline: 3px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.admin-user-actions {
+  flex-wrap: nowrap;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(112px, 1fr));
+  justify-content: flex-end;
+  margin-left: auto;
+  width: min(100%, 420px);
+}
+
+.admin-user-actions > button {
+  box-sizing: border-box;
+  flex-shrink: 0;
+  inline-size: 9.75rem;
+  min-inline-size: 9.75rem;
+  padding-inline: 0.75rem;
+  white-space: nowrap;
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  justify-content: center;
+  line-height: 1;
+  min-height: 38px;
+  min-width: 0;
+  padding-inline: 8px;
+  width: 100%;
+}
+
+.admin-user-actions > button > i {
+  flex: 0 0 1rem;
+  font-size: 1rem;
+  line-height: 1;
+  width: 1rem;
+}
+
+.admin-user-actions > button > span {
+  flex: 0 0 auto !important;
+  inline-size: auto !important;
+  max-inline-size: calc(100% - 1.5rem);
+  min-inline-size: 0;
+  white-space: nowrap;
+  display: block;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.admin-user-actions.has-two-actions {
+  grid-template-columns: repeat(2, minmax(112px, 1fr));
+  width: min(100%, 280px);
+}
+
+.admin-user-email {
+  max-width: 280px;
+  overflow-wrap: anywhere;
+}
+
+.admin-writing-action.is-revoke {
+  border-color: color-mix(in srgb, var(--danger-color, #d36b77) 58%, transparent);
+  color: var(--danger-color, #d36b77);
+}
+
+.admin-role-feedback {
+  align-items: center;
+  border: 1px solid;
+  border-radius: 8px;
+  display: flex;
+  font-weight: 650;
+  gap: 9px;
+  line-height: 1.35;
+  margin: 0 22px 16px;
+  padding: 10px 12px;
+}
+
+.admin-role-feedback > i {
+  flex: 0 0 auto;
+  line-height: 1;
+}
+
+.admin-role-feedback.is-success {
+  background: var(--color-success-surface);
+  border-color: var(--color-success-border);
+  color: var(--color-success);
+}
+
+.admin-role-feedback.is-error {
+  background: var(--color-error-surface);
+  border-color: var(--color-error-border);
+  color: var(--color-error);
+}
+
+.admin-modal .modal-header {
+  align-items: center;
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) 2rem;
+}
+
+.admin-modal .modal-title {
+  grid-column: 2;
+  line-height: 1.3;
+  margin: 0;
+  text-align: center;
+}
+
+.admin-modal .modal-header .btn-close {
+  grid-column: 3;
+  justify-self: end;
+  margin: 0;
+}
+
+.admin-modal .modal-body {
+  padding: 24px;
+  text-align: center;
+}
+
+.admin-modal-copy {
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+}
+
+.admin-modal-prompt {
+  line-height: 1.5;
+  margin: 0;
+}
+
+.admin-modal-user-identity {
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  display: grid;
+  gap: 3px;
+  justify-items: center;
+  max-width: 340px;
+  padding: 10px 14px;
+  text-align: center;
+  width: 100%;
+}
+
+.admin-modal-user-identity strong {
+  color: var(--color-heading);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.admin-modal-user-email {
+  display: block;
+  line-height: 1.35;
+  opacity: 0.72;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.admin-modal-note {
+  align-items: center;
+  display: inline-flex;
+  font-size: 0.9rem;
+  gap: 7px;
+  justify-content: center;
+  line-height: 1.4;
+  margin: 0;
+  opacity: 0.74;
+  text-align: center;
+}
+
+.admin-modal-note > i {
+  flex: 0 0 auto;
+  line-height: 1;
+}
+
+.admin-modal .modal-footer {
+  gap: 10px;
+  justify-content: center;
+}
+
+.admin-modal .modal-footer > button {
+  flex: 1 1 0;
+  margin: 0;
+  max-width: 160px;
+  min-width: 0;
+}
+
+.admin-modal .modal-footer > button > i,
+.admin-modal .modal-footer > button > span {
+  line-height: 1;
+}
+
+@media (max-width: 767.98px) {
+  .admin-role-feedback {
+    margin-inline: 14px;
+  }
+
+  .admin-user-tools-column {
+    min-width: 380px;
+    width: 380px;
+  }
+
+  .admin-user-actions {
+    gap: 5px;
+  }
+}

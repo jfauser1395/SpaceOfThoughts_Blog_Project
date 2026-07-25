@@ -1,19 +1,45 @@
 /* Host and page background layout */
 :host {
   display: block;
+  min-height: 100vh;
 }
 
 .about-page {
   background:
     radial-gradient(
-      circle at 50% 0%,
-      rgba(212, 126, 146, 0.18),
-      transparent 34%
+      circle at 18% 5%,
+      color-mix(in srgb, var(--color-primary) 13%, transparent),
+      transparent 32%
     ),
-    #f8f3f5;
-  color: #2b2528;
+    radial-gradient(
+      circle at 86% 20%,
+      color-mix(in srgb, var(--color-heading) 7%, transparent),
+      transparent 28%
+    ),
+    linear-gradient(
+      180deg,
+      var(--color-surface) 0%,
+      var(--color-surface-muted) 48%,
+      var(--color-background) 100%
+    );
+  color: var(--color-text);
   min-height: 100vh;
   padding: 96px clamp(16px, 4vw, 56px) 56px;
+}
+
+:host-context([data-theme="light"]) .about-page {
+  background:
+    radial-gradient(
+      circle at 18% 5%,
+      color-mix(in srgb, var(--color-primary) 12%, transparent),
+      transparent 32%
+    ),
+    radial-gradient(
+      circle at 86% 20%,
+      color-mix(in srgb, var(--color-heading) 5%, transparent),
+      transparent 28%
+    ),
+    linear-gradient(180deg, #fffefe 0%, #f9f3f5 52%, #f8f5f7 100%);
 }
 
 /* Author signature section */
@@ -33,7 +59,7 @@
 }
 
 .about-signature p {
-  color: #72535b;
+  color: var(--color-text-muted);
   font-size: 14px;
   font-style: italic;
   margin: 0;
@@ -47,14 +73,14 @@
 
 /* About page heading */
 .about-header {
-  border-bottom: 1px solid rgba(166, 103, 118, 0.26);
+  border-bottom: 1px solid var(--color-border);
   margin-bottom: 24px;
   padding-bottom: 18px;
   text-align: center;
 }
 
 .about-kicker {
-  color: #a66776;
+  color: var(--color-primary-hover);
   font-weight: 700;
   letter-spacing: 0;
   text-transform: uppercase;
@@ -63,7 +89,7 @@
 /* About section typography */
 .about-header h1,
 .about-section h2 {
-  color: #5f2d38;
+  color: var(--color-heading);
   font-family: NavFont, serif;
 }
 
@@ -74,15 +100,15 @@
 }
 
 .about-section {
-  background: rgba(255, 255, 255, 0.74);
-  border: 1px solid rgba(166, 103, 118, 0.2);
+  background: color-mix(in srgb, var(--color-surface) 74%, transparent);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  box-shadow: 0 18px 48px rgba(95, 45, 56, 0.08);
+  box-shadow: 0 18px 48px var(--color-shadow);
   margin-bottom: 18px;
   padding: clamp(22px, 4vw, 36px);
 }
 
-/* Author image and placeholder */
+/* Author image layout */
 .about-author {
   align-items: center;
   display: grid;
@@ -90,18 +116,8 @@
   grid-template-columns: minmax(180px, 260px) 1fr;
 }
 
-.about-photo-placeholder {
-  align-items: center;
-  aspect-ratio: 1;
-  background: linear-gradient(135deg, #ddd2d6, #bba9af);
-  border: 1px dashed rgba(95, 45, 56, 0.42);
-  border-radius: 8px;
-  color: rgba(95, 45, 56, 0.54);
-  display: flex;
-  font-family: NavFont, serif;
-  font-size: clamp(58px, 9vw, 92px);
-  justify-content: center;
-  width: 100%;
+.about-author-without-image {
+  grid-template-columns: 1fr;
 }
 
 .about-profile-image {
@@ -109,6 +125,10 @@
   border-radius: 8px;
   object-fit: cover;
   width: 100%;
+}
+
+.about-empty-state {
+  text-align: center;
 }
 
 /* Terms and contact styles */
@@ -120,7 +140,7 @@
 
 .about-section p,
 .terms-list {
-  color: #473d41;
+  color: var(--color-text);
   font-size: clamp(16px, 1.5vw, 18px);
   line-height: 1.72;
 }
@@ -141,16 +161,16 @@
 }
 
 .terms-list li::marker {
-  color: #d47e92;
+  color: var(--color-primary);
 }
 
 .about-contact a {
-  color: #8e4455;
+  color: var(--color-primary-hover);
   font-weight: 700;
 }
 
 .about-contact a:hover {
-  color: #5f2d38;
+  color: var(--color-heading);
 }
 
 /* Signature entrance animation */
@@ -179,10 +199,6 @@
 
   .about-author {
     grid-template-columns: 1fr;
-  }
-
-  .about-photo-placeholder {
-    max-width: 240px;
   }
 }
 

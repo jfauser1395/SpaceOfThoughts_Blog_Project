@@ -1,6 +1,6 @@
 /* Shared full-screen loader surface and exit transition */
 .app-loading-overlay {
-  background: rgba(15, 17, 20, 0.96);
+  background: color-mix(in srgb, var(--media-background) 96%, transparent);
   opacity: 1;
   pointer-events: auto;
   transition: opacity 320ms cubic-bezier(0.22, 1, 0.36, 1);

@@ -6,6 +6,9 @@ namespace SpaceOfThoughts.API.Models.DTOs
         // Unique identifier for the cover page
         public Guid Id { get; set; }
 
+        // Short introductory label displayed above the welcome title
+        public required string Kicker { get; set; }
+
         // Main welcome title displayed on the cover page
         public required string WelcomeTitle { get; set; }
 
@@ -14,6 +17,9 @@ namespace SpaceOfThoughts.API.Models.DTOs
 
         // Optional background image URL for the cover page
         public string? BackgroundImageUrl { get; set; }
+
+        // Strength of the translucent gradient placed over the cover background
+        public int BackgroundOverlayStrength { get; set; }
 
         // Date and time when the cover page was last updated
         public DateTime UpdatedAt { get; set; }
