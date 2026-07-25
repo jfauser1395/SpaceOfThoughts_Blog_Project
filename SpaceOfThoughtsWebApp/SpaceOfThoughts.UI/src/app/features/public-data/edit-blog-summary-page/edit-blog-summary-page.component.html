@@ -26,7 +26,8 @@
       }
       @if (isCreatingNewPage) {
         <div class="admin-editor-alert admin-editor-alert-info">
-          No blogs page settings have been saved yet. Choose a background when you are ready.
+          No blogs page settings have been saved yet. Choose a background when
+          you are ready.
         </div>
       }
 
@@ -75,7 +76,9 @@
                     (click)="onRemoveBackgroundImage()"
                   >
                     <i class="bi bi-image-alt" aria-hidden="true"></i>
-                    <span>{{ isRemovingImage ? "Removing..." : "Remove picture" }}</span>
+                    <span>{{
+                      isRemovingImage ? "Removing..." : "Remove picture"
+                    }}</span>
                   </button>
                 }
               </div>
@@ -96,7 +99,9 @@
               <button
                 class="admin-primary-action"
                 type="submit"
-                [disabled]="isSaving || isRemoving || isRemovingImage || form.invalid"
+                [disabled]="
+                  isSaving || isRemoving || isRemovingImage || form.invalid
+                "
               >
                 <i class="bi bi-save" aria-hidden="true"></i>
                 <span>{{ isSaving ? "Saving..." : "Save blogs page" }}</span>
@@ -108,8 +113,9 @@
               <div class="blog-summary-remove-confirmation" role="alert">
                 <strong>Remove the current blogs page settings?</strong>
                 <p>
-                  The configurable page background will return to its initial state. Blog posts
-                  and shared uploaded images will not be deleted.
+                  The configurable page background will return to its initial
+                  state. Blog posts and shared uploaded images will not be
+                  deleted.
                 </p>
                 <div>
                   <button
@@ -127,7 +133,9 @@
                     (click)="onRemoveBlogSummaryPage()"
                   >
                     <i class="bi bi-trash3" aria-hidden="true"></i>
-                    <span>{{ isRemoving ? "Removing..." : "Remove blogs page" }}</span>
+                    <span>{{
+                      isRemoving ? "Removing..." : "Remove blogs page"
+                    }}</span>
                   </button>
                 </div>
               </div>
@@ -188,5 +196,5 @@
   aria-labelledby="selectModalLabel"
   aria-hidden="true"
 >
-  <app-image-selector></app-image-selector>
+  <app-image-selector imageCategory="Blog"></app-image-selector>
 </div>

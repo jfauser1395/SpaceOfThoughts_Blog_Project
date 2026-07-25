@@ -22,6 +22,9 @@ export class AppComponent implements OnInit, OnDestroy {
   title = 'SpaceOfThoughts';
   isRouteFadingOut = false;
   useRouteFadeFallback = false;
+  isUpdateAvailable = false;
+  isUpdateDialogOpen = false;
+  isUpdateRecoveryRequired = false;
 
   // Route transition state is kept in the shell so public pages fade consistently
   private readonly routeFadeOutMinimumMs = 280;
@@ -29,6 +32,9 @@ export class AppComponent implements OnInit, OnDestroy {
   private routeFadeStartedAt = 0;
   private routeFadeTimeoutId?: number;
   private routeFadeSubscription?: Subscription;
+  private serviceWorkerUpdateSubscription?: Subscription;
+  private unrecoverableStateSubscription?: Subscription;
+  private updateCheckSubscription?: Subscription;
 
   constructor(
     private readonly appRef: ApplicationRef,
@@ -46,7 +52,25 @@ export class AppComponent implements OnInit, OnDestroy {
   // Release router listeners and pending transition timers with the app shell
   ngOnDestroy(): void {
     this.routeFadeSubscription?.unsubscribe();
+    this.serviceWorkerUpdateSubscription?.unsubscribe();
+    this.unrecoverableStateSubscription?.unsubscribe();
+    this.updateCheckSubscription?.unsubscribe();
     this.clearRouteFadeTimer();
+  }
+
+  // Keep a compact update reminder visible after the full prompt is dismissed
+  dismissUpdateDialog(): void {
+    this.isUpdateDialogOpen = false;
+  }
+
+  // Reopen the detailed prompt from the persistent update reminder
+  openUpdateDialog(): void {
+    this.isUpdateDialogOpen = true;
+  }
+
+  // Reload the complete application so all lazy bundles use the same new version
+  reloadApplication(): void {
+    document.location.reload();
   }
 
   // Listen for public-route navigation and coordinate the shell fade lifecycle
@@ -142,20 +166,36 @@ export class AppComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Listen for a freshly downloaded app version and let the user decide when to reload.
-    this.swUpdate.versionUpdates.subscribe((event: VersionEvent) => {
-      if (event.type === 'VERSION_READY') {
-        const shouldReload = window.confirm(
-          'A new version of this app is available. Reload now to update?',
-        );
-
-        if (shouldReload) {
-          void this.swUpdate.activateUpdate().then(() => {
-            document.location.reload();
-          });
+    // Open the themed update dialog after Angular finishes downloading a new version
+    this.serviceWorkerUpdateSubscription = this.swUpdate.versionUpdates.subscribe(
+      (event: VersionEvent) => {
+        if (event.type === 'VERSION_READY') {
+          this.isUpdateAvailable = true;
+          this.isUpdateDialogOpen = true;
+          return;
         }
-      }
-    });
+
+        if (event.type === 'VERSION_INSTALLATION_FAILED') {
+          console.error(
+            'The new application version could not be installed.',
+            event.error,
+          );
+        }
+      },
+    );
+
+    // Ask for a full reload if Angular cannot safely recover the current cached version
+    this.unrecoverableStateSubscription = this.swUpdate.unrecoverable.subscribe(
+      (event) => {
+        console.error(
+          'The current application version is unrecoverable.',
+          event.reason,
+        );
+        this.isUpdateRecoveryRequired = true;
+        this.isUpdateAvailable = true;
+        this.isUpdateDialogOpen = true;
+      },
+    );
 
     // Wait until Angular reports the app as stable before scheduling periodic checks.
     const appIsStable$ = this.appRef.isStable.pipe(
@@ -164,9 +204,13 @@ export class AppComponent implements OnInit, OnDestroy {
     const everySixHours$ = interval(6 * 60 * 60 * 1000);
     const everySixHoursOnceAppIsStable$ = concat(appIsStable$, everySixHours$);
 
-    everySixHoursOnceAppIsStable$.subscribe(() => {
-      // Ask the service worker for a newer version in the background.
-      void this.swUpdate.checkForUpdate();
-    });
+    this.updateCheckSubscription = everySixHoursOnceAppIsStable$.subscribe(
+      () => {
+        // Ask the service worker for a newer version in the background.
+        void this.swUpdate.checkForUpdate().catch((error: unknown) => {
+          console.error('The application update check failed.', error);
+        });
+      },
+    );
   }
 }

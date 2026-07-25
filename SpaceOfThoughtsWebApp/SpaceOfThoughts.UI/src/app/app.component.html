@@ -11,3 +11,131 @@
 >
   <router-outlet />
 </main>
+
+@if (isUpdateDialogOpen) {
+  <!-- App-styled prompt shown only after Angular has downloaded a complete update -->
+  <div
+    class="update-dialog-backdrop"
+    (click)="dismissUpdateDialog()"
+    (keydown.escape)="dismissUpdateDialog()"
+  >
+    <section
+      class="update-dialog"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="app-update-dialog-heading"
+      aria-describedby="app-update-dialog-description app-update-dialog-note"
+      (click)="$event.stopPropagation()"
+    >
+      <!-- Update dialog heading and close action -->
+      <header class="update-dialog-header">
+        <span class="update-dialog-icon" aria-hidden="true">
+          <i class="bi bi-arrow-repeat"></i>
+        </span>
+
+        <div class="update-dialog-heading">
+          <span>
+            {{
+              isUpdateRecoveryRequired
+                ? "Application recovery"
+                : "Application update"
+            }}
+          </span>
+          <h2 id="app-update-dialog-heading">
+            {{
+              isUpdateRecoveryRequired
+                ? "A reload is required"
+                : "A new version is ready"
+            }}
+          </h2>
+        </div>
+
+        <button
+          type="button"
+          class="update-dialog-close-button"
+          aria-label="Install the update later"
+          (click)="dismissUpdateDialog()"
+        >
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </header>
+
+      <!-- Explain that Angular already downloaded the update before prompting -->
+      <div class="update-dialog-body">
+        <p id="app-update-dialog-description">
+          @if (isUpdateRecoveryRequired) {
+            The cached application can no longer continue safely. Reload to
+            restore a complete version.
+          } @else {
+            Reload the application to start using the newest version.
+          }
+        </p>
+        <p class="update-dialog-note" id="app-update-dialog-note">
+          <i class="bi bi-info-circle" aria-hidden="true"></i>
+          <span>Save any unfinished writing before reloading.</span>
+        </p>
+      </div>
+
+      <!-- Keep the user in control so an update cannot discard unfinished work -->
+      <footer class="update-dialog-actions">
+        <button
+          type="button"
+          class="btn btn-secondary"
+          autofocus
+          (click)="dismissUpdateDialog()"
+        >
+          Later
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          (click)="reloadApplication()"
+        >
+          <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+          Reload now
+        </button>
+      </footer>
+    </section>
+  </div>
+}
+
+@if (isUpdateAvailable && !isUpdateDialogOpen) {
+  <!-- Persistent reminder kept visible until the downloaded update is loaded -->
+  <aside
+    class="update-ready-banner"
+    role="status"
+    aria-live="polite"
+    aria-label="Application update ready"
+  >
+    <span class="update-ready-banner-icon" aria-hidden="true">
+      <i class="bi bi-arrow-repeat"></i>
+    </span>
+
+    <div class="update-ready-banner-copy">
+      <strong>
+        {{
+          isUpdateRecoveryRequired ? "Reload required" : "New version ready"
+        }}
+      </strong>
+      <span>Save unfinished work before updating.</span>
+    </div>
+
+    <div class="update-ready-banner-actions">
+      <button
+        type="button"
+        class="btn btn-secondary"
+        (click)="openUpdateDialog()"
+      >
+        Details
+      </button>
+      <button
+        type="button"
+        class="btn btn-primary"
+        (click)="reloadApplication()"
+      >
+        <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+        Reload
+      </button>
+    </div>
+  </aside>
+}

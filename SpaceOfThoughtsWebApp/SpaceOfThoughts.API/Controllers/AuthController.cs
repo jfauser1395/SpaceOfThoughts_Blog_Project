@@ -9,6 +9,7 @@ using SpaceOfThoughts.API.Data;
 using SpaceOfThoughts.API.Data.Initialization;
 using SpaceOfThoughts.API.Models.DTOs;
 using SpaceOfThoughts.API.Repositories.Interface;
+using SpaceOfThoughts.API.Storage;
 
 namespace SpaceOfThoughts.API.Controllers
 {
@@ -538,23 +539,28 @@ namespace SpaceOfThoughts.API.Controllers
             }
 
             var fileExtension = Path.GetExtension(file!.FileName).ToLowerInvariant();
-            var profilePicturesDirectory = Path.Combine(
-                webHostEnvironment.ContentRootPath,
-                "Images",
-                "ProfilePictures"
-            );
+            var profilePicturesDirectory =
+                ImageStoragePaths.GetProfilePicturesDirectory(
+                    webHostEnvironment.ContentRootPath
+                );
             Directory.CreateDirectory(profilePicturesDirectory);
 
             var fileName = $"{user.Id}-{Guid.NewGuid():N}{fileExtension}";
             var localPath = Path.Combine(profilePicturesDirectory, fileName);
 
-            await using (var stream = new FileStream(localPath, FileMode.Create))
+            // CreateNew formally prevents an unexpected generated-name collision
+            await using (var stream = new FileStream(
+                localPath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None
+            ))
             {
                 await file.CopyToAsync(stream);
             }
 
             var profileImageUrl =
-                $"{Request.Scheme}://{Request.Host}{Request.PathBase}/Images/ProfilePictures/{fileName}";
+                $"{Request.Scheme}://{Request.Host}{Request.PathBase}{ImageStoragePaths.PublicRequestPath}/{ImageStoragePaths.ProfilePicturesDirectoryName}/{fileName}";
             var previousProfileImageUrl = await GetClaimValueAsync(user, ProfileImageClaimType);
 
             var replacePositionResult = await ReplaceClaimAsync(
@@ -1107,9 +1113,9 @@ namespace SpaceOfThoughts.API.Controllers
             }
 
             var localPath = Path.Combine(
-                webHostEnvironment.ContentRootPath,
-                "Images",
-                "ProfilePictures",
+                ImageStoragePaths.GetProfilePicturesDirectory(
+                    webHostEnvironment.ContentRootPath
+                ),
                 fileName
             );
 

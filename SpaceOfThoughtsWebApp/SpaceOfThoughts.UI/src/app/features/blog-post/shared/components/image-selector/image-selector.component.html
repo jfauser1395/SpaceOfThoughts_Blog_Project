@@ -4,6 +4,7 @@
     <div class="modal-header">
       <h1 class="modal-title fs-5" id="selectModalLabel">Select Picture</h1>
       <button
+        #closeModalButton
         type="button"
         class="btn-close"
         data-bs-dismiss="modal"
@@ -23,6 +24,13 @@
           (ngSubmit)="uploadImage()"
           name="imageForm"
         >
+          @if (uploadError) {
+            <!-- Keep API validation visible so the administrator can choose another name -->
+            <div class="alert alert-danger" role="alert">
+              {{ uploadError }}
+            </div>
+          }
+
           <div class="admin-form-field">
             <label for="fileInput">Image File</label>
             <input
@@ -66,10 +74,9 @@
             <button
               type="submit"
               class="admin-primary-action"
-              data-bs-dismiss="modal"
-              aria-label="Close"
+              aria-label="Upload image"
               name="uploadButton"
-              [disabled]="!form.valid"
+              [disabled]="!form.valid || isUploading"
             >
               <i class="bi bi-upload" aria-hidden="true"></i>
               Upload

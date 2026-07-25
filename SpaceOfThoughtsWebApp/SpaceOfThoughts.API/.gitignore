@@ -363,7 +363,19 @@ MigrationBackup/
 FodyWeavers.xsd
 
 # API local ignores
-images/
+# Uploaded image data stays local, while folder markers and the bundled fallback remain deployable
+Images/**/*
+!Images/Public/
+!Images/Public/Blog/
+!Images/Public/Blog/placeholder.png
+!Images/Public/CoverPage/
+!Images/Public/CoverPage/.gitkeep
+!Images/Public/AboutPage/
+!Images/Public/AboutPage/.gitkeep
+!Images/Public/ProfilePictures/
+!Images/Public/ProfilePictures/.gitkeep
+!Images/Private/
+!Images/Private/.gitkeep
 appsettings.json
 Migrations/
 **/Migrations/

@@ -5,6 +5,9 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../../../../environments/environment';
 import { map } from 'rxjs/operators';
 
+// Public image categories match the API's dedicated storage directories
+export type PublicImageCategory = 'Blog' | 'CoverPage' | 'AboutPage';
+
 @Injectable({
   providedIn: 'root', // This service will be provided at the root level
 })
@@ -25,6 +28,7 @@ export class ImageService {
   getAllImages(
     sortBy?: string,
     sortDirection?: string,
+    category?: PublicImageCategory,
   ): Observable<BlogImage[]> {
     let params = new HttpParams();
     if (sortBy) {
@@ -33,14 +37,19 @@ export class ImageService {
     if (sortDirection) {
       params = params.set('sortDirection', sortDirection);
     }
+    if (category) {
+      params = params.set('category', category);
+    }
     return this.http.get<BlogImage[]>(`${environment.apiBaseUrl}/api/Images`, {
       params: params,
     });
   }
 
   // Check if there are no images available
-  checkIfImagesEmpty(): Observable<boolean> {
-    return this.getAllImages().pipe(map((images) => images.length === 0));
+  checkIfImagesEmpty(category?: PublicImageCategory): Observable<boolean> {
+    return this.getAllImages(undefined, undefined, category).pipe(
+      map((images) => images.length === 0),
+    );
   }
 
   // Upload a new image
@@ -48,11 +57,13 @@ export class ImageService {
     file: File,
     fileName: string,
     title: string,
+    category: PublicImageCategory = 'Blog',
   ): Observable<BlogImage> {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('fileName', fileName);
     formData.append('title', title);
+    formData.append('category', category);
     return this.http.post<BlogImage>(
       `${environment.apiBaseUrl}/api/Images`,
       formData,

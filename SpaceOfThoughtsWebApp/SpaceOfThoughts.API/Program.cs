@@ -6,10 +6,12 @@ using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
+using SpaceOfThoughts.API.Authentication;
 using SpaceOfThoughts.API.Data;
 using SpaceOfThoughts.API.Data.Initialization;
 using SpaceOfThoughts.API.Repositories.Implementation;
 using SpaceOfThoughts.API.Repositories.Interface;
+using SpaceOfThoughts.API.Storage;
 using System.IO.Compression;
 using System.Threading.RateLimiting;
 
@@ -45,7 +47,7 @@ builder.Services.Configure<GzipCompressionProviderOptions>(options =>
 // Inject DbContext service to the builder and pass the connection string
 var connectionString = builder.Configuration.GetConnectionString("SpaceOfThoughtsConnectionString");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-   options.UseSqlServer(connectionString) 
+   options.UseSqlServer(connectionString)
 );
 
 builder.Services.AddDbContext<AuthDbContext>(options =>
@@ -118,6 +120,30 @@ builder
                 System.Text.Encoding.UTF8.GetBytes(jwtKey) // Set the signing key
             )
         };
+
+        // Read JWTs only from the browser's HttpOnly authorization cookie.
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                if (
+                    context.Request.Cookies.TryGetValue(
+                        JwtCookieDefaults.Name,
+                        out var cookieToken
+                    )
+                )
+                {
+                    context.Token = cookieToken;
+                }
+                else
+                {
+                    // Stop JwtBearer from falling back to the Authorization header.
+                    context.NoResult();
+                }
+
+                return Task.CompletedTask;
+            }
+        };
     });
 
 // Add rate limiting to protect the API from abuse
@@ -146,7 +172,8 @@ builder.Services.AddCors(options =>
             builder
                 .WithOrigins("https://spaceofthoughts.com", "https://www.spaceofthoughts.com", "http://localhost:4200", "http://127.0.0.1:4200")
                 .AllowAnyMethod()
-                .AllowAnyHeader();
+                .AllowAnyHeader()
+                .AllowCredentials();
         }
     );
 });
@@ -175,17 +202,47 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Serve static files from the "Images" directory now served by Nginx, so this is commented out to avoid conflicts
+// Create the same public/private image structure on every new installation
+ImageStoragePaths.EnsureDirectories(app.Environment.ContentRootPath);
+
+// Keep legacy /Images/file.ext links working from their new Public/Blog location
+app.UseStaticFiles(
+    new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(
+            ImageStoragePaths.GetPublicDirectory(
+                app.Environment.ContentRootPath,
+                PublicImageCategory.Blog
+            )
+        ),
+        RequestPath = ImageStoragePaths.PublicRequestPath
+    }
+);
+
+// Expose only Images/Public; Images/Private remains reachable through authorized endpoints
+app.UseStaticFiles(
+    new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(
+            ImageStoragePaths.GetPublicRoot(app.Environment.ContentRootPath)
+        ),
+        RequestPath = ImageStoragePaths.PublicRequestPath
+    }
+);
+
+// // Create filesystem storage because database migrations do not create image directories.
+// ImageStoragePaths.EnsureDirectories(app.Environment.ContentRootPath);
+
+// // Serve public images when Kestrel is used directly, such as during local development.
 // app.UseStaticFiles(
 //     new StaticFileOptions
 //     {
 //         FileProvider = new PhysicalFileProvider(
-//             Path.Combine(Directory.GetCurrentDirectory(), "Images") // Serve static files from the "Images" directory
+//             ImageStoragePaths.GetPublicRoot(app.Environment.ContentRootPath)
 //         ),
-//         RequestPath = "/Images" // Set the request path for static files
+//         RequestPath = ImageStoragePaths.PublicRequestPath
 //     }
 // );
-
 // Add security headers to responses
 app.Use(
     async (context, next) =>
@@ -202,5 +259,8 @@ app.MapControllers();
 app.UseResponseCompression(); // Enable response compression
 
 await SpaceOfThoughts.API.Data.Initialization.DbInitializer.MigrateAndSeedAsync(app);
+
+// Rewrite legacy stored image URLs after database initialization has completed
+await LegacyImageUrlMigrator.MigrateAsync(app);
 
 app.Run();

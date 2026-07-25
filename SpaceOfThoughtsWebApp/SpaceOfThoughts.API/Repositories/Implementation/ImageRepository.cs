@@ -2,10 +2,11 @@
 using SpaceOfThoughts.API.Data;
 using SpaceOfThoughts.API.Models.Domain;
 using SpaceOfThoughts.API.Repositories.Interface;
+using SpaceOfThoughts.API.Storage;
 
 namespace SpaceOfThoughts.API.Repositories.Implementation
 {
-    // ImageRepository handles CRUD operations for BlogImage entities
+    // ImageRepository handles CRUD operations for the categorized public image library
     public class ImageRepository : IImageRepository
     {
         private readonly IWebHostEnvironment webHostEnvironment;
@@ -26,6 +27,7 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
 
         // Get all images with optional sorting
         public async Task<IEnumerable<BlogImage>> GetAll(
+            PublicImageCategory? category = null,
             string? sortBy = null,
             string? sortDirection = null
         )
@@ -48,32 +50,117 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
                 }
             }
 
-            return await blogImages.ToListAsync(); // Return the list of images
+            var images = await blogImages.ToListAsync();
+
+            // A category-specific editor sees only its own image library
+            return category.HasValue
+                ? images.Where(image =>
+                    ImageStoragePaths.GetCategoryFromUrl(image.Url) == category.Value
+                )
+                : images;
         }
 
-        // Upload a new image
-        public async Task<BlogImage> Upload(IFormFile file, BlogImage blogImage)
+        // Upload a new public image into the folder assigned to its page type
+        public async Task<BlogImage?> Upload(
+            IFormFile file,
+            BlogImage blogImage,
+            PublicImageCategory category
+        )
         {
-            // Define the local path to save the image
-            var localPath = Path.Combine(
+            var categoryDirectory = ImageStoragePaths.GetPublicDirectory(
                 webHostEnvironment.ContentRootPath,
-                "Images",
-                $"{blogImage.FileName}{blogImage.FileExtension}"
+                category
+            );
+            Directory.CreateDirectory(categoryDirectory);
+
+            var storedFileName = $"{blogImage.FileName}{blogImage.FileExtension}";
+            var localPath = Path.Combine(
+                categoryDirectory,
+                storedFileName
             );
 
-            // Save the image to the local path
-            using var stream = new FileStream(localPath, FileMode.Create);
-            await file.CopyToAsync(stream);
+            // Reject matching metadata even when its physical file was removed externally
+            var matchingImageUrls = await dbContext
+                .BlogImages.AsNoTracking()
+                .Where(image =>
+                    image.FileName.ToLower() == blogImage.FileName.ToLower()
+                    && image.FileExtension.ToLower()
+                        == blogImage.FileExtension.ToLower()
+                )
+                .Select(image => image.Url)
+                .ToListAsync();
+            if (
+                matchingImageUrls.Any(url =>
+                    ImageStoragePaths.GetCategoryFromUrl(url) == category
+                )
+            )
+            {
+                return null;
+            }
 
-            // Construct the URL for accessing the image
+            // Compare existing files without relying on operating-system case rules
+            var fileAlreadyExists = Directory
+                .EnumerateFiles(categoryDirectory)
+                .Select(Path.GetFileName)
+                .Any(existingFileName =>
+                    string.Equals(
+                        existingFileName,
+                        storedFileName,
+                        StringComparison.OrdinalIgnoreCase
+                    )
+                );
+            if (fileAlreadyExists)
+            {
+                return null;
+            }
+
+            FileStream stream;
+            try
+            {
+                // CreateNew is the atomic final guard against simultaneous duplicate uploads
+                stream = new FileStream(
+                    localPath,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None
+                );
+            }
+            catch (IOException) when (File.Exists(localPath))
+            {
+                return null;
+            }
+
+            // Delete an incomplete file when copying the request body fails
+            try
+            {
+                await using (stream)
+                {
+                    await file.CopyToAsync(stream);
+                }
+            }
+            catch
+            {
+                File.Delete(localPath);
+                throw;
+            }
+
+            // Construct the public URL using forwarded proxy scheme and host information
             var httpRequestImage = httpContextAccessor?.HttpContext?.Request;
             var urlPath =
-                $"https://{httpRequestImage?.Host}{httpRequestImage?.PathBase}/Images/{blogImage.FileName}{blogImage.FileExtension}";
+                $"{httpRequestImage?.Scheme}://{httpRequestImage?.Host}{httpRequestImage?.PathBase}{ImageStoragePaths.GetPublicUrlPath(category, storedFileName)}";
             blogImage.Url = urlPath;
 
-            // Add the image details to the database
-            await dbContext.BlogImages.AddAsync(blogImage);
-            await dbContext.SaveChangesAsync(); // Save changes to the database
+            // Keep disk and database state aligned if metadata persistence fails
+            try
+            {
+                await dbContext.BlogImages.AddAsync(blogImage);
+                await dbContext.SaveChangesAsync(); // Save changes to the database
+            }
+            catch
+            {
+                File.Delete(localPath);
+                throw;
+            }
             return blogImage; // Return the uploaded image
         }
 
@@ -86,17 +173,21 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
                 return null; // Return null if the image was not found
             }
 
-            // Define the file path of the image
-            var filePath = Path.Combine(
-                webHostEnvironment.ContentRootPath,
-                "Images",
-                $"{existingImage.FileName}{existingImage.FileExtension}"
-            );
-
-            // Check if the file exists and delete it
-            if (File.Exists(filePath))
+            // Resolve both categorized URLs and legacy /Images/file.ext URLs safely
+            var category = ImageStoragePaths.GetCategoryFromUrl(existingImage.Url);
+            var storedFileName =
+                $"{existingImage.FileName}{existingImage.FileExtension}";
+            if (
+                ImageStoragePaths.TryGetPublicFilePath(
+                    webHostEnvironment.ContentRootPath,
+                    category,
+                    storedFileName,
+                    out var filePath
+                )
+                && File.Exists(filePath)
+            )
             {
-                File.Delete(filePath); // Delete the file
+                File.Delete(filePath); // Delete only a file contained by the category
             }
 
             // Remove the image details from the database
