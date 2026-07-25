@@ -20,7 +20,11 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
         }
 
         // Create a JWT token for a given user and their roles
-        public string CreateJWTToken(IdentityUser user, List<string> roles)
+        public string CreateJWTToken(
+            IdentityUser user,
+            List<string> roles,
+            DateTimeOffset expiresAt
+        )
         {
             // Retrieve JWT configuration values from app settings
             var jwtKey =
@@ -52,7 +56,7 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
                 issuer: jwtIssuer,
                 audience: jwtAudience,
                 claims: claims,
-                expires: DateTime.UtcNow.Add(JwtCookieDefaults.Lifetime),
+                expires: expiresAt.UtcDateTime,
                 signingCredentials: credentials
             );
 

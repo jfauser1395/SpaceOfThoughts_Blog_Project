@@ -74,7 +74,7 @@ export class LoginComponent implements OnInit, OnDestroy {
       // Call the login method from AuthService
       this.user = this.authService.login(this.model).subscribe({
         next: (response) => {
-          // Set authorization cookie and user session from the login response
+          // Store the returned user details; the API has already set the HttpOnly auth cookie
           this.authService.setUserFromLoginResponse(response);
 
           // Redirect to the home page

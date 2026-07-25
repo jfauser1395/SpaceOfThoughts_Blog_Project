@@ -6,6 +6,10 @@ namespace SpaceOfThoughts.API.Repositories.Interface
     public interface ITokenRepository
     {
         // Method to create a JWT token for a given user and their roles
-        string CreateJWTToken(IdentityUser user, List<string> roles);
+        string CreateJWTToken(
+            IdentityUser user,
+            List<string> roles,
+            DateTimeOffset expiresAt
+        );
     }
 }

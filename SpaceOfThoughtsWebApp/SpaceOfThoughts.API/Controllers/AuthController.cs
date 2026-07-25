@@ -779,8 +779,9 @@ namespace SpaceOfThoughts.API.Controllers
             List<string> roles
         )
         {
-            var token = tokenRepository.CreateJWTToken(user, roles);
-            SetAuthorizationCookie(token);
+            var expiresAt = DateTimeOffset.UtcNow.Add(JwtCookieDefaults.Lifetime);
+            var token = tokenRepository.CreateJWTToken(user, roles, expiresAt);
+            SetAuthorizationCookie(token, expiresAt);
 
              
             if (string.IsNullOrWhiteSpace(user.UserName) || string.IsNullOrWhiteSpace(user.Email))
@@ -803,12 +804,12 @@ namespace SpaceOfThoughts.API.Controllers
         }
 
         // Keep the JWT unavailable to JavaScript while allowing the browser to send it to the API.
-        private void SetAuthorizationCookie(string token)
+        private void SetAuthorizationCookie(string token, DateTimeOffset expiresAt)
         {
             Response.Cookies.Append(
                 JwtCookieDefaults.Name,
                 token,
-                CreateAuthorizationCookieOptions(DateTimeOffset.UtcNow.Add(JwtCookieDefaults.Lifetime))
+                CreateAuthorizationCookieOptions(expiresAt)
             );
         }
 

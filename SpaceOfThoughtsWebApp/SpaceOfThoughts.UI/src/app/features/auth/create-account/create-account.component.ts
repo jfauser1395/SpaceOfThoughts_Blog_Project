@@ -100,7 +100,7 @@ export class CreateAccountComponent implements OnInit, OnDestroy {
         // Register the new user
         this.addedUser = this.authService.register(this.model).subscribe({
           next: (response) => {
-            // Persist the returned token and user details before opening the cover page
+            // Store the returned user details; the API has already set the HttpOnly auth cookie
             this.authService.setUserFromLoginResponse(response);
             void this.router.navigateByUrl('/', { replaceUrl: true });
           },
