@@ -1,176 +1,153 @@
-# SpaceOfThoughts Blog project setup API and UI
+# SpaceOfThoughts
 
-This setup manual is designed for Linux, specifically tested on Ubuntu 24.04 LTS. Follow the installation steps carefully. Alternatively, refer to the automated setup at the end of this README.
+SpaceOfThoughts is a full-stack blog application built with:
 
-## 1. MySQL Database setup 
+- ASP.NET Core 10 Web API
+- Angular 22
+- Entity Framework Core 10
+- SQL Server
+- ASP.NET Core Identity and JWT authentication
 
-Install MySQL server:
+## Project structure
 
-```
-sudo apt install mysql-server 
-```
-MySQL secure installation:
-
-```
-sudo mysql_secure_installation (optional)
-```
-
-## MySQL secure setup
-| configuration| option |
-| ------ | ----------- |
-| VALIDATE PASSWORD COMPONENT| `no` (if testing in a sandbox environment)|
-| Remove anonymous users? | `yes` |
-| Disallow root login remotely?| `yes`|
-| Remove test database and access to it? | `yes` |
-| Reload privilege tables now? | `yes`|
-
-Login into MySQL Server:
-
-``` 
-sudo mysql
-```
-Use your usual admin password to get into MySQL
-Now we need to setup a database that is matching our connection string setup 
-Default credentials can be found in the "appsettings.json": 
-`"SpaceOfThoughtsConnectionString": "server=localhost;database=SPOT;User=root;Password=44059513;"`
-
-**First we need to make sure that the root user has the same password as we set up in the connection string**
-
-```sql
-ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '44059513';
-FLUSH PRIVILEGES;
+```text
+SpaceOfThoughtsWebApp/
+├── SpaceOfThoughts.API/   # ASP.NET Core API
+├── SpaceOfThoughts.UI/    # Angular frontend
+└── deployment/            # Deployment and Nginx configuration
 ```
 
-**Create the SpaceOfThoughts aka SPOT database**
+## Prerequisites
 
-```sql	
-CREATE DATABASE SPOT;
+Install the following tools:
+
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+- [Node.js](https://nodejs.org/) and npm
+- SQL Server
+  - On Windows, SQL Server Express LocalDB can be used for development.
+  - On Linux or macOS, use a reachable SQL Server instance or container.
+
+The Angular CLI does not need to be installed globally; the project uses the
+version recorded in `package-lock.json`.
+
+## Local configuration
+
+The API reads configuration through the standard ASP.NET Core configuration
+system. Required configuration keys include:
+
+- `ConnectionStrings:SpaceOfThoughtsConnectionString`
+- `Jwt:Key`
+- `Jwt:Issuer`
+- `Jwt:Audience`
+
+Do not put passwords, signing keys, API keys, or other credentials in this
+README or in tracked configuration files.
+
+For local development, store sensitive values with .NET User Secrets:
+
+```powershell
+cd SpaceOfThoughtsWebApp/SpaceOfThoughts.API
+dotnet user-secrets set "ConnectionStrings:SpaceOfThoughtsConnectionString" "<your SQL Server connection string>"
+dotnet user-secrets set "Jwt:Key" "<your long random development signing key>"
 ```
 
-**Grant all privileges to the root user on the SPOT database**
+The development issuer and audience are:
 
- ```sql
-GRANT ALL PRIVILEGES ON SPOT.* TO 'root'@'localhost';
-FLUSH PRIVILEGES;
+```text
+Jwt:Issuer   = https://localhost:7000
+Jwt:Audience = http://localhost:4200
 ```
 
-**Exit MySQL**
+.NET User Secrets are intended only for local development. Use environment
+variables or a managed secret store in production. Nested configuration keys
+use double underscores in environment variables, for example `Jwt__Key`.
 
-```sql
-EXIT;
+## Database setup
+
+The project uses the Entity Framework Core SQL Server provider. Existing
+migrations for both database contexts are stored under:
+
+```text
+SpaceOfThoughts.API/Migrations/ApplicationDb/
+SpaceOfThoughts.API/Migrations/AuthDb/
 ```
 
-## 2. .NET 8 Core Setup
+Do not delete or recreate these migrations during normal setup. The API applies
+pending migrations for both contexts automatically when it starts.
 
-Install the sdk:
+To apply them manually, install the matching EF Core command-line tool and run:
 
-``` 
-sudo apt install dotnet-sdk-8.0
-```
-
-Install the EF Core tools globally:
-
-```
-dotnet tool install --global dotnet-ef
-```
-
-To add it for the current terminal session, run:
-
-```
-echo 'export PATH="$PATH:/home/$(whoami)/.dotnet/tools"' >> ~/.profile
-source ~/.profile
-```
-
-Check it the installation was successful:
-
-```
-dotnet ef --version
-```
-
-## 3. Database Migration
-
-First navigate into the API folder and delete all files inside the Migrations folder:
-
-```
-cd blog-project-web-development/SpaceOfThoughtsWebApp/SpaceOfThoughts.API/
-sudo rm -rf Migrations/*
-```
-
-Now we need execute the database migrations:
-
-```
-dotnet ef migrations add InitialCreate --context ApplicationDbContext
-dotnet ef migrations add InitialCreateAuth --context AuthDbContext
+```powershell
+cd SpaceOfThoughtsWebApp/SpaceOfThoughts.API
+dotnet tool install --global dotnet-ef --version 10.0.10
 dotnet ef database update --context ApplicationDbContext
 dotnet ef database update --context AuthDbContext
 ```
 
-## 4. Finally start the API
+If `dotnet-ef` is already installed, update it instead:
 
-Install a self signed development certificate:
-
-```
-mkdir -p $HOME/.pki/nssdb
-dotnet dev-certs https
-sudo -E dotnet dev-certs https -ep /usr/local/share/ca-certificates/aspnet-dev-$(whoami).crt --format PEM
-sudo chmod 644 /usr/local/share/ca-certificates/aspnet-dev-$(whoami).crt
-certutil -d sql:$HOME/.pki/nssdb -A -t "P,," -n localhost -i /usr/local/share/ca-certificates/aspnet-dev-$(whoami).crt
-sudo update-ca-certificates
+```powershell
+dotnet tool update --global dotnet-ef --version 10.0.10
 ```
 
-Run the application:
+## Run the API
 
-```
-dotnet run
-```
+From the repository root:
 
-## 5. Prerequisites
-
-### Open a new terminal and navigate to the UI folder
-
-Before you start please make sure Node.js is installed:
-
-```
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs
+```powershell
+cd SpaceOfThoughtsWebApp/SpaceOfThoughts.API
+dotnet restore
+dotnet run --launch-profile https
 ```
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 18.2.2.
-Please install the CLI:
+The development API is available at:
 
-```
-sudo npm install -g @angular/cli
-```
+- API: `https://localhost:7000`
+- Swagger UI: `https://localhost:7000/swagger`
 
-## 6. Start the application
+If necessary, create and trust a local HTTPS development certificate:
 
-**First make sure that you are running the API in another terminal as explained above**
-
-Navigate into the UI folder and install all dependencies:
-
-```
-cd ./blog-project-web-development/SpaceOfThoughtsWebApp/SpaceOfThoughts.UI
-npm install
+```powershell
+dotnet dev-certs https --trust
 ```
 
-Start the frontend application:
+## Run the frontend
 
+Open another terminal from the repository root:
+
+```powershell
+cd SpaceOfThoughtsWebApp/SpaceOfThoughts.UI
+npm ci
+npm start
 ```
-ng serve
+
+The Angular development server opens `http://localhost:4200`. Requests to
+`/api` and `/Images` are proxied to `https://localhost:7000`.
+
+## Build and test
+
+API:
+
+```powershell
+cd SpaceOfThoughtsWebApp/SpaceOfThoughts.API
+dotnet build
 ```
 
-The application will start on it's own alternatively navigate to `http://localhost:4200/` or Press `o + Enter` to open in the system's default browser.
+Frontend:
 
-## Login into the application
+```powershell
+cd SpaceOfThoughtsWebApp/SpaceOfThoughts.UI
+npm run build
+npm test
+```
 
-To test out admin functionalities login with credentials that are set up in the *API's AuthDbContext.cs* file. If you haven't change the initial setup of the API the default credentials are: "email: `admin@test.com`, password: `Admin@123`".
+## Security notes
 
-# Alternatively use the automated setup
-
-After cloning the repo open the setup.sh file and comment out all packages that you already have installed on your machine and run (change the path if necessary):
-
- ```
-chmod +x blog-project-web-development/SpaceOfThoughtsWebApp/SpaceOfThoughts.UI/setup.sh
-./blog-project-web-development/SpaceOfThoughtsWebApp/SpaceOfThoughts.UI/setup.sh
- ```
- once the second terminal pops up just confirm with `Y + Enter` and the application will start automatically.
+- Never commit database passwords, JWT signing keys, email-provider credentials,
+  bootstrap administrator passwords, or production connection strings.
+- Do not reuse development secrets in production.
+- Rotate any credential that has previously been committed or publicly shared;
+  deleting it from the README does not invalidate the exposed credential.
+- Bootstrap administrator credentials are intentionally not documented here.
+  Replace any hard-coded bootstrap credential with secret-backed configuration
+  before deploying the application outside a local development environment.
