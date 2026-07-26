@@ -202,24 +202,11 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Create the same public/private image structure on every new installation
+
+// Create filesystem storage because database migrations do not create image directories.
 ImageStoragePaths.EnsureDirectories(app.Environment.ContentRootPath);
 
-// Keep legacy /Images/file.ext links working from their new Public/Blog location
-app.UseStaticFiles(
-    new StaticFileOptions
-    {
-        FileProvider = new PhysicalFileProvider(
-            ImageStoragePaths.GetPublicDirectory(
-                app.Environment.ContentRootPath,
-                PublicImageCategory.Blog
-            )
-        ),
-        RequestPath = ImageStoragePaths.PublicRequestPath
-    }
-);
-
-// Expose only Images/Public; Images/Private remains reachable through authorized endpoints
+// Serve public images when Kestrel is used directly, such as during local development.
 app.UseStaticFiles(
     new StaticFileOptions
     {
@@ -230,19 +217,6 @@ app.UseStaticFiles(
     }
 );
 
-// // Create filesystem storage because database migrations do not create image directories.
-// ImageStoragePaths.EnsureDirectories(app.Environment.ContentRootPath);
-
-// // Serve public images when Kestrel is used directly, such as during local development.
-// app.UseStaticFiles(
-//     new StaticFileOptions
-//     {
-//         FileProvider = new PhysicalFileProvider(
-//             ImageStoragePaths.GetPublicRoot(app.Environment.ContentRootPath)
-//         ),
-//         RequestPath = ImageStoragePaths.PublicRequestPath
-//     }
-// );
 // Add security headers to responses
 app.Use(
     async (context, next) =>
