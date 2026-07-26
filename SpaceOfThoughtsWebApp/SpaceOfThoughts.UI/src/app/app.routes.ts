@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { CoverPageComponent } from './features/cover-page/cover-page/cover-page.component';
 import { authGuard } from './features/auth/guards/auth.guard';
 import { userAuthGuard } from './features/auth/guards/user-auth.guard';
+import { initialAdminGuard } from './features/auth/guards/initial-admin.guard';
 
 export const routes: Routes = [
   // Keep the primary cover page eager and lazy-load secondary public page bundles
@@ -133,5 +134,13 @@ export const routes: Routes = [
         (component) => component.UserListComponent,
       ), // Route for listing users in admin
     canActivate: [authGuard], // Guard to check if user is authorized
+  },
+  {
+    path: 'admin/private-media',
+    loadComponent: () =>
+      import('./features/media/private-media/private-media.component').then(
+        (component) => component.PrivateMediaComponent,
+      ), // Route for the initial administrator's protected photo library
+    canActivate: [initialAdminGuard],
   },
 ];

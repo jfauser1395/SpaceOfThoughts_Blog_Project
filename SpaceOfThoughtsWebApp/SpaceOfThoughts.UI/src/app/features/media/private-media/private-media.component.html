@@ -1,0 +1,184 @@
+<div class="admin-page private-media-page">
+  <section class="admin-panel private-media-panel">
+    <header class="admin-panel-header private-media-header">
+      <div>
+        <p class="private-media-eyebrow">Initial admin only</p>
+        <h1>Private media</h1>
+        <p class="private-media-intro">
+          Upload and review photos that are never published through the public
+          image library.
+        </p>
+      </div>
+      <span class="private-media-lock">
+        <i class="bi bi-lock-fill" aria-hidden="true"></i>
+        Protected
+      </span>
+    </header>
+
+    <div class="private-media-content">
+      <section
+        class="private-media-upload"
+        aria-labelledby="upload-photo-title"
+      >
+        <div>
+          <p class="private-media-step">01</p>
+          <h2 id="upload-photo-title">Add a private photo</h2>
+          <p>JPG, PNG, or WEBP up to 10 MB.</p>
+        </div>
+
+        <div class="private-media-upload-controls">
+          <label class="private-media-file-picker" for="private-photo-input">
+            <i class="bi bi-image" aria-hidden="true"></i>
+            <span>
+              <strong>{{ selectedFile?.name ?? "Choose a photo" }}</strong>
+              <small>
+                {{
+                  selectedFile
+                    ? formatFileSize(selectedFile.size)
+                    : "Select from this device"
+                }}
+              </small>
+            </span>
+          </label>
+          <input
+            #fileInput
+            id="private-photo-input"
+            class="visually-hidden"
+            type="file"
+            accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+            (change)="onFileSelected($event)"
+          />
+
+          <button
+            type="button"
+            class="admin-primary-action"
+            [disabled]="!selectedFile || isUploading"
+            (click)="uploadImage()"
+          >
+            @if (isUploading) {
+              <span
+                class="spinner-border spinner-border-sm"
+                aria-hidden="true"
+              ></span>
+              Uploading
+            } @else {
+              <i class="bi bi-cloud-arrow-up" aria-hidden="true"></i>
+              Upload photo
+            }
+          </button>
+        </div>
+      </section>
+
+      @if (errorMessage) {
+        <div class="alert alert-danger private-media-alert" role="alert">
+          <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
+          {{ errorMessage }}
+        </div>
+      }
+
+      <section
+        class="private-media-library"
+        aria-labelledby="private-library-title"
+        [attr.aria-busy]="isLoading"
+      >
+        <div class="private-media-library-heading">
+          <div>
+            <p class="private-media-step">02</p>
+            <h2 id="private-library-title">Your private library</h2>
+          </div>
+          @if (!isLoading) {
+            <span class="private-media-count">
+              {{ images.length }} {{ images.length === 1 ? "photo" : "photos" }}
+            </span>
+          }
+        </div>
+
+        @if (isLoading) {
+          <div class="private-media-loading">
+            <span class="spinner-border" aria-hidden="true"></span>
+            <span>Opening the private library…</span>
+          </div>
+        } @else if (images.length === 0) {
+          <div class="admin-empty-state private-media-empty">
+            <i class="bi bi-images" aria-hidden="true"></i>
+            <h3>No private photos yet</h3>
+            <p>Your first upload will appear here.</p>
+          </div>
+        } @else {
+          <div class="private-media-grid">
+            @for (image of images; track image.fileName) {
+              <article class="private-media-card">
+                <button
+                  type="button"
+                  class="private-media-preview"
+                  (click)="viewImage(image)"
+                  [attr.aria-label]="
+                    'View private photo uploaded ' +
+                    (image.lastModifiedAt | date: 'medium')
+                  "
+                >
+                  <img [src]="image.previewUrl" alt="" />
+                  <span>
+                    <i class="bi bi-arrows-fullscreen" aria-hidden="true"></i>
+                    View
+                  </span>
+                </button>
+
+                <div class="private-media-card-details">
+                  <div>
+                    <time [attr.datetime]="image.lastModifiedAt">
+                      {{ image.lastModifiedAt | date: "mediumDate" }}
+                    </time>
+                    <span>{{ formatFileSize(image.sizeInBytes) }}</span>
+                  </div>
+                  <button
+                    type="button"
+                    class="private-media-delete"
+                    [disabled]="deletingFileName === image.fileName"
+                    (click)="deleteImage(image)"
+                    aria-label="Delete private photo"
+                  >
+                    @if (deletingFileName === image.fileName) {
+                      <span
+                        class="spinner-border spinner-border-sm"
+                        aria-hidden="true"
+                      ></span>
+                    } @else {
+                      <i class="bi bi-trash3" aria-hidden="true"></i>
+                    }
+                  </button>
+                </div>
+              </article>
+            }
+          </div>
+        }
+      </section>
+    </div>
+  </section>
+</div>
+
+@if (selectedImage) {
+  <div
+    class="private-media-lightbox"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Private photo preview"
+    (click)="closeImage()"
+  >
+    <button
+      type="button"
+      class="private-media-lightbox-close"
+      (click)="closeImage()"
+      aria-label="Close photo preview"
+    >
+      <i class="bi bi-x-lg" aria-hidden="true"></i>
+    </button>
+    <figure (click)="$event.stopPropagation()">
+      <img [src]="selectedImage.previewUrl" alt="Private photo preview" />
+      <figcaption>
+        Uploaded {{ selectedImage.lastModifiedAt | date: "medium" }} ·
+        {{ formatFileSize(selectedImage.sizeInBytes) }}
+      </figcaption>
+    </figure>
+  </div>
+}

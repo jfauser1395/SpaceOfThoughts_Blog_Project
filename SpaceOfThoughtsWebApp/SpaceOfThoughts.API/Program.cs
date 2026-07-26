@@ -260,7 +260,4 @@ app.UseResponseCompression(); // Enable response compression
 
 await SpaceOfThoughts.API.Data.Initialization.DbInitializer.MigrateAndSeedAsync(app);
 
-// Rewrite legacy stored image URLs after database initialization has completed
-await LegacyImageUrlMigrator.MigrateAsync(app);
-
 app.Run();

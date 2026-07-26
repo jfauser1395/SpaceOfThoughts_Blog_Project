@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SpaceOfThoughts.API.Data.Initialization;
 using SpaceOfThoughts.API.Models.DTOs;
 using SpaceOfThoughts.API.Storage;
 
@@ -8,7 +9,7 @@ namespace SpaceOfThoughts.API.Controllers
     // PrivateImagesController streams protected files without exposing the Private folder
     [Route("api/Images/private")]
     [ApiController]
-    [Authorize]
+    [Authorize(Roles = IdentitySeedConstants.InitialAdminRole)]
     public class PrivateImagesController : ControllerBase
     {
         private const long MaximumFileSizeInBytes = 10 * 1024 * 1024;
@@ -28,11 +29,13 @@ namespace SpaceOfThoughts.API.Controllers
             this.webHostEnvironment = webHostEnvironment;
         }
 
-        // GET: {apiBaseUrl}/api/Images/private - List private images for writers
+        // GET: {apiBaseUrl}/api/Images/private - List private images for the initial admin
         [HttpGet]
-        [Authorize(Roles = "Writer")]
         public IActionResult GetAll()
         {
+            // Metadata is private too, so do not allow browser or intermediary caching.
+            Response.Headers.CacheControl = "private, no-store";
+
             var privateDirectory = ImageStoragePaths.GetPrivateDirectory(
                 webHostEnvironment.ContentRootPath
             );
@@ -78,7 +81,6 @@ namespace SpaceOfThoughts.API.Controllers
 
         // POST: {apiBaseUrl}/api/Images/private - Store an image behind authorization
         [HttpPost]
-        [Authorize(Roles = "Writer")]
         public async Task<IActionResult> Upload([FromForm] IFormFile? file)
         {
             ValidateUpload(file);
@@ -115,7 +117,6 @@ namespace SpaceOfThoughts.API.Controllers
 
         // DELETE: {apiBaseUrl}/api/Images/private/{fileName} - Remove a protected image
         [HttpDelete("{fileName}")]
-        [Authorize(Roles = "Writer")]
         public IActionResult Delete([FromRoute] string fileName)
         {
             if (
