@@ -22,8 +22,7 @@ namespace SpaceOfThoughts.API.Data
             builder.Entity<IdentityUser>()
                 .HasIndex(user => user.NormalizedEmail)
                 .HasDatabaseName("EmailIndex")
-                .IsUnique()
-                .HasFilter("[NormalizedEmail] IS NOT NULL");
+                .IsUnique();
         }
     }
 }

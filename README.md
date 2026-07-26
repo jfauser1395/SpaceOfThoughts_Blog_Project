@@ -5,7 +5,7 @@ SpaceOfThoughts is a full-stack blog application built with:
 - ASP.NET Core 10 Web API
 - Angular 22
 - Entity Framework Core 10
-- SQL Server
+- PostgreSQL
 - ASP.NET Core Identity and JWT authentication
 
 ## Project structure
@@ -23,9 +23,7 @@ Install the following tools:
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - [Node.js](https://nodejs.org/) and npm
-- SQL Server
-  - On Windows, SQL Server Express LocalDB can be used for development.
-  - On Linux or macOS, use a reachable SQL Server instance or container.
+- [PostgreSQL](https://www.postgresql.org/download/)
 
 The Angular CLI does not need to be installed globally; the project uses the
 version recorded in `package-lock.json`.
@@ -47,7 +45,7 @@ For local development, store sensitive values with .NET User Secrets:
 
 ```powershell
 cd SpaceOfThoughtsWebApp/SpaceOfThoughts.API
-dotnet user-secrets set "ConnectionStrings:SpaceOfThoughtsConnectionString" "<your SQL Server connection string>"
+dotnet user-secrets set "ConnectionStrings:SpaceOfThoughtsConnectionString" "Host=localhost;Port=5432;Database=spotdb;Username=postgres;Password=<your PostgreSQL password>"
 dotnet user-secrets set "Jwt:Key" "<your long random development signing key>"
 ```
 
@@ -64,30 +62,32 @@ use double underscores in environment variables, for example `Jwt__Key`.
 
 ## Database setup
 
-The project uses the Entity Framework Core SQL Server provider. Existing
-migrations for both database contexts are stored under:
-
-```text
-SpaceOfThoughts.API/Migrations/ApplicationDb/
-SpaceOfThoughts.API/Migrations/AuthDb/
-```
-
-Do not delete or recreate these migrations during normal setup. The API applies
-pending migrations for both contexts automatically when it starts.
-
-To apply them manually, install the matching EF Core command-line tool and run:
+The project uses the Npgsql Entity Framework Core provider for PostgreSQL.
+Migration files are intentionally excluded from Git. After cloning the
+repository, create an empty local database and generate fresh migrations for
+both database contexts before starting the API:
 
 ```powershell
+createdb --host localhost --username postgres spotdb
 cd SpaceOfThoughtsWebApp/SpaceOfThoughts.API
 dotnet tool install --global dotnet-ef --version 10.0.10
-dotnet ef database update --context ApplicationDbContext
-dotnet ef database update --context AuthDbContext
+dotnet ef migrations add InitialApplication --context ApplicationDbContext --output-dir Migrations/ApplicationDb
+dotnet ef migrations add InitialAuth --context AuthDbContext --output-dir Migrations/AuthDb
 ```
 
-If `dotnet-ef` is already installed, update it instead:
+If `dotnet-ef` is already installed, update it before generating the migrations:
 
 ```powershell
 dotnet tool update --global dotnet-ef --version 10.0.10
+```
+
+The API applies the generated migrations automatically when it starts. To apply
+them manually instead, run:
+
+```powershell
+cd SpaceOfThoughtsWebApp/SpaceOfThoughts.API
+dotnet ef database update --context ApplicationDbContext
+dotnet ef database update --context AuthDbContext
 ```
 
 ## Run the API

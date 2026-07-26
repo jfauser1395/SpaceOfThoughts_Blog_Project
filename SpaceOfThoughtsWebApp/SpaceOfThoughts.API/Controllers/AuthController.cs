@@ -2,8 +2,8 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using SpaceOfThoughts.API.Authentication;
 using SpaceOfThoughts.API.Data;
 using SpaceOfThoughts.API.Data.Initialization;
@@ -1060,7 +1060,7 @@ namespace SpaceOfThoughts.API.Controllers
             }
         }
 
-        // Convert SQL Server's final concurrency guard into the same field-level
+        // Convert PostgreSQL's final concurrency guard into the same field-level
         // validation response used by the normal Identity duplicate checks.
         private bool TryAddUniqueIdentityError(DbUpdateException exception)
         {
@@ -1068,14 +1068,15 @@ namespace SpaceOfThoughts.API.Controllers
             while (currentException is not null)
             {
                 if (
-                    currentException is SqlException sqlException
-                    && (sqlException.Number == 2601 || sqlException.Number == 2627)
+                    currentException is PostgresException postgresException
+                    && postgresException.SqlState == PostgresErrorCodes.UniqueViolation
                 )
                 {
                     if (
-                        sqlException.Message.Contains(
+                        string.Equals(
+                            postgresException.ConstraintName,
                             "EmailIndex",
-                            StringComparison.OrdinalIgnoreCase
+                            StringComparison.Ordinal
                         )
                     )
                     {
@@ -1084,9 +1085,10 @@ namespace SpaceOfThoughts.API.Controllers
                     }
 
                     if (
-                        sqlException.Message.Contains(
+                        string.Equals(
+                            postgresException.ConstraintName,
                             "UserNameIndex",
-                            StringComparison.OrdinalIgnoreCase
+                            StringComparison.Ordinal
                         )
                     )
                     {

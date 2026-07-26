@@ -47,11 +47,11 @@ builder.Services.Configure<GzipCompressionProviderOptions>(options =>
 // Inject DbContext service to the builder and pass the connection string
 var connectionString = builder.Configuration.GetConnectionString("SpaceOfThoughtsConnectionString");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-   options.UseSqlServer(connectionString)
+   options.UseNpgsql(connectionString)
 );
 
 builder.Services.AddDbContext<AuthDbContext>(options =>
-    options.UseSqlServer(connectionString)
+    options.UseNpgsql(connectionString)
 );
 
 // Register repositories for dependency injection
