@@ -1,6 +1,11 @@
 import { CommonModule, ViewportScroller } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  OnInit,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -13,6 +18,7 @@ import { BlogSummaryPageService } from '../services/blog-summary-page.service';
   selector: 'app-edit-blog-summary-page',
   imports: [CommonModule, FormsModule, RouterModule, ImageSelectorComponent],
   templateUrl: './edit-blog-summary-page.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './edit-blog-summary-page.component.css',
 })
 export class EditBlogSummaryPageComponent implements OnInit, OnDestroy {
@@ -141,7 +147,8 @@ export class EditBlogSummaryPageComponent implements OnInit, OnDestroy {
           this.isCreatingNewPage = true;
           this.isRemoveConfirmationOpen = false;
           this.isRemoving = false;
-          this.successMessage = 'Blogs page settings removed. A blank draft is ready.';
+          this.successMessage =
+            'Blogs page settings removed. A blank draft is ready.';
           this.viewportScroller.scrollToPosition([0, 0]);
         },
         error: () => {
@@ -154,7 +161,11 @@ export class EditBlogSummaryPageComponent implements OnInit, OnDestroy {
 
   // Remove only the current background reference while preserving the blogs page
   onRemoveBackgroundImage(): void {
-    if (!this.model?.backgroundImageUrl || this.isRemovingImage || this.isRemoving) {
+    if (
+      !this.model?.backgroundImageUrl ||
+      this.isRemovingImage ||
+      this.isRemoving
+    ) {
       return;
     }
 

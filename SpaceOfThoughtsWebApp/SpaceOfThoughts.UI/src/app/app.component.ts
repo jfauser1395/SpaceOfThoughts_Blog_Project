@@ -1,4 +1,10 @@
-import { ApplicationRef, Component, OnDestroy, OnInit } from '@angular/core';
+import {
+  ApplicationRef,
+  Component,
+  OnDestroy,
+  OnInit,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import {
   NavigationCancel,
   NavigationEnd,
@@ -16,6 +22,7 @@ import { first } from 'rxjs/operators';
   selector: 'app-root',
   imports: [RouterOutlet, NavbarComponent],
   templateUrl: './app.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './app.component.css',
 })
 export class AppComponent implements OnInit, OnDestroy {
@@ -167,8 +174,8 @@ export class AppComponent implements OnInit, OnDestroy {
     }
 
     // Open the themed update dialog after Angular finishes downloading a new version
-    this.serviceWorkerUpdateSubscription = this.swUpdate.versionUpdates.subscribe(
-      (event: VersionEvent) => {
+    this.serviceWorkerUpdateSubscription =
+      this.swUpdate.versionUpdates.subscribe((event: VersionEvent) => {
         if (event.type === 'VERSION_READY') {
           this.isUpdateAvailable = true;
           this.isUpdateDialogOpen = true;
@@ -181,8 +188,7 @@ export class AppComponent implements OnInit, OnDestroy {
             event.error,
           );
         }
-      },
-    );
+      });
 
     // Ask for a full reload if Angular cannot safely recover the current cached version
     this.unrecoverableStateSubscription = this.swUpdate.unrecoverable.subscribe(

@@ -1,6 +1,17 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  OnInit,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule, FormGroup, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  FormsModule,
+  FormGroup,
+  FormControl,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
 import { AuthService } from '../services/auth.service';
 import { Router, RouterModule } from '@angular/router';
 import { StyleService } from '../../../../services/style.service';
@@ -8,10 +19,11 @@ import { RegisterRequest } from '../models/register-request.model';
 import { Subscription } from 'rxjs';
 
 @Component({
-    selector: 'app-create-account',
-    imports: [CommonModule, FormsModule, RouterModule, ReactiveFormsModule],
-    templateUrl: './create-account.component.html',
-    styleUrl: './create-account.component.css'
+  selector: 'app-create-account',
+  imports: [CommonModule, FormsModule, RouterModule, ReactiveFormsModule],
+  templateUrl: './create-account.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
+  styleUrl: './create-account.component.css',
 })
 export class CreateAccountComponent implements OnInit, OnDestroy {
   private addedUser?: Subscription; // Subscription for adding a user

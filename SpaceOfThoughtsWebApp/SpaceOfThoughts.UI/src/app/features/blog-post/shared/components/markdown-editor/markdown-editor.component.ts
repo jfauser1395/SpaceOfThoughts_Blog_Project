@@ -7,6 +7,7 @@ import {
   Input,
   Output,
   ViewChild,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { marked } from 'marked';
 
@@ -25,6 +26,7 @@ type ActiveFormattingState = {
 @Component({
   selector: 'app-markdown-editor',
   templateUrl: './markdown-editor.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './markdown-editor.component.css',
 })
 export class MarkdownEditorComponent implements AfterViewInit {

@@ -1,4 +1,9 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  OnInit,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { Observable, Subscription } from 'rxjs';
 import { BlogPostService } from '../services/blog-post.service';
@@ -19,6 +24,7 @@ import { MarkdownEditorComponent } from '../shared/components/markdown-editor/ma
   selector: 'app-edit-blogpost',
   templateUrl: './edit-blogpost.component.html',
   styleUrl: './edit-blogpost.component.css',
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [
     CommonModule,
     FormsModule,

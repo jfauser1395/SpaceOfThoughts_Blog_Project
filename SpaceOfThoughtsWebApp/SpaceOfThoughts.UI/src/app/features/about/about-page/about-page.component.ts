@@ -1,16 +1,22 @@
-import { CommonModule } from "@angular/common";
-import { HttpErrorResponse } from "@angular/common/http";
-import { Component, OnDestroy, OnInit } from "@angular/core";
-import { Subscription } from "rxjs";
-import { LoadingOverlayComponent } from "../../../core/loading-overlay/loading-overlay.component";
-import { AboutPage } from "../models/about-page.model";
-import { AboutPageService } from "../services/about-page.service";
+import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
+import {
+  Component,
+  OnDestroy,
+  OnInit,
+  ChangeDetectionStrategy,
+} from '@angular/core';
+import { Subscription } from 'rxjs';
+import { LoadingOverlayComponent } from '../../../core/loading-overlay/loading-overlay.component';
+import { AboutPage } from '../models/about-page.model';
+import { AboutPageService } from '../services/about-page.service';
 
 @Component({
-  selector: "app-about-page",
+  selector: 'app-about-page',
   imports: [CommonModule, LoadingOverlayComponent],
-  templateUrl: "./about-page.component.html",
-  styleUrl: "./about-page.component.css",
+  templateUrl: './about-page.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
+  styleUrl: './about-page.component.css',
 })
 export class AboutPageComponent implements OnInit, OnDestroy {
   // Current about page content displayed in the template

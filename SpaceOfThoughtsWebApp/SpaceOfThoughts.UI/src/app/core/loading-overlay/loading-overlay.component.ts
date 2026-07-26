@@ -6,11 +6,13 @@ import {
   OnChanges,
   OnDestroy,
   SimpleChanges,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 
 @Component({
   selector: 'app-loading-overlay',
   templateUrl: './loading-overlay.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './loading-overlay.component.css',
 })
 export class LoadingOverlayComponent implements OnChanges, OnDestroy {

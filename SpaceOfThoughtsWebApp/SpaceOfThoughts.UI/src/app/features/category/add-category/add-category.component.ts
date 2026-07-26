@@ -1,4 +1,4 @@
-import { Component, OnDestroy } from '@angular/core';
+import { Component, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AddCategoryRequest } from '../models/add-category-request.model';
 import { CategoryService } from '../services/category.service';
@@ -8,10 +8,11 @@ import { Router } from '@angular/router';
 import { ViewportScroller } from '@angular/common';
 
 @Component({
-    selector: 'app-add-category',
-    imports: [FormsModule, RouterModule],
-    templateUrl: './add-category.component.html',
-    styleUrls: ['./add-category.component.css']
+  selector: 'app-add-category',
+  imports: [FormsModule, RouterModule],
+  templateUrl: './add-category.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
+  styleUrls: ['./add-category.component.css'],
 })
 export class AddCategoryComponent implements OnDestroy {
   model: AddCategoryRequest; // Model for the add category request

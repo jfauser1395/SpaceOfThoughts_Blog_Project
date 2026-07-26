@@ -1,6 +1,11 @@
 import { CommonModule, ViewportScroller } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  OnInit,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -13,6 +18,7 @@ import { UpdateCoverPage } from '../models/update-cover-page.model';
   selector: 'app-edit-cover-page',
   imports: [CommonModule, FormsModule, RouterModule, ImageSelectorComponent],
   templateUrl: './edit-cover-page.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './edit-cover-page.component.css',
 })
 export class EditCoverPageComponent implements OnInit, OnDestroy {

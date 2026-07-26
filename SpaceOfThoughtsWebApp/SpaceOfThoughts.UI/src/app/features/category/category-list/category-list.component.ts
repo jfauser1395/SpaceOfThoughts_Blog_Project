@@ -1,4 +1,9 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  OnInit,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { CategoryService } from '../services/category.service';
 import { Category } from '../models/category.model';
@@ -9,6 +14,7 @@ import { CommonModule } from '@angular/common';
   selector: 'app-category-list',
   imports: [RouterModule, CommonModule],
   templateUrl: './category-list.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './category-list.component.css',
 })
 export class CategoryListComponent implements OnInit, OnDestroy {

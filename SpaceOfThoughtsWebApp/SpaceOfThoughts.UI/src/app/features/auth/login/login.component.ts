@@ -1,17 +1,29 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { LoginRequest } from '../models/login-request.model';
 import { CommonModule } from '@angular/common';
-import { FormsModule, FormGroup, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  FormsModule,
+  FormGroup,
+  FormControl,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
 import { AuthService } from '../services/auth.service';
 import { Router, RouterModule } from '@angular/router';
 import { StyleService } from '../../../../services/style.service';
 import { Subscription } from 'rxjs';
 
 @Component({
-    selector: 'app-login',
-    imports: [CommonModule, FormsModule, RouterModule, ReactiveFormsModule],
-    templateUrl: './login.component.html',
-    styleUrls: ['./login.component.css']
+  selector: 'app-login',
+  imports: [CommonModule, FormsModule, RouterModule, ReactiveFormsModule],
+  templateUrl: './login.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
+  styleUrls: ['./login.component.css'],
 })
 export class LoginComponent implements OnInit, OnDestroy {
   private user?: Subscription; // Subscription for user login

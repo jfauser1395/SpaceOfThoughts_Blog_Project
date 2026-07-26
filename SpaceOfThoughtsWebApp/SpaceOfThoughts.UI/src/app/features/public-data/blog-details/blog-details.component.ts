@@ -1,4 +1,9 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  OnInit,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { BlogPostService } from '../../blog-post/services/blog-post.service';
 import { Subscription } from 'rxjs';
@@ -6,24 +11,33 @@ import { BlogPost } from '../../blog-post/models/blog-post.model';
 import { CommonModule } from '@angular/common';
 import { DatePipe } from '@angular/common';
 import { MarkdownComponent } from 'ngx-markdown';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { BlogComment, BlogCommentReaction } from '../../blog-post/models/blog-comment.model';
+import {
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
+import {
+  BlogComment,
+  BlogCommentReaction,
+} from '../../blog-post/models/blog-comment.model';
 import { AuthService } from '../../auth/services/auth.service';
 import { User } from '../../auth/models/user.model';
 import { LoadingOverlayComponent } from '../../../core/loading-overlay/loading-overlay.component';
 
 @Component({
-    selector: 'app-blog-details',
-    imports: [
-      CommonModule,
-      DatePipe,
-      MarkdownComponent,
-      RouterModule,
-      ReactiveFormsModule,
-      LoadingOverlayComponent,
-    ],
-    templateUrl: './blog-details.component.html',
-    styleUrl: './blog-details.component.css'
+  selector: 'app-blog-details',
+  imports: [
+    CommonModule,
+    DatePipe,
+    MarkdownComponent,
+    RouterModule,
+    ReactiveFormsModule,
+    LoadingOverlayComponent,
+  ],
+  templateUrl: './blog-details.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
+  styleUrl: './blog-details.component.css',
 })
 export class BlogDetailsComponent implements OnInit, OnDestroy {
   readonly maxThreadDepth = 10;
@@ -129,7 +143,7 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
     this.createCommentSubscription?.unsubscribe();
     this.createCommentSubscription = this.blogPostService
       .createBlogComment(this.blogPost.id, { content })
-        .subscribe({
+      .subscribe({
         next: (comment) => {
           this.comments = this.sortCommentsByPriority([
             ...this.comments,
@@ -294,7 +308,8 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
             ),
           );
           const topLevelCommentId =
-            this.findTopLevelCommentId(this.comments, parentComment.id) ?? parentComment.id;
+            this.findTopLevelCommentId(this.comments, parentComment.id) ??
+            parentComment.id;
           this.expandedThreadCommentIds.add(topLevelCommentId);
           this.commentSuccess = 'Your reply was posted.';
           this.isSubmittingReply = false;
@@ -318,11 +333,17 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
     this.commentError = undefined;
     this.commentSuccess = undefined;
 
-    if (!this.currentUser || !this.blogPost || !this.canDeleteComment(comment)) {
+    if (
+      !this.currentUser ||
+      !this.blogPost ||
+      !this.canDeleteComment(comment)
+    ) {
       return;
     }
 
-    if (!window.confirm('Delete this comment? Its replies will remain visible.')) {
+    if (
+      !window.confirm('Delete this comment? Its replies will remain visible.')
+    ) {
       return;
     }
 
@@ -338,7 +359,8 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
             ),
           );
           this.deletingCommentIds.delete(comment.id);
-          this.commentSuccess = 'Your comment was deleted. Replies remain visible.';
+          this.commentSuccess =
+            'Your comment was deleted. Replies remain visible.';
         },
         error: () => {
           this.deletingCommentIds.delete(comment.id);
@@ -379,7 +401,8 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
     return (
       !comment.isDeleted &&
       !!this.currentUser &&
-      (comment.authorId === this.currentUser.id || this.currentUser.roles.includes('Writer'))
+      (comment.authorId === this.currentUser.id ||
+        this.currentUser.roles.includes('Writer'))
     );
   }
 
@@ -389,7 +412,8 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
       return undefined;
     }
 
-    return this.findCommentById(this.comments, comment.parentCommentId)?.authorName;
+    return this.findCommentById(this.comments, comment.parentCommentId)
+      ?.authorName;
   }
 
   // Return a stable fallback initial when a commenter has no profile image
@@ -457,7 +481,7 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
 
     this.commentsSubscription = this.blogPostService
       .getCommentsForBlogPost(blogPostId)
-        .subscribe({
+      .subscribe({
         next: (comments) => {
           this.comments = this.sortCommentsByPriority(
             comments.map((comment) => this.normalizeComment(comment, 1)),
@@ -479,8 +503,12 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
     this.commentsSubscription?.unsubscribe();
     this.createCommentSubscription?.unsubscribe();
     this.createReplySubscription?.unsubscribe();
-    this.reactionSubscriptions.forEach((subscription) => subscription.unsubscribe());
-    this.deleteCommentSubscriptions.forEach((subscription) => subscription.unsubscribe());
+    this.reactionSubscriptions.forEach((subscription) =>
+      subscription.unsubscribe(),
+    );
+    this.deleteCommentSubscriptions.forEach((subscription) =>
+      subscription.unsubscribe(),
+    );
   }
 
   // Recursively count comments without mutating the nested discussion tree
@@ -501,7 +529,10 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
         return engagementDifference;
       }
 
-      return this.getCommentCreatedAt(rightComment) - this.getCommentCreatedAt(leftComment);
+      return (
+        this.getCommentCreatedAt(rightComment) -
+        this.getCommentCreatedAt(leftComment)
+      );
     });
   }
 
@@ -531,7 +562,8 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
       isDeleted: comment.isDeleted ?? false,
       isAuthorDeleted: comment.isAuthorDeleted ?? false,
       authorProfileImageUrl: comment.authorProfileImageUrl ?? null,
-      authorProfileImagePosition: comment.authorProfileImagePosition ?? this.defaultAvatarPosition,
+      authorProfileImagePosition:
+        comment.authorProfileImagePosition ?? this.defaultAvatarPosition,
       replies: (comment.replies ?? []).map((reply) =>
         this.normalizeComment(reply, depth + 1),
       ),
@@ -554,7 +586,10 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
 
       return {
         ...comment,
-        replies: this.updateCommentInTree(comment.replies ?? [], updatedComment),
+        replies: this.updateCommentInTree(
+          comment.replies ?? [],
+          updatedComment,
+        ),
       };
     });
   }
@@ -575,7 +610,11 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
 
       return {
         ...comment,
-        replies: this.appendReplyToComment(comment.replies ?? [], parentCommentId, reply),
+        replies: this.appendReplyToComment(
+          comment.replies ?? [],
+          parentCommentId,
+          reply,
+        ),
       };
     });
   }
@@ -617,7 +656,10 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
   }
 
   // Flatten nested replies into the provided thread result in traversal order
-  private collectThreadReplies(comments: BlogComment[], result: BlogComment[]): void {
+  private collectThreadReplies(
+    comments: BlogComment[],
+    result: BlogComment[],
+  ): void {
     comments.forEach((comment) => {
       result.push(comment);
       this.collectThreadReplies(comment.replies ?? [], result);
@@ -625,7 +667,10 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
   }
 
   // Recursively locate a comment anywhere in the discussion tree
-  private findCommentById(comments: BlogComment[], commentId: string): BlogComment | undefined {
+  private findCommentById(
+    comments: BlogComment[],
+    commentId: string,
+  ): BlogComment | undefined {
     for (const comment of comments) {
       if (comment.id === commentId) {
         return comment;
@@ -641,8 +686,14 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
   }
 
   // Parse persisted avatar framing and apply safe defaults for malformed values
-  private parseAvatarPosition(position?: string | null): { x: number; y: number; zoom: number } {
-    const [xText, yText, zoomText] = (position ?? this.defaultAvatarPosition).split(' ');
+  private parseAvatarPosition(position?: string | null): {
+    x: number;
+    y: number;
+    zoom: number;
+  } {
+    const [xText, yText, zoomText] = (
+      position ?? this.defaultAvatarPosition
+    ).split(' ');
     const x = this.parsePercent(xText);
     const y = this.parsePercent(yText);
     const zoom = this.parseZoom(zoomText);
@@ -669,6 +720,9 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
       return this.defaultAvatarZoom;
     }
 
-    return Math.min(this.maximumAvatarZoom, Math.max(this.minimumAvatarZoom, Math.round(parsed)));
+    return Math.min(
+      this.maximumAvatarZoom,
+      Math.max(this.minimumAvatarZoom, Math.round(parsed)),
+    );
   }
 }

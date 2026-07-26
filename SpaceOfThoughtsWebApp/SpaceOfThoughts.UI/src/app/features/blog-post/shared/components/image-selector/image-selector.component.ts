@@ -5,6 +5,7 @@ import {
   OnDestroy,
   OnInit,
   ViewChild,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -23,6 +24,7 @@ import { BlogImage } from '../../models/blog-image.model';
   selector: 'app-image-selector',
   imports: [CommonModule, FormsModule, ReactiveFormsModule],
   templateUrl: './image-selector.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./image-selector.component.css'],
 })
 export class ImageSelectorComponent implements OnInit, OnDestroy {

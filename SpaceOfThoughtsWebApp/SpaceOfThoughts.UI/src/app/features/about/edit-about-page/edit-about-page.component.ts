@@ -1,19 +1,25 @@
-import { CommonModule, ViewportScroller } from "@angular/common";
-import { HttpErrorResponse } from "@angular/common/http";
-import { Component, OnDestroy, OnInit } from "@angular/core";
-import { FormsModule } from "@angular/forms";
-import { RouterModule } from "@angular/router";
-import { Subscription } from "rxjs";
-import { UpdateAboutPage } from "../models/update-about-page.model";
-import { AboutPageService } from "../services/about-page.service";
-import { ImageSelectorComponent } from "../../blog-post/shared/components/image-selector/image-selector.component";
-import { ImageService } from "../../blog-post/shared/components/services/image.service";
+import { CommonModule, ViewportScroller } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
+import {
+  Component,
+  OnDestroy,
+  OnInit,
+  ChangeDetectionStrategy,
+} from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
+import { Subscription } from 'rxjs';
+import { UpdateAboutPage } from '../models/update-about-page.model';
+import { AboutPageService } from '../services/about-page.service';
+import { ImageSelectorComponent } from '../../blog-post/shared/components/image-selector/image-selector.component';
+import { ImageService } from '../../blog-post/shared/components/services/image.service';
 
 @Component({
-  selector: "app-edit-about-page",
+  selector: 'app-edit-about-page',
   imports: [CommonModule, FormsModule, RouterModule, ImageSelectorComponent],
-  templateUrl: "./edit-about-page.component.html",
-  styleUrl: "./edit-about-page.component.css",
+  templateUrl: './edit-about-page.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
+  styleUrl: './edit-about-page.component.css',
 })
 export class EditAboutPageComponent implements OnInit, OnDestroy {
   // Editable about page model shown in the form and preview
@@ -49,7 +55,7 @@ export class EditAboutPageComponent implements OnInit, OnDestroy {
             return;
           }
 
-          this.errorMessage = "Unable to load the saved about page.";
+          this.errorMessage = 'Unable to load the saved about page.';
         },
       });
 
@@ -77,7 +83,7 @@ export class EditAboutPageComponent implements OnInit, OnDestroy {
 
     // Check required fields before sending the update request
     if (!this.model || !this.hasRequiredContent(this.model)) {
-      this.errorMessage = "All required about page fields must be filled in.";
+      this.errorMessage = 'All required about page fields must be filled in.';
       this.viewportScroller.scrollToPosition([0, 0]);
       return;
     }
@@ -110,12 +116,12 @@ export class EditAboutPageComponent implements OnInit, OnDestroy {
         next: (aboutPage) => {
           this.model = aboutPage;
           this.isCreatingNewPage = false;
-          this.successMessage = "About page updated.";
+          this.successMessage = 'About page updated.';
           this.isSaving = false;
           this.viewportScroller.scrollToPosition([0, 0]);
         },
         error: () => {
-          this.errorMessage = "Unable to update the about page.";
+          this.errorMessage = 'Unable to update the about page.';
           this.isSaving = false;
           this.viewportScroller.scrollToPosition([0, 0]);
         },
@@ -154,23 +160,23 @@ export class EditAboutPageComponent implements OnInit, OnDestroy {
   // Create an empty editor model when the About page has not been published yet
   private createBlankAboutPage(): UpdateAboutPage {
     return {
-      authorName: "",
-      authorRole: "",
-      signatureCaption: "",
+      authorName: '',
+      authorRole: '',
+      signatureCaption: '',
       profileImageUrl: null,
-      authorIntro: "",
-      authorAside: "",
-      blogOverview: "",
-      blogAudience: "",
-      blogDifference: "",
-      communityIntro: "",
-      respectGuideline: "",
-      topicGuideline: "",
-      spamGuideline: "",
-      moderationGuideline: "",
-      agreementGuideline: "",
-      consequences: "",
-      contactEmail: "",
+      authorIntro: '',
+      authorAside: '',
+      blogOverview: '',
+      blogAudience: '',
+      blogDifference: '',
+      communityIntro: '',
+      respectGuideline: '',
+      topicGuideline: '',
+      spamGuideline: '',
+      moderationGuideline: '',
+      agreementGuideline: '',
+      consequences: '',
+      contactEmail: '',
     };
   }
 }

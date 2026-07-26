@@ -1,4 +1,12 @@
-import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  HostListener,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { BlogPostService } from '../../blog-post/services/blog-post.service';
 import { catchError, Observable, of, Subscription, tap } from 'rxjs';
 import { BlogPost } from '../../blog-post/models/blog-post.model';
@@ -15,6 +23,7 @@ import { LoadingOverlayComponent } from '../../../core/loading-overlay/loading-o
   selector: 'app-home',
   imports: [CommonModule, RouterModule, LoadingOverlayComponent],
   templateUrl: './public-blog-summery.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './public-blog-summery.component.css',
 })
 export class PublicBlogSummeryComponent implements OnInit, OnDestroy {

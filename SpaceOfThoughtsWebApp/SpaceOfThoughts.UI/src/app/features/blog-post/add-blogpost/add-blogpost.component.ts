@@ -1,4 +1,9 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  OnInit,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { AddBlogPost } from '../models/add-blog-post.model';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
@@ -17,6 +22,7 @@ import { MarkdownEditorComponent } from '../shared/components/markdown-editor/ma
   selector: 'app-add-blogpost',
   templateUrl: './add-blogpost.component.html',
   styleUrls: ['./add-blogpost.component.css'],
+  changeDetection: ChangeDetectionStrategy.Eager,
   imports: [
     FormsModule,
     DatePipe,

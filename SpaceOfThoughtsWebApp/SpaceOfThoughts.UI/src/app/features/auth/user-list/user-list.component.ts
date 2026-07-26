@@ -1,4 +1,10 @@
-import { Component, ElementRef, OnDestroy, OnInit } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  OnDestroy,
+  OnInit,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { User } from '../models/user.model';
 import { Observable, of, Subscription } from 'rxjs';
 import { AuthService } from '../services/auth.service';
@@ -8,6 +14,7 @@ import { CommonModule } from '@angular/common';
   selector: 'app-user-list',
   imports: [CommonModule],
   templateUrl: './user-list.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./user-list.component.css'],
 })
 export class UserListComponent implements OnInit, OnDestroy {

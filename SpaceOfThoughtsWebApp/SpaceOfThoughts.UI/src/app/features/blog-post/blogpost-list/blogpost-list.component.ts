@@ -1,4 +1,9 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  OnInit,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { BlogPostService } from '../services/blog-post.service';
 import { Observable, of, Subscription } from 'rxjs';
@@ -10,6 +15,7 @@ import { Router } from '@angular/router';
   selector: 'app-blogpost-list',
   imports: [RouterModule, CommonModule],
   templateUrl: './blogpost-list.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './blogpost-list.component.css',
 })
 export class BlogpostListComponent implements OnInit, OnDestroy {

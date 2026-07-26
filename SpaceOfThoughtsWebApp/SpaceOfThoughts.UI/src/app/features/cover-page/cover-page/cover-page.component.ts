@@ -1,23 +1,29 @@
-import { CommonModule } from "@angular/common";
-import { HttpErrorResponse } from "@angular/common/http";
-import { Component, OnDestroy, OnInit } from "@angular/core";
-import { RouterModule } from "@angular/router";
-import { Subscription } from "rxjs";
-import { StyleService } from "../../../../services/style.service";
-import { AuthService } from "../../auth/services/auth.service";
-import { User } from "../../auth/models/user.model";
-import { BlogPost } from "../../blog-post/models/blog-post.model";
-import { BlogPostService } from "../../blog-post/services/blog-post.service";
-import { CoverPage } from "../models/cover-page.model";
-import { CoverPageService } from "../services/cover-page.service";
-import { LoadingOverlayComponent } from "../../../core/loading-overlay/loading-overlay.component";
-import { ThemeService } from "../../../core/theme/theme.service";
+import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
+import {
+  Component,
+  OnDestroy,
+  OnInit,
+  ChangeDetectionStrategy,
+} from '@angular/core';
+import { RouterModule } from '@angular/router';
+import { Subscription } from 'rxjs';
+import { StyleService } from '../../../../services/style.service';
+import { AuthService } from '../../auth/services/auth.service';
+import { User } from '../../auth/models/user.model';
+import { BlogPost } from '../../blog-post/models/blog-post.model';
+import { BlogPostService } from '../../blog-post/services/blog-post.service';
+import { CoverPage } from '../models/cover-page.model';
+import { CoverPageService } from '../services/cover-page.service';
+import { LoadingOverlayComponent } from '../../../core/loading-overlay/loading-overlay.component';
+import { ThemeService } from '../../../core/theme/theme.service';
 
 @Component({
-  selector: "app-cover-page",
+  selector: 'app-cover-page',
   imports: [CommonModule, RouterModule, LoadingOverlayComponent],
-  templateUrl: "./cover-page.component.html",
-  styleUrl: "./cover-page.component.css",
+  templateUrl: './cover-page.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
+  styleUrl: './cover-page.component.css',
 })
 export class CoverPageComponent implements OnInit, OnDestroy {
   // Cover page content loaded from the API
@@ -48,12 +54,12 @@ export class CoverPageComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     // Set full-screen body styles for the immersive cover page
-    this.styleService.setBodyStyle("box-sizing", "border-box");
-    this.styleService.setBodyStyle("height", "100svh");
-    this.styleService.setBodyStyle("overflow", "hidden");
-    this.styleService.setBodyStyle("padding-top", "0");
+    this.styleService.setBodyStyle('box-sizing', 'border-box');
+    this.styleService.setBodyStyle('height', '100svh');
+    this.styleService.setBodyStyle('overflow', 'hidden');
+    this.styleService.setBodyStyle('padding-top', '0');
 
-    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
     // Get the current user so the cover page can show a personal greeting
     this.user = this.authService.getUser();
     this.userSubscription = this.authService.user().subscribe({
@@ -93,10 +99,10 @@ export class CoverPageComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     // Remove body styles that only belong to the cover page
-    this.styleService.removeBodyStyle("box-sizing");
-    this.styleService.removeBodyStyle("height");
-    this.styleService.removeBodyStyle("overflow");
-    this.styleService.removeBodyStyle("padding-top");
+    this.styleService.removeBodyStyle('box-sizing');
+    this.styleService.removeBodyStyle('height');
+    this.styleService.removeBodyStyle('overflow');
+    this.styleService.removeBodyStyle('padding-top');
 
     // Unsubscribe and clear timers to prevent memory leaks
     this.coverPageSubscription?.unsubscribe();
@@ -150,7 +156,7 @@ export class CoverPageComponent implements OnInit, OnDestroy {
     this.clearBlogPreviewRetry();
     this.blogPreviewSubscription?.unsubscribe();
     this.blogPreviewSubscription = this.blogPostService
-      .getAllBlogPosts(undefined, "publishedDate", "desc")
+      .getAllBlogPosts(undefined, 'publishedDate', 'desc')
       .subscribe({
         next: (blogs) => {
           this.blogPreviewPosts = this.shuffleBlogs(

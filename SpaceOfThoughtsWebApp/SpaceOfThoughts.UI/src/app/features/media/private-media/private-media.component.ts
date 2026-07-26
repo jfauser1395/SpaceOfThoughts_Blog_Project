@@ -5,6 +5,7 @@ import {
   OnDestroy,
   OnInit,
   ViewChild,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -20,6 +21,7 @@ interface PrivateImageView extends PrivateImage {
   selector: 'app-private-media',
   imports: [CommonModule],
   templateUrl: './private-media.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './private-media.component.css',
 })
 export class PrivateMediaComponent implements OnInit, OnDestroy {

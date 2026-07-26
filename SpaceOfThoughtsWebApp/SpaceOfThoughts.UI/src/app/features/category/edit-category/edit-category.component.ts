@@ -1,4 +1,9 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  OnInit,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -8,10 +13,11 @@ import { UpdateCategoryRequest } from '../models/update-category-request.model';
 import { ViewportScroller } from '@angular/common';
 
 @Component({
-    selector: 'app-edit-category',
-    imports: [FormsModule],
-    templateUrl: './edit-category.component.html',
-    styleUrl: './edit-category.component.css'
+  selector: 'app-edit-category',
+  imports: [FormsModule],
+  templateUrl: './edit-category.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
+  styleUrl: './edit-category.component.css',
 })
 export class EditCategoryComponent implements OnInit, OnDestroy {
   id: string | null = null; // ID of the category to be edited

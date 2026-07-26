@@ -5,6 +5,7 @@ import {
   OnInit,
   ViewChild,
   HostListener,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../features/auth/services/auth.service';
@@ -15,6 +16,7 @@ import { Subscription } from 'rxjs';
   selector: 'app-navbar',
   imports: [RouterModule],
   templateUrl: './navbar.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './navbar.component.css',
 })
 export class NavbarComponent implements OnInit, OnDestroy {
