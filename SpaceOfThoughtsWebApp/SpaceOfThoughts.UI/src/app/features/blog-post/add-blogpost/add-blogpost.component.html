@@ -1,3 +1,4 @@
+@let blog = model();
 <div class="admin-page">
   <!-- Admin panel for creating a new blog post -->
   <section class="admin-panel admin-form-panel">
@@ -17,7 +18,7 @@
               id="title"
               name="title"
               class="form-control"
-              [(ngModel)]="model.title"
+              [(ngModel)]="blog.title"
             />
           </div>
 
@@ -28,10 +29,10 @@
               id="urlHandle"
               name="urlHandle"
               class="form-control"
-              [(ngModel)]="model.urlHandle"
+              [(ngModel)]="blog.urlHandle"
             />
-            @if (urlHandleWarning) {
-              <small class="admin-form-warning">{{ urlHandleWarning }}</small>
+            @if (urlHandleWarning(); as warning) {
+              <small class="admin-form-warning">{{ warning }}</small>
             }
           </div>
 
@@ -42,7 +43,7 @@
               id="shortDescription"
               name="shortDescription"
               class="form-control"
-              [(ngModel)]="model.shortDescription"
+              [(ngModel)]="blog.shortDescription"
             />
           </div>
 
@@ -55,7 +56,7 @@
                 id="featuredImageUrl"
                 name="featuredImageUrl"
                 class="form-control"
-                [(ngModel)]="model.featuredImageUrl"
+                [(ngModel)]="blog.featuredImageUrl"
               />
               <button
                 type="button"
@@ -69,10 +70,10 @@
               </button>
             </div>
 
-            @if (model.featuredImageUrl != "") {
+            @if (blog.featuredImageUrl !== '') {
               <div class="admin-form-media-preview">
                 <img
-                  [src]="model.featuredImageUrl"
+                  [src]="blog.featuredImageUrl"
                   alt="Selected featured image"
                 />
               </div>
@@ -92,8 +93,8 @@
               <app-markdown-editor
                 editorId="content"
                 ariaLabelledBy="contentLabel"
-                [(content)]="model.content"
-              ></app-markdown-editor>
+                [(content)]="blog.content"
+              />
             </section>
           </div>
 
@@ -105,9 +106,9 @@
               id="publishedDate"
               name="publishedDate"
               class="form-control"
-              [value]="model.publishedDate | date: 'yyyy-MM-dd'"
-              [ngModel]="model.publishedDate | date: 'yyyy-MM-dd'"
-              (ngModelChange)="model.publishedDate = $event"
+              [value]="blog.publishedDate | date: 'yyyy-MM-dd'"
+              [ngModel]="blog.publishedDate | date: 'yyyy-MM-dd'"
+              (ngModelChange)="blog.publishedDate = $event"
             />
           </div>
 
@@ -118,7 +119,7 @@
               id="author"
               name="author"
               class="form-control"
-              [(ngModel)]="model.author"
+              [(ngModel)]="blog.author"
             />
           </div>
 
@@ -130,7 +131,7 @@
                 type="checkbox"
                 id="isVisible"
                 name="isVisible"
-                [(ngModel)]="model.isVisible"
+                [(ngModel)]="blog.isVisible"
               />
               <label class="form-check-label" for="isVisible">Publish</label>
             </div>
@@ -141,7 +142,7 @@
               <label for="categories">Categories</label>
               <select
                 class="form-select scroll scroll--simple admin-multi-select"
-                [(ngModel)]="model.categories"
+                [(ngModel)]="blog.categories"
                 id="categories"
                 name="categories"
                 multiple
@@ -175,5 +176,5 @@
   aria-labelledby="selectModalLabel"
   aria-hidden="true"
 >
-  <app-image-selector imageCategory="Blog"></app-image-selector>
+  <app-image-selector imageCategory="Blog" />
 </div>

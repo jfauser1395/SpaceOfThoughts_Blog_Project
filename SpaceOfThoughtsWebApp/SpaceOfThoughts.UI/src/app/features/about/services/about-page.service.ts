@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { AboutPage } from '../models/about-page.model';
@@ -9,7 +9,7 @@ import { UpdateAboutPage } from '../models/update-about-page.model';
   providedIn: 'root',
 })
 export class AboutPageService {
-  constructor(private http: HttpClient) {}
+  private http = inject(HttpClient);
 
   // Get the public about page content
   getAboutPage(): Observable<AboutPage> {

@@ -1,4 +1,7 @@
 <div class="admin-page private-media-page">
+  @let chosenFile = selectedFile();
+  @let privateImages = images();
+
   <section class="admin-panel private-media-panel">
     <header class="admin-panel-header private-media-header">
       <div>
@@ -30,12 +33,12 @@
           <label class="private-media-file-picker" for="private-photo-input">
             <i class="bi bi-image" aria-hidden="true"></i>
             <span>
-              <strong>{{ selectedFile?.name ?? "Choose a photo" }}</strong>
+              <strong>{{ chosenFile?.name ?? 'Choose a photo' }}</strong>
               <small>
                 {{
-                  selectedFile
-                    ? formatFileSize(selectedFile.size)
-                    : "Select from this device"
+                  chosenFile
+                    ? formatFileSize(chosenFile.size)
+                    : 'Select from this device'
                 }}
               </small>
             </span>
@@ -52,10 +55,10 @@
           <button
             type="button"
             class="admin-primary-action"
-            [disabled]="!selectedFile || isUploading"
+            [disabled]="!chosenFile || isUploading()"
             (click)="uploadImage()"
           >
-            @if (isUploading) {
+            @if (isUploading()) {
               <span
                 class="spinner-border spinner-border-sm"
                 aria-hidden="true"
@@ -69,36 +72,37 @@
         </div>
       </section>
 
-      @if (errorMessage) {
+      @if (errorMessage(); as error) {
         <div class="alert alert-danger private-media-alert" role="alert">
           <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
-          {{ errorMessage }}
+          {{ error }}
         </div>
       }
 
       <section
         class="private-media-library"
         aria-labelledby="private-library-title"
-        [attr.aria-busy]="isLoading"
+        [attr.aria-busy]="isLoading()"
       >
         <div class="private-media-library-heading">
           <div>
             <p class="private-media-step">02</p>
             <h2 id="private-library-title">Your private library</h2>
           </div>
-          @if (!isLoading) {
+          @if (!isLoading()) {
             <span class="private-media-count">
-              {{ images.length }} {{ images.length === 1 ? "photo" : "photos" }}
+              {{ privateImages.length }}
+              {{ privateImages.length === 1 ? 'photo' : 'photos' }}
             </span>
           }
         </div>
 
-        @if (isLoading) {
+        @if (isLoading()) {
           <div class="private-media-loading">
             <span class="spinner-border" aria-hidden="true"></span>
             <span>Opening the private library…</span>
           </div>
-        } @else if (images.length === 0) {
+        } @else if (privateImages.length === 0) {
           <div class="admin-empty-state private-media-empty">
             <i class="bi bi-images" aria-hidden="true"></i>
             <h3>No private photos yet</h3>
@@ -106,7 +110,7 @@
           </div>
         } @else {
           <div class="private-media-grid">
-            @for (image of images; track image.fileName) {
+            @for (image of privateImages; track image.fileName) {
               <article class="private-media-card">
                 <button
                   type="button"
@@ -127,18 +131,18 @@
                 <div class="private-media-card-details">
                   <div>
                     <time [attr.datetime]="image.lastModifiedAt">
-                      {{ image.lastModifiedAt | date: "mediumDate" }}
+                      {{ image.lastModifiedAt | date: 'mediumDate' }}
                     </time>
                     <span>{{ formatFileSize(image.sizeInBytes) }}</span>
                   </div>
                   <button
                     type="button"
                     class="private-media-delete"
-                    [disabled]="deletingFileName === image.fileName"
+                    [disabled]="deletingFileName() === image.fileName"
                     (click)="deleteImage(image)"
                     aria-label="Delete private photo"
                   >
-                    @if (deletingFileName === image.fileName) {
+                    @if (deletingFileName() === image.fileName) {
                       <span
                         class="spinner-border spinner-border-sm"
                         aria-hidden="true"
@@ -157,7 +161,7 @@
   </section>
 </div>
 
-@if (selectedImage) {
+@if (selectedImage(); as selectedImage) {
   <div
     class="private-media-lightbox"
     role="dialog"
@@ -176,7 +180,7 @@
     <figure (click)="$event.stopPropagation()">
       <img [src]="selectedImage.previewUrl" alt="Private photo preview" />
       <figcaption>
-        Uploaded {{ selectedImage.lastModifiedAt | date: "medium" }} ·
+        Uploaded {{ selectedImage.lastModifiedAt | date: 'medium' }} ·
         {{ formatFileSize(selectedImage.sizeInBytes) }}
       </figcaption>
     </figure>

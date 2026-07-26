@@ -1,10 +1,11 @@
-import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   Component,
   OnDestroy,
   OnInit,
   ChangeDetectionStrategy,
+  inject,
+  signal,
 } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { LoadingOverlayComponent } from '../../../core/loading-overlay/loading-overlay.component';
@@ -13,20 +14,20 @@ import { AboutPageService } from '../services/about-page.service';
 
 @Component({
   selector: 'app-about-page',
-  imports: [CommonModule, LoadingOverlayComponent],
+  imports: [LoadingOverlayComponent],
   templateUrl: './about-page.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './about-page.component.css',
 })
 export class AboutPageComponent implements OnInit, OnDestroy {
-  // Current about page content displayed in the template
-  aboutPage?: AboutPage;
-  isLoading = true; // Flag used by the shared public-page loading overlay
-  isNotPublished = false; // Distinguish a missing page from temporary API failures
-  private aboutPageSubscription?: Subscription; // Subscription for the current API request
-  private aboutPageRetryTimeoutId?: number; // Timer for retrying temporary API failures
+  private readonly aboutPageService = inject(AboutPageService);
 
-  constructor(private aboutPageService: AboutPageService) {}
+  // Signals keep API and retry state visible to the OnPush public page
+  readonly aboutPage = signal<AboutPage | undefined>(undefined);
+  readonly isLoading = signal(true); // Flag used by the shared public-page loading overlay
+  readonly isNotPublished = signal(false); // Distinguish a missing page from temporary API failures
+  private aboutPageSubscription?: Subscription; // Subscription for the current API request
+  private aboutPageRetryTimeoutId?: number;
 
   ngOnInit(): void {
     // Start loading the editable About content when the public route activates
@@ -35,23 +36,23 @@ export class AboutPageComponent implements OnInit, OnDestroy {
 
   // Load the public about page content and retry temporary API failures
   private loadAboutPage(): void {
-    this.isLoading = true;
-    this.isNotPublished = false;
+    this.isLoading.set(true);
+    this.isNotPublished.set(false);
     this.clearAboutPageRetry();
     this.aboutPageSubscription?.unsubscribe();
     this.aboutPageSubscription = this.aboutPageService
       .getAboutPage()
       .subscribe({
         next: (aboutPage) => {
-          this.aboutPage = aboutPage;
-          this.isLoading = false;
+          this.aboutPage.set(aboutPage);
+          this.isLoading.set(false);
         },
         error: (error: HttpErrorResponse) => {
           if (error.status === 404) {
             // A missing record means the administrator has not published the page yet
-            this.aboutPage = undefined;
-            this.isNotPublished = true;
-            this.isLoading = false;
+            this.aboutPage.set(undefined);
+            this.isNotPublished.set(true);
+            this.isLoading.set(false);
             return;
           }
 

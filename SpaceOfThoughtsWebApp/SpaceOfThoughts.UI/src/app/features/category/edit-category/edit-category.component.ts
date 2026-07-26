@@ -3,6 +3,8 @@ import {
   OnDestroy,
   OnInit,
   ChangeDetectionStrategy,
+  inject,
+  signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -16,22 +18,20 @@ import { ViewportScroller } from '@angular/common';
   selector: 'app-edit-category',
   imports: [FormsModule],
   templateUrl: './edit-category.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './edit-category.component.css',
 })
 export class EditCategoryComponent implements OnInit, OnDestroy {
+  private readonly route = inject(ActivatedRoute);
+  private readonly categoryService = inject(CategoryService);
+  private readonly router = inject(Router);
+  private readonly viewportScroller = inject(ViewportScroller);
+
   id: string | null = null; // ID of the category to be edited
   paramsSubscription?: Subscription; // Subscription for route parameters
   editCategorySubscription?: Subscription; // Subscription for updating the category
-  category?: Category; // Model for the category data
-  getCategoryByIdSubscription?: Subscription; //Subscription for get category bi id
-
-  constructor(
-    private route: ActivatedRoute, // Inject ActivatedRoute to access route parameters
-    private categoryService: CategoryService, // Inject CategoryService for category operations
-    private router: Router, // Inject Router for navigation
-    private viewportScroller: ViewportScroller, // Inject viewportScroller for scroll control
-  ) {}
+  readonly category = signal<Category | undefined>(undefined); // Model for the category data
+  getCategoryByIdSubscription?: Subscription;
 
   ngOnInit(): void {
     // Subscribe to route parameters to get the category ID
@@ -44,7 +44,7 @@ export class EditCategoryComponent implements OnInit, OnDestroy {
             .getCategoryById(this.id)
             .subscribe({
               next: (response) => {
-                this.category = response;
+                this.category.set(response);
               },
             });
         }
@@ -55,8 +55,8 @@ export class EditCategoryComponent implements OnInit, OnDestroy {
   // Handle form submission to update the category
   onFormSubmit(): void {
     const updateCategoryRequest: UpdateCategoryRequest = {
-      name: this.category?.name ?? '',
-      urlHandle: this.category?.urlHandle ?? '',
+      name: this.category()?.name ?? '',
+      urlHandle: this.category()?.urlHandle ?? '',
     };
     if (this.id) {
       this.editCategorySubscription = this.categoryService

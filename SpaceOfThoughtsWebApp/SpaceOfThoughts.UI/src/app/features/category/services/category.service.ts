@@ -1,5 +1,5 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { AddCategoryRequest } from '../models/add-category-request.model';
 import { Observable } from 'rxjs';
 import { Category } from '../models/category.model';
@@ -10,7 +10,7 @@ import { UpdateCategoryRequest } from '../models/update-category-request.model';
   providedIn: 'root', // This service will be provided at the root level
 })
 export class CategoryService {
-  constructor(private http: HttpClient) {}
+  private http = inject(HttpClient);
 
   // Add a new category
   addCategory(model: AddCategoryRequest): Observable<void> {

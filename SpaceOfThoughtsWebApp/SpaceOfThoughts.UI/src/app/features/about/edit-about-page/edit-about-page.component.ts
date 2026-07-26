@@ -1,13 +1,16 @@
-import { CommonModule, ViewportScroller } from '@angular/common';
+import { ViewportScroller } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
-  Component,
-  OnDestroy,
-  OnInit,
   ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  inject,
+  signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subscription } from 'rxjs';
 import { UpdateAboutPage } from '../models/update-about-page.model';
 import { AboutPageService } from '../services/about-page.service';
@@ -16,123 +19,124 @@ import { ImageService } from '../../blog-post/shared/components/services/image.s
 
 @Component({
   selector: 'app-edit-about-page',
-  imports: [CommonModule, FormsModule, RouterModule, ImageSelectorComponent],
+  imports: [FormsModule, RouterModule, ImageSelectorComponent],
   templateUrl: './edit-about-page.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './edit-about-page.component.css',
 })
-export class EditAboutPageComponent implements OnInit, OnDestroy {
-  // Editable about page model shown in the form and preview
-  model?: UpdateAboutPage;
-  isCreatingNewPage = false;
-  isSaving = false;
-  errorMessage?: string;
-  successMessage?: string;
-  private aboutPageSubscription?: Subscription;
-  private imageSelectSubscription?: Subscription;
-  private updateAboutPageSubscription?: Subscription;
+export class EditAboutPageComponent implements OnInit {
+  private readonly aboutPageService = inject(AboutPageService);
+  private readonly imageService = inject(ImageService);
+  private readonly viewportScroller = inject(ViewportScroller);
+  private readonly destroyRef = inject(DestroyRef);
 
-  constructor(
-    private aboutPageService: AboutPageService,
-    private imageService: ImageService,
-    private viewportScroller: ViewportScroller,
-  ) {}
+  // Signal state keeps API responses and image selections visible with OnPush
+  readonly model = signal<UpdateAboutPage | undefined>(undefined);
+  readonly isCreatingNewPage = signal(false);
+  readonly isSaving = signal(false);
+  readonly errorMessage = signal<string | undefined>(undefined);
+  readonly successMessage = signal<string | undefined>(undefined);
+  private updateAboutPageSubscription?: Subscription;
 
   ngOnInit(): void {
     // Load the saved about page content
-    this.aboutPageSubscription = this.aboutPageService
+    this.aboutPageService
       .getAboutPage()
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (aboutPage) => {
-          this.model = aboutPage;
-          this.isCreatingNewPage = false;
+          this.model.set(aboutPage);
+          this.isCreatingNewPage.set(false);
         },
         error: (error: HttpErrorResponse) => {
           if (error.status === 404) {
             // A missing record starts a blank draft instead of publishing fallback copy
-            this.model = this.createBlankAboutPage();
-            this.isCreatingNewPage = true;
+            this.model.set(this.createBlankAboutPage());
+            this.isCreatingNewPage.set(true);
             return;
           }
 
-          this.errorMessage = 'Unable to load the saved about page.';
+          this.errorMessage.set('Unable to load the saved about page.');
         },
       });
 
     // Listen for image selections from the shared image selector modal
-    this.imageSelectSubscription = this.imageService.onSelectImage().subscribe({
-      next: (selectedImage) => {
-        if (this.model && selectedImage.url) {
-          this.model.profileImageUrl = selectedImage.url;
-        }
-      },
-    });
+    this.imageService
+      .onSelectImage()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (selectedImage) => {
+          if (selectedImage.url) {
+            // Replace the object so the signal notifies the OnPush preview
+            this.model.update((model) =>
+              model ? { ...model, profileImageUrl: selectedImage.url } : model,
+            );
+          }
+        },
+      });
   }
 
   // Remove the selected picture without deleting it from the shared image library
   removeProfileImage(): void {
-    if (this.model) {
-      this.model.profileImageUrl = null;
-    }
+    this.model.update((model) =>
+      model ? { ...model, profileImageUrl: null } : model,
+    );
   }
 
   // Handle form submission to update the about page
   onFormSubmit(): void {
-    this.errorMessage = undefined;
-    this.successMessage = undefined;
+    this.errorMessage.set(undefined);
+    this.successMessage.set(undefined);
+    const model = this.model();
 
     // Check required fields before sending the update request
-    if (!this.model || !this.hasRequiredContent(this.model)) {
-      this.errorMessage = 'All required about page fields must be filled in.';
+    if (!model || !this.hasRequiredContent(model)) {
+      this.errorMessage.set(
+        'All required about page fields must be filled in.',
+      );
       this.viewportScroller.scrollToPosition([0, 0]);
       return;
     }
 
-    this.isSaving = true;
+    this.isSaving.set(true);
     this.updateAboutPageSubscription?.unsubscribe();
 
     // Trim editable fields before saving them to the API
     this.updateAboutPageSubscription = this.aboutPageService
       .updateAboutPage({
-        authorName: this.model.authorName.trim(),
-        authorRole: this.model.authorRole.trim(),
-        signatureCaption: this.model.signatureCaption.trim(),
-        profileImageUrl: this.model.profileImageUrl?.trim() || null,
-        authorIntro: this.model.authorIntro.trim(),
-        authorAside: this.model.authorAside.trim(),
-        blogOverview: this.model.blogOverview.trim(),
-        blogAudience: this.model.blogAudience.trim(),
-        blogDifference: this.model.blogDifference.trim(),
-        communityIntro: this.model.communityIntro.trim(),
-        respectGuideline: this.model.respectGuideline.trim(),
-        topicGuideline: this.model.topicGuideline.trim(),
-        spamGuideline: this.model.spamGuideline.trim(),
-        moderationGuideline: this.model.moderationGuideline.trim(),
-        agreementGuideline: this.model.agreementGuideline.trim(),
-        consequences: this.model.consequences.trim(),
-        contactEmail: this.model.contactEmail.trim(),
+        authorName: model.authorName.trim(),
+        authorRole: model.authorRole.trim(),
+        signatureCaption: model.signatureCaption.trim(),
+        profileImageUrl: model.profileImageUrl?.trim() || null,
+        authorIntro: model.authorIntro.trim(),
+        authorAside: model.authorAside.trim(),
+        blogOverview: model.blogOverview.trim(),
+        blogAudience: model.blogAudience.trim(),
+        blogDifference: model.blogDifference.trim(),
+        communityIntro: model.communityIntro.trim(),
+        respectGuideline: model.respectGuideline.trim(),
+        topicGuideline: model.topicGuideline.trim(),
+        spamGuideline: model.spamGuideline.trim(),
+        moderationGuideline: model.moderationGuideline.trim(),
+        agreementGuideline: model.agreementGuideline.trim(),
+        consequences: model.consequences.trim(),
+        contactEmail: model.contactEmail.trim(),
       })
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (aboutPage) => {
-          this.model = aboutPage;
-          this.isCreatingNewPage = false;
-          this.successMessage = 'About page updated.';
-          this.isSaving = false;
+          this.model.set(aboutPage);
+          this.isCreatingNewPage.set(false);
+          this.successMessage.set('About page updated.');
+          this.isSaving.set(false);
           this.viewportScroller.scrollToPosition([0, 0]);
         },
         error: () => {
-          this.errorMessage = 'Unable to update the about page.';
-          this.isSaving = false;
+          this.errorMessage.set('Unable to update the about page.');
+          this.isSaving.set(false);
           this.viewportScroller.scrollToPosition([0, 0]);
         },
       });
-  }
-
-  ngOnDestroy(): void {
-    // Unsubscribe from subscriptions to prevent memory leaks
-    this.aboutPageSubscription?.unsubscribe();
-    this.imageSelectSubscription?.unsubscribe();
-    this.updateAboutPageSubscription?.unsubscribe();
   }
 
   // Check if all required about page content fields contain text

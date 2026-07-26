@@ -1,49 +1,86 @@
 import {
+  ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   OnDestroy,
   OnInit,
-  ChangeDetectionStrategy,
+  computed,
+  inject,
+  signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Subscription, switchMap } from 'rxjs';
 import { User } from '../models/user.model';
-import { Observable, of, Subscription } from 'rxjs';
 import { AuthService } from '../services/auth.service';
-import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-user-list',
-  imports: [CommonModule],
+  imports: [],
   templateUrl: './user-list.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['./user-list.component.css'],
 })
 export class UserListComponent implements OnInit, OnDestroy {
-  users$?: Observable<User[]>; // Observable for the list of users
-  id: string | null = null; // ID of the user selected by an action modal
-  deleteUserSubscription$?: Subscription; // Subscription for delete user request
-  banUserSubscription$?: Subscription; // Subscription for ban or unban user request
-  writingPrivilegesSubscription$?: Subscription; // Subscription for changing Writer access
-  usersQuant$?: Subscription; // Subscription for getting total user count
-  usersSubscription$?: Subscription; // Subscription for getting user rows
-  totalCount!: number; // Total number of users
-  list: number[] = []; // Array for pagination
-  pageNumber = 1; // Current page number
-  pageSize = 8; // Number of users per page
-  query = ''; // Current search query
-  sortedBy = 'userName'; // Sort users alphabetically by username by default
-  sortDirection: 'asc' | 'desc' = 'asc'; // Direction of sorting
-  currentUser?: User; // Signed-in user used only to control privileged UI visibility
-  selectedUser?: User; // User targeted by the currently open confirmation modal
-  updatingWritingPrivilegesForId?: string;
-  privilegeMessage?: string;
-  privilegeError?: string;
-  private allUsers: User[] = [];
-  private actionButtonResetTimeoutId?: number;
+  private readonly authService = inject(AuthService);
+  private readonly hostElement = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly destroyRef = inject(DestroyRef);
 
-  constructor(
-    private authService: AuthService,
-    private readonly hostElement: ElementRef<HTMLElement>,
-  ) {}
+  // Signals store user data, table controls, and asynchronous action feedback
+  readonly pageNumber = signal(1);
+  readonly pageSize = 8;
+  readonly query = signal('');
+  readonly sortedBy = signal<'userName' | 'email'>('userName');
+  readonly sortDirection = signal<'asc' | 'desc'>('asc');
+  readonly currentUser = signal<User | undefined>(undefined);
+  readonly selectedUser = signal<User | undefined>(undefined);
+  readonly updatingWritingPrivilegesForId = signal<string | undefined>(
+    undefined,
+  );
+  readonly privilegeMessage = signal<string | undefined>(undefined);
+  readonly privilegeError = signal<string | undefined>(undefined);
+  private readonly selectedUserId = signal<string | null>(null);
+  private readonly allUsers = signal<readonly User[]>([]);
+
+  // Derive search, sorting, totals, and pagination only when their signals change
+  private readonly matchingUsers = computed(() => {
+    const normalizedQuery = this.query().toLowerCase();
+    const sortedBy = this.sortedBy();
+    const direction = this.sortDirection();
+    let users = [...this.allUsers()];
+
+    if (normalizedQuery) {
+      users = users.filter(
+        (user) =>
+          user.userName.toLowerCase().includes(normalizedQuery) ||
+          user.email.toLowerCase().includes(normalizedQuery),
+      );
+    }
+
+    users.sort((first, second) => {
+      const firstValue = sortedBy === 'email' ? first.email : first.userName;
+      const secondValue = sortedBy === 'email' ? second.email : second.userName;
+      const result = firstValue
+        .toLowerCase()
+        .localeCompare(secondValue.toLowerCase());
+      return direction === 'asc' ? result : -result;
+    });
+
+    return users;
+  });
+  readonly totalCount = computed(() => this.matchingUsers().length);
+  readonly list = computed(
+    () => new Array(Math.ceil(this.totalCount() / this.pageSize)),
+  );
+  readonly users = computed(() => {
+    const skip = (this.pageNumber() - 1) * this.pageSize;
+    return this.matchingUsers().slice(skip, skip + this.pageSize);
+  });
+
+  private deleteUserSubscription?: Subscription;
+  private banUserSubscription?: Subscription;
+  private writingPrivilegesSubscription?: Subscription;
+  private actionButtonResetTimeoutId?: number;
 
   ngOnInit(): void {
     // Scroll to the top of the page smoothly on component initialization
@@ -53,33 +90,32 @@ export class UserListComponent implements OnInit, OnDestroy {
       behavior: 'smooth',
     });
 
-    this.currentUser = this.authService.getUser();
+    this.currentUser.set(this.authService.getUser());
 
-    // Get the total user count
-    this.usersQuant$ = this.authService.getUserCount().subscribe({
-      next: (value) => {
-        this.usersSubscription$ = this.authService
-          .getAllUsersFromDatabase(
+    // Fetch every row once so local signals can handle responsive table controls
+    this.authService
+      .getUserCount()
+      .pipe(
+        switchMap((count) =>
+          this.authService.getAllUsersFromDatabase(
             undefined,
             undefined,
             undefined,
             1,
-            Math.max(value, this.pageSize),
-          )
-          .subscribe({
-            next: (users) => {
-              this.allUsers = users;
-              this.loadUsers();
-            },
-          });
-      },
-    });
+            Math.max(count, this.pageSize),
+          ),
+        ),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (users) => this.allUsers.set(users),
+      });
   }
 
   // Select one row for the independent ban, writing-rights, or delete modal
   selectUser(user: User): void {
-    this.selectedUser = user;
-    this.id = user.id;
+    this.selectedUser.set(user);
+    this.selectedUserId.set(user.id);
   }
 
   // Bootstrap restores focus to a modal trigger after the hidden event finishes.
@@ -102,25 +138,32 @@ export class UserListComponent implements OnInit, OnDestroy {
     }, 0);
   }
 
-  // Delete the selected user
+  // Delete the selected user and remove the row without reloading the page
   onDelete(): void {
-    if (this.id) {
-      this.deleteUserSubscription$ = this.authService
-        .deleteUser(this.id)
-        .subscribe({
-          next: () => {
-            this.allUsers = this.allUsers.filter((user) => user.id !== this.id);
-            this.selectedUser = undefined;
-            this.id = null;
-            this.loadUsers();
-          },
-        });
+    const selectedUserId = this.selectedUserId();
+    if (!selectedUserId) {
+      return;
     }
+
+    this.deleteUserSubscription?.unsubscribe();
+    this.deleteUserSubscription = this.authService
+      .deleteUser(selectedUserId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.allUsers.update((users) =>
+            users.filter((user) => user.id !== selectedUserId),
+          );
+          this.selectedUser.set(undefined);
+          this.selectedUserId.set(null);
+          this.clampPageToAvailableRows();
+        },
+      });
   }
 
   // Ban or unban the selected user
   onBanToggle(user?: User): void {
-    const targetUser = user ?? this.selectedUser;
+    const targetUser = user ?? this.selectedUser();
     if (!targetUser) {
       return;
     }
@@ -129,21 +172,20 @@ export class UserListComponent implements OnInit, OnDestroy {
       ? this.authService.unbanUser(targetUser.id)
       : this.authService.banUser(targetUser.id);
 
-    this.banUserSubscription$?.unsubscribe();
-    this.banUserSubscription$ = request$.subscribe({
-      next: (updatedUser) => {
-        this.allUsers = this.allUsers.map((existingUser) =>
-          existingUser.id === updatedUser.id ? updatedUser : existingUser,
-        );
-        this.selectedUser = updatedUser;
-        this.loadUsers();
-      },
-    });
+    this.banUserSubscription?.unsubscribe();
+    this.banUserSubscription = request$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (updatedUser) => {
+          this.replaceUser(updatedUser);
+          this.selectedUser.set(updatedUser);
+        },
+      });
   }
 
   // Only the seeded initial admin receives the non-delegable role behind this control
   get canGrantWritingPrivileges(): boolean {
-    return this.currentUser?.roles.includes('InitialAdmin') ?? false;
+    return this.currentUser()?.roles.includes('InitialAdmin') ?? false;
   }
 
   // Check the target's current persisted role state
@@ -153,68 +195,69 @@ export class UserListComponent implements OnInit, OnDestroy {
 
   // Grant or revoke Writer access and update the row without a full page refresh
   onWritingPrivilegesToggle(user?: User): void {
-    const targetUser = user ?? this.selectedUser;
+    const targetUser = user ?? this.selectedUser();
     if (
       !targetUser ||
       !this.canGrantWritingPrivileges ||
-      this.updatingWritingPrivilegesForId
+      this.updatingWritingPrivilegesForId()
     ) {
       return;
     }
 
-    this.privilegeMessage = undefined;
-    this.privilegeError = undefined;
-    this.updatingWritingPrivilegesForId = targetUser.id;
+    this.privilegeMessage.set(undefined);
+    this.privilegeError.set(undefined);
+    this.updatingWritingPrivilegesForId.set(targetUser.id);
     const isRevoking = this.hasWritingPrivileges(targetUser);
     const request$ = isRevoking
       ? this.authService.revokeWritingPrivileges(targetUser.id)
       : this.authService.grantWritingPrivileges(targetUser.id);
 
-    this.writingPrivilegesSubscription$?.unsubscribe();
-    this.writingPrivilegesSubscription$ = request$.subscribe({
-      next: (updatedUser) => {
-        this.allUsers = this.allUsers.map((existingUser) =>
-          existingUser.id === updatedUser.id ? updatedUser : existingUser,
-        );
-        this.loadUsers();
-        this.selectedUser = updatedUser;
-        this.updatingWritingPrivilegesForId = undefined;
-        this.privilegeMessage = isRevoking
-          ? 'Writing access removed.'
-          : 'Writing access granted.';
-      },
-      error: () => {
-        this.updatingWritingPrivilegesForId = undefined;
-        this.privilegeError = isRevoking
-          ? 'Writing privileges could not be removed.'
-          : 'Writing privileges could not be granted.';
-      },
-    });
+    this.writingPrivilegesSubscription?.unsubscribe();
+    this.writingPrivilegesSubscription = request$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (updatedUser) => {
+          this.replaceUser(updatedUser);
+          this.selectedUser.set(updatedUser);
+          this.updatingWritingPrivilegesForId.set(undefined);
+          this.privilegeMessage.set(
+            isRevoking ? 'Writing access removed.' : 'Writing access granted.',
+          );
+        },
+        error: () => {
+          this.updatingWritingPrivilegesForId.set(undefined);
+          this.privilegeError.set(
+            isRevoking
+              ? 'Writing privileges could not be removed.'
+              : 'Writing privileges could not be granted.',
+          );
+        },
+      });
   }
 
-  // Search for users by query
-  onSearch(query: string) {
-    this.query = query.trim();
-    this.pageNumber = 1;
-    this.loadUsers();
+  // Search for users by username or email
+  onSearch(query: string): void {
+    this.query.set(query.trim());
+    this.pageNumber.set(1);
   }
 
   // Sort the user list
-  sort(sortBy: string) {
-    if (this.sortedBy === sortBy) {
-      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+  sort(sortBy: 'userName' | 'email'): void {
+    if (this.sortedBy() === sortBy) {
+      this.sortDirection.update((direction) =>
+        direction === 'asc' ? 'desc' : 'asc',
+      );
     } else {
-      this.sortedBy = sortBy;
-      this.sortDirection = 'asc';
+      this.sortedBy.set(sortBy);
+      this.sortDirection.set('asc');
     }
 
-    this.pageNumber = 1;
-    this.loadUsers();
+    this.pageNumber.set(1);
   }
 
   // Check whether a table column owns the active sort state
   isSortedBy(sortBy: string): boolean {
-    return this.sortedBy === sortBy;
+    return this.sortedBy() === sortBy;
   }
 
   // Expose the active direction for accessible sortable table headers
@@ -223,13 +266,13 @@ export class UserListComponent implements OnInit, OnDestroy {
       return null;
     }
 
-    return this.sortDirection === 'asc' ? 'ascending' : 'descending';
+    return this.sortDirection() === 'asc' ? 'ascending' : 'descending';
   }
 
   // Describe the direction that clicking a sortable header will apply next
   getSortLabel(label: string, sortBy: string): string {
     const nextDirection =
-      this.isSortedBy(sortBy) && this.sortDirection === 'asc'
+      this.isSortedBy(sortBy) && this.sortDirection() === 'asc'
         ? 'descending'
         : 'ascending';
 
@@ -237,74 +280,47 @@ export class UserListComponent implements OnInit, OnDestroy {
   }
 
   // Get a specific page of users
-  getPage(pageNumber: number) {
-    this.pageNumber = pageNumber;
-    this.loadUsers();
+  getPage(pageNumber: number): void {
+    this.pageNumber.set(pageNumber);
   }
 
   // Get the next page of users
-  getNextPage() {
-    if (this.pageNumber + 1 > this.list.length) {
+  getNextPage(): void {
+    if (this.pageNumber() + 1 > this.list().length) {
       return;
     }
-    this.pageNumber += 1;
-    this.loadUsers();
+    this.pageNumber.update((pageNumber) => pageNumber + 1);
   }
 
   // Get the previous page of users
-  getPrevPage() {
-    if (this.pageNumber - 1 < 1) {
+  getPrevPage(): void {
+    if (this.pageNumber() - 1 < 1) {
       return;
     }
-    this.pageNumber -= 1;
-    this.loadUsers();
+    this.pageNumber.update((pageNumber) => pageNumber - 1);
   }
 
-  // Apply search, sorting, and pagination to the cached user collection
-  private loadUsers(): void {
-    let users = [...this.allUsers];
-    const normalizedQuery = this.query.toLowerCase();
-
-    if (normalizedQuery) {
-      users = users.filter((user) =>
-        user.userName.toLowerCase().startsWith(normalizedQuery),
-      );
-    }
-
-    if (this.sortedBy) {
-      users.sort((first, second) => {
-        const firstValue =
-          this.sortedBy === 'email' ? first.email : first.userName;
-        const secondValue =
-          this.sortedBy === 'email' ? second.email : second.userName;
-        const result = firstValue
-          .toLowerCase()
-          .localeCompare(secondValue.toLowerCase());
-
-        return this.sortDirection === 'asc' ? result : -result;
-      });
-    }
-
-    this.totalCount = users.length;
-    this.list = new Array(Math.ceil(this.totalCount / this.pageSize));
-
-    if (this.pageNumber > this.list.length && this.list.length > 0) {
-      this.pageNumber = this.list.length;
-    }
-
-    const skip = (this.pageNumber - 1) * this.pageSize;
-    this.users$ = of(users.slice(skip, skip + this.pageSize));
+  // Replace one persisted user while preserving the current table controls
+  private replaceUser(updatedUser: User): void {
+    this.allUsers.update((users) =>
+      users.map((existingUser) =>
+        existingUser.id === updatedUser.id ? updatedUser : existingUser,
+      ),
+    );
   }
-  // Unsubscribe form subscriptions to prevent memory leaks
+
+  // Keep the selected page valid after deleting the last row on a page
+  private clampPageToAvailableRows(): void {
+    const lastPage = Math.max(1, this.list().length);
+    if (this.pageNumber() > lastPage) {
+      this.pageNumber.set(lastPage);
+    }
+  }
+
+  // Clear the pending Bootstrap focus-reset callback when the page closes
   ngOnDestroy(): void {
     if (this.actionButtonResetTimeoutId !== undefined) {
       window.clearTimeout(this.actionButtonResetTimeoutId);
     }
-
-    this.deleteUserSubscription$?.unsubscribe();
-    this.banUserSubscription$?.unsubscribe();
-    this.writingPrivilegesSubscription$?.unsubscribe();
-    this.usersQuant$?.unsubscribe();
-    this.usersSubscription$?.unsubscribe();
   }
 }

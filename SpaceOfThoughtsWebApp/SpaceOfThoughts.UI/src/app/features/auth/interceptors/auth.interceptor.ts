@@ -13,8 +13,9 @@ export const authInterceptor: HttpInterceptorFn = (
   next: HttpHandlerFn, // Next handler in the chain
 ): Observable<HttpEvent<any>> => {
   const apiBaseUrl = environment.apiBaseUrl.replace(/\/+$/, '');
-  const isApiRequest =
-    req.url === apiBaseUrl || req.url.startsWith(`${apiBaseUrl}/`);
+  const isApiRequest = apiBaseUrl
+    ? req.url === apiBaseUrl || req.url.startsWith(`${apiBaseUrl}/`)
+    : req.url === '/api' || req.url.startsWith('/api/');
 
   if (!isApiRequest) {
     return next(req);

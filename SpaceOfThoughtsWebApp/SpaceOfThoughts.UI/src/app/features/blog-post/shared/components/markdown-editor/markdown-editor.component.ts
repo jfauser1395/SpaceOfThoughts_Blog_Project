@@ -1,13 +1,16 @@
 import {
   AfterViewInit,
+  computed,
   Component,
   ElementRef,
-  EventEmitter,
+  effect,
   HostListener,
-  Input,
-  Output,
-  ViewChild,
   ChangeDetectionStrategy,
+  inject,
+  input,
+  model,
+  signal,
+  viewChild,
 } from '@angular/core';
 import { marked } from 'marked';
 
@@ -26,14 +29,18 @@ type ActiveFormattingState = {
 @Component({
   selector: 'app-markdown-editor',
   templateUrl: './markdown-editor.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './markdown-editor.component.css',
 })
 export class MarkdownEditorComponent implements AfterViewInit {
+  private readonly hostElement = inject<ElementRef<HTMLElement>>(ElementRef);
+
   // Accessibility ID used to connect the editor with its visible label
-  @Input() ariaLabelledBy = '';
-  @Input() editorId = 'content';
-  @Output() contentChange = new EventEmitter<string>();
+  readonly ariaLabelledBy = input('');
+  readonly editorId = input('content');
+
+  // Model provides the content input and matching contentChange output for two-way binding
+  readonly content = model('');
 
   // Options displayed in the text style dropdown
   readonly textStyleOptions = [
@@ -45,7 +52,7 @@ export class MarkdownEditorComponent implements AfterViewInit {
   ];
 
   // Current formatting state used by toolbar active states
-  activeFormatting: ActiveFormattingState = {
+  readonly activeFormatting = signal<ActiveFormattingState>({
     bold: false,
     bulletList: false,
     code: false,
@@ -54,21 +61,29 @@ export class MarkdownEditorComponent implements AfterViewInit {
     numberedList: false,
     quote: false,
     textStyle: 'p',
-  };
-  isTextStyleMenuOpen = false;
+  });
+  readonly isTextStyleMenuOpen = signal(false);
+  readonly characterCount = signal(0);
+  readonly wordCount = signal(0);
+  readonly activeTextStyleLabel = computed(
+    () =>
+      this.textStyleOptions.find(
+        (option) => option.value === this.activeFormatting().textStyle,
+      )?.label ?? 'Paragraph',
+  );
 
-  @ViewChild('visualEditor')
-  private visualEditor?: ElementRef<HTMLElement>;
+  private readonly visualEditor =
+    viewChild<ElementRef<HTMLElement>>('visualEditor');
 
   // Editor content is stored as HTML after it has been rendered or edited
   private contentValue = '';
   private savedSelection?: Range;
   private viewReady = false;
 
-  @Input()
-  set content(value: string) {
+  // Synchronize parent model writes with the contenteditable DOM
+  private readonly contentRenderEffect = effect(() => {
     // Avoid re-rendering the editor when Angular writes the same value back
-    const nextContent = value ?? '';
+    const nextContent = this.content() ?? '';
 
     if (nextContent === this.contentValue) {
       return;
@@ -76,34 +91,7 @@ export class MarkdownEditorComponent implements AfterViewInit {
 
     this.contentValue = nextContent;
     this.renderContentToEditor();
-  }
-
-  // Return the current HTML value without reading the DOM again
-  get content(): string {
-    return this.contentValue;
-  }
-
-  // Count plain text characters in the editor
-  get characterCount(): number {
-    return this.getPlainText().length;
-  }
-
-  // Count words in the editor
-  get wordCount(): number {
-    const text = this.getPlainText().trim();
-    return text ? text.split(/\s+/).length : 0;
-  }
-
-  // Display label for the selected text style
-  get activeTextStyleLabel(): string {
-    return (
-      this.textStyleOptions.find(
-        (option) => option.value === this.activeFormatting.textStyle,
-      )?.label ?? 'Paragraph'
-    );
-  }
-
-  constructor(private hostElement: ElementRef<HTMLElement>) {}
+  });
 
   ngAfterViewInit(): void {
     // Render any initial content once the contenteditable element exists
@@ -128,14 +116,14 @@ export class MarkdownEditorComponent implements AfterViewInit {
 
     if (!this.hostElement.nativeElement.contains(target)) {
       // Close the text style menu when the user clicks outside the editor
-      this.isTextStyleMenuOpen = false;
+      this.isTextStyleMenuOpen.set(false);
     }
   }
 
   @HostListener('document:keydown.escape')
   // Support the conventional Escape-key behavior for the text style menu
   onDocumentEscape(): void {
-    this.isTextStyleMenuOpen = false;
+    this.isTextStyleMenuOpen.set(false);
   }
 
   onEditorInput(): void {
@@ -192,12 +180,12 @@ export class MarkdownEditorComponent implements AfterViewInit {
 
   // Toggle the block-style menu without changing the saved editor selection
   toggleTextStyleMenu(): void {
-    this.isTextStyleMenuOpen = !this.isTextStyleMenuOpen;
+    this.isTextStyleMenuOpen.update((isOpen) => !isOpen);
   }
 
   // Apply the selected block element and close the text style menu
   selectTextStyle(blockName: string): void {
-    this.isTextStyleMenuOpen = false;
+    this.isTextStyleMenuOpen.set(false);
 
     this.runEditorCommand('formatBlock', blockName);
   }
@@ -283,7 +271,7 @@ export class MarkdownEditorComponent implements AfterViewInit {
 
   private focusEditor(): void {
     // Focus the editor and restore the last saved selection
-    const editor = this.visualEditor?.nativeElement;
+    const editor = this.visualEditor()?.nativeElement;
 
     if (!editor) {
       return;
@@ -295,20 +283,21 @@ export class MarkdownEditorComponent implements AfterViewInit {
 
   private renderContentToEditor(): void {
     // Render incoming Markdown or HTML into the contenteditable element
-    const editor = this.visualEditor?.nativeElement;
+    const editor = this.visualEditor()?.nativeElement;
 
     if (!this.viewReady || !editor) {
       return;
     }
 
     editor.innerHTML = this.createEditorHtml(this.contentValue);
+    this.updateWritingStatistics();
     this.saveSelection();
     this.updateActiveFormatting();
   }
 
   private syncContentFromEditor(): void {
     // Normalize editor HTML before emitting it to the parent component
-    const editor = this.visualEditor?.nativeElement;
+    const editor = this.visualEditor()?.nativeElement;
 
     if (!editor) {
       return;
@@ -321,7 +310,8 @@ export class MarkdownEditorComponent implements AfterViewInit {
     }
 
     this.contentValue = nextContent;
-    this.contentChange.emit(nextContent);
+    this.content.set(nextContent);
+    this.updateWritingStatistics();
   }
 
   private createEditorHtml(value: string): string {
@@ -341,7 +331,7 @@ export class MarkdownEditorComponent implements AfterViewInit {
 
   private getPlainText(): string {
     // Prefer the live editor text when available for accurate counts
-    const editor = this.visualEditor?.nativeElement;
+    const editor = this.visualEditor()?.nativeElement;
 
     if (editor) {
       return editor.innerText ?? '';
@@ -423,7 +413,7 @@ export class MarkdownEditorComponent implements AfterViewInit {
       ? blockTag
       : 'p';
 
-    this.activeFormatting = {
+    this.activeFormatting.set({
       bold: this.queryCommandState('bold'),
       bulletList: this.queryCommandState('insertUnorderedList'),
       code: blockTag === 'pre' || this.hasAncestor(activeElement, 'pre'),
@@ -434,7 +424,15 @@ export class MarkdownEditorComponent implements AfterViewInit {
         blockTag === 'blockquote' ||
         this.hasAncestor(activeElement, 'blockquote'),
       textStyle,
-    };
+    });
+  }
+
+  // Recalculate live editor statistics only when the content itself changes
+  private updateWritingStatistics(): void {
+    const text = this.getPlainText();
+    const trimmedText = text.trim();
+    this.characterCount.set(text.length);
+    this.wordCount.set(trimmedText ? trimmedText.split(/\s+/).length : 0);
   }
 
   private queryCommandState(command: string): boolean {
@@ -474,7 +472,7 @@ export class MarkdownEditorComponent implements AfterViewInit {
 
   private getClosestBlockElement(element: Element | null): Element | null {
     // Find the nearest supported block element inside the editor
-    const editor = this.visualEditor?.nativeElement;
+    const editor = this.visualEditor()?.nativeElement;
 
     if (!editor || !element) {
       return null;
@@ -485,7 +483,7 @@ export class MarkdownEditorComponent implements AfterViewInit {
 
   private hasAncestor(element: Element | null, selector: string): boolean {
     // Check if the selected element is inside a matching ancestor in this editor
-    const editor = this.visualEditor?.nativeElement;
+    const editor = this.visualEditor()?.nativeElement;
 
     if (!editor || !element) {
       return false;
@@ -497,7 +495,7 @@ export class MarkdownEditorComponent implements AfterViewInit {
 
   private isSelectionInsideEditor(selection: Selection): boolean {
     // Ensure document selections from elsewhere do not affect this editor
-    const editor = this.visualEditor?.nativeElement;
+    const editor = this.visualEditor()?.nativeElement;
 
     if (!editor || selection.rangeCount === 0) {
       return false;

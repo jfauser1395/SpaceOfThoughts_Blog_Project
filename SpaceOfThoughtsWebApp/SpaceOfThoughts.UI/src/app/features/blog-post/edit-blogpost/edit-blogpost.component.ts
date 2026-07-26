@@ -3,12 +3,14 @@ import {
   OnDestroy,
   OnInit,
   ChangeDetectionStrategy,
+  inject,
+  signal,
 } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { Observable, Subscription } from 'rxjs';
 import { BlogPostService } from '../services/blog-post.service';
 import { BlogPost } from '../models/blog-post.model';
-import { CommonModule } from '@angular/common';
+import { AsyncPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { Router } from '@angular/router';
@@ -24,18 +26,25 @@ import { MarkdownEditorComponent } from '../shared/components/markdown-editor/ma
   selector: 'app-edit-blogpost',
   templateUrl: './edit-blogpost.component.html',
   styleUrl: './edit-blogpost.component.css',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    CommonModule,
     FormsModule,
     DatePipe,
     ImageSelectorComponent,
     MarkdownEditorComponent,
+    AsyncPipe,
   ],
 })
 export class EditBlogpostComponent implements OnInit, OnDestroy {
+  private readonly route = inject(ActivatedRoute);
+  private readonly blogPostService = inject(BlogPostService);
+  private readonly categoryService = inject(CategoryService);
+  private readonly imageService = inject(ImageService);
+  private readonly router = inject(Router);
+  private readonly viewportScroller = inject(ViewportScroller);
+
   id: string | null = null; // ID of the blog post to be edited
-  model?: BlogPost; // Model for the blog post data
+  readonly model = signal<BlogPost | undefined>(undefined); // Model for the blog post data
   categories$?: Observable<Category[]>; // Observable for the list of categories
   selectedCategories?: string[]; // Array to hold selected categories IDs
   routeSubscribtion$?: Subscription; // Subscription for route parameters
@@ -43,16 +52,7 @@ export class EditBlogpostComponent implements OnInit, OnDestroy {
   updateBlogPostSubscription$?: Subscription; // Subscription for updating the blog post
   deleteBlogPostSubscription$?: Subscription; // Subscription for deleting the blog post
   imageSelectSubscription$?: Subscription; // Subscription for image selection
-  urlHandleWarning?: string; // Url handle field warning
-
-  constructor(
-    private route: ActivatedRoute, // Inject ActivatedRoute to access route parameters
-    private blogPostService: BlogPostService, // Inject BlogPostService for blog post operations
-    private categoryService: CategoryService, // Inject CategoryService for category operations
-    private imageService: ImageService, // Inject ImageService for image operations
-    private router: Router, // Inject Router for navigation
-    private viewportScroller: ViewportScroller, // Inject viewportScroller for scroll control
-  ) {}
+  readonly urlHandleWarning = signal<string | undefined>(undefined);
 
   ngOnInit(): void {
     // Get the list of categories
@@ -68,7 +68,7 @@ export class EditBlogpostComponent implements OnInit, OnDestroy {
             .getBlogPostById(this.id)
             .subscribe({
               next: (response) => {
-                this.model = response;
+                this.model.set(response);
                 this.selectedCategories = response.categories.map((x) => x.id);
               },
             });
@@ -79,9 +79,9 @@ export class EditBlogpostComponent implements OnInit, OnDestroy {
           .onSelectImage()
           .subscribe({
             next: (response) => {
-              if (this.model) {
-                this.model.featuredImageUrl = response.url;
-              }
+              this.model.update((model) =>
+                model ? { ...model, featuredImageUrl: response.url } : model,
+              );
             },
           });
       },
@@ -90,18 +90,19 @@ export class EditBlogpostComponent implements OnInit, OnDestroy {
 
   // Handle form submission to update the blog post
   onFormSubmit(): void {
-    if (this.model?.urlHandle != '') {
+    const model = this.model();
+    if (model?.urlHandle !== '') {
       // Convert this model to UpdateBlogPost request object
-      if (this.model && this.id) {
-        var updateBlogPost: UpdateBlogPost = {
-          author: this.model.author,
-          content: this.model.content,
-          shortDescription: this.model.shortDescription,
-          featuredImageUrl: this.model.featuredImageUrl,
-          isVisible: this.model.isVisible,
-          publishedDate: this.model.publishedDate,
-          title: this.model.title,
-          urlHandle: this.model.urlHandle,
+      if (model && this.id) {
+        const updateBlogPost: UpdateBlogPost = {
+          author: model.author,
+          content: model.content,
+          shortDescription: model.shortDescription,
+          featuredImageUrl: model.featuredImageUrl,
+          isVisible: model.isVisible,
+          publishedDate: model.publishedDate,
+          title: model.title,
+          urlHandle: model.urlHandle,
           categories: this.selectedCategories ?? [],
         };
         this.updateBlogPostSubscription$ = this.blogPostService
@@ -116,8 +117,9 @@ export class EditBlogpostComponent implements OnInit, OnDestroy {
       }
     } else {
       this.viewportScroller.scrollToPosition([0, 0]); // Scroll up
-      this.urlHandleWarning =
-        '*Please make sure to at lease fill out this field!'; // Warning massage to fill out the urlHandleField
+      this.urlHandleWarning.set(
+        '*Please make sure to at least fill out this field!',
+      ); // Warning message to fill out the urlHandleField
     }
   }
 

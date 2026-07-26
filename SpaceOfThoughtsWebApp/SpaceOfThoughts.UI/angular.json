@@ -16,15 +16,14 @@
             "outputPath": "dist/space-of-thoughts",
             "index": "src/index.html",
             "browser": "src/main.ts",
-            "polyfills": ["zone.js"],
             "tsConfig": "tsconfig.app.json",
-            "assets": [ 
+            "assets": [
               {
                 "glob": "**/*",
                 "input": "public"
               }
             ],
-           "styles": [
+            "styles": [
               "node_modules/bootstrap/dist/css/bootstrap.min.css",
               "node_modules/bootstrap-icons/font/bootstrap-icons.css",
               "node_modules/font-awesome/css/font-awesome.min.css",
@@ -69,7 +68,8 @@
         "serve": {
           "builder": "@angular/build:dev-server",
           "options": {
-            "open": true
+            "open": true,
+            "proxyConfig": "proxy.conf.json"
           },
           "configurations": {
             "production": {

@@ -1,14 +1,18 @@
 import {
   Component,
+  computed,
   OnDestroy,
   OnInit,
   ChangeDetectionStrategy,
+  inject,
+  signal,
+  WritableSignal,
 } from '@angular/core';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { BlogPostService } from '../../blog-post/services/blog-post.service';
 import { Subscription } from 'rxjs';
 import { BlogPost } from '../../blog-post/models/blog-post.model';
-import { CommonModule } from '@angular/common';
+import { NgTemplateOutlet } from '@angular/common';
 import { DatePipe } from '@angular/common';
 import { MarkdownComponent } from 'ngx-markdown';
 import {
@@ -28,50 +32,58 @@ import { LoadingOverlayComponent } from '../../../core/loading-overlay/loading-o
 @Component({
   selector: 'app-blog-details',
   imports: [
-    CommonModule,
     DatePipe,
     MarkdownComponent,
     RouterModule,
     ReactiveFormsModule,
     LoadingOverlayComponent,
+    NgTemplateOutlet,
   ],
   templateUrl: './blog-details.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './blog-details.component.css',
 })
 export class BlogDetailsComponent implements OnInit, OnDestroy {
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly blogPostService = inject(BlogPostService);
+  private readonly authService = inject(AuthService);
+
   readonly maxThreadDepth = 10;
   private readonly defaultAvatarPosition = '50% 50% 100%';
   private readonly defaultAvatarZoom = 100;
   private readonly minimumAvatarZoom = 85;
   private readonly maximumAvatarZoom = 170;
   url: string | null = null; // URL handle of the blog post
-  blogPost?: BlogPost; // Loaded blog post
-  comments: BlogComment[] = []; // Comments for the blog post
-  currentUser?: User; // Currently logged-in user
-  isUp = false; // Flag to indicate if the view is scrolled up
-  isBlogPostLoading = true; // Flag to indicate if the blog post is loading
-  isCommentsLoading = false; // Flag to indicate if comments are loading
-  isSubmittingComment = false; // Flag to indicate if a comment is being submitted
-  isSubmittingReply = false; // Flag to indicate if a reply is being submitted
-  activeReplyCommentId?: string; // Comment currently being replied to
-  expandedThreadCommentIds = new Set<string>(); // Comments with expanded reply threads
-  reactingCommentIds = new Set<string>(); // Comments with a pending reaction request
-  deletingCommentIds = new Set<string>(); // Comments with a pending delete request
-  commentError?: string; // Error message for comment actions
-  commentSuccess?: string; // Success message for comment actions
-  commentControl = new FormControl('', {
+  // Signals keep article and discussion updates visible to the OnPush view
+  readonly blogPost = signal<BlogPost | undefined>(undefined); // Loaded blog post
+  readonly comments = signal<BlogComment[]>([]); // Comments for the blog post
+  readonly currentUser = signal<User | undefined>(undefined); // Currently logged-in user
+  readonly isBlogPostLoading = signal(true); // Flag to indicate if the blog post is loading
+  readonly isCommentsLoading = signal(false); // Flag to indicate if comments are loading
+  readonly isSubmittingComment = signal(false); // Flag to indicate if a comment is being submitted
+  readonly isSubmittingReply = signal(false); // Flag to indicate if a reply is being submitted
+  readonly activeReplyCommentId = signal<string | undefined>(undefined); // Comment currently being replied to
+  readonly expandedThreadCommentIds = signal<ReadonlySet<string>>(new Set()); // Comments with expanded reply threads
+  readonly reactingCommentIds = signal<ReadonlySet<string>>(new Set()); // Comments with a pending reaction request
+  readonly deletingCommentIds = signal<ReadonlySet<string>>(new Set()); // Comments with a pending delete request
+  readonly commentError = signal<string | undefined>(undefined); // Error message for comment actions
+  readonly commentSuccess = signal<string | undefined>(undefined); // Success message for comment actions
+  readonly totalCommentCount = computed(() =>
+    this.countComments(this.comments()),
+  );
+  readonly commentControl = new FormControl('', {
     nonNullable: true,
     validators: [Validators.required, Validators.maxLength(2000)],
   });
-  commentForm = new FormGroup({
+  readonly commentForm = new FormGroup({
     comment: this.commentControl,
   });
-  replyControl = new FormControl('', {
+  readonly replyControl = new FormControl('', {
     nonNullable: true,
     validators: [Validators.required, Validators.maxLength(2000)],
   });
-  replyForm = new FormGroup({
+  readonly replyForm = new FormGroup({
     reply: this.replyControl,
   });
 
@@ -81,14 +93,7 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
   private createCommentSubscription?: Subscription; // Subscription for comment creation
   private createReplySubscription?: Subscription; // Subscription for reply creation
   private reactionSubscriptions: Subscription[] = []; // Subscriptions for comment reactions
-  private deleteCommentSubscriptions: Subscription[] = []; // Subscriptions for comment deletion
-
-  constructor(
-    private route: ActivatedRoute, // Inject ActivatedRoute to access route parameters
-    private router: Router, // Inject Router for login navigation
-    private blogPostService: BlogPostService, // Inject BlogPostService for blog post operations
-    private authService: AuthService, // Inject AuthService for current user data
-  ) {}
+  private deleteCommentSubscriptions: Subscription[] = [];
 
   ngOnInit(): void {
     // Scroll to the top of the page smoothly on component initialization
@@ -98,7 +103,7 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
       behavior: 'smooth',
     });
 
-    this.currentUser = this.authService.getUser();
+    this.currentUser.set(this.authService.getUser());
 
     // Subscribe to route parameters to get the URL handle of the blog post
     this.routeSubscription = this.route.paramMap.subscribe({
@@ -114,15 +119,16 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
 
   // Submit a new comment for the blog post
   onSubmitComment(): void {
-    this.commentError = undefined;
-    this.commentSuccess = undefined;
+    this.commentError.set(undefined);
+    this.commentSuccess.set(undefined);
 
-    if (!this.currentUser) {
+    if (!this.currentUser()) {
       this.router.navigate(['/login']);
       return;
     }
 
-    if (!this.blogPost) {
+    const blogPost = this.blogPost();
+    if (!blogPost) {
       return;
     }
 
@@ -139,24 +145,26 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.isSubmittingComment = true;
+    this.isSubmittingComment.set(true);
     this.createCommentSubscription?.unsubscribe();
     this.createCommentSubscription = this.blogPostService
-      .createBlogComment(this.blogPost.id, { content })
+      .createBlogComment(blogPost.id, { content })
       .subscribe({
         next: (comment) => {
-          this.comments = this.sortCommentsByPriority([
-            ...this.comments,
-            this.normalizeComment(comment, 1),
-          ]);
+          this.comments.update((comments) =>
+            this.sortCommentsByPriority([
+              ...comments,
+              this.normalizeComment(comment, 1),
+            ]),
+          );
           this.commentControl.reset('');
-          this.commentSuccess = 'Your comment was posted.';
-          this.isSubmittingComment = false;
-          this.loadComments(this.blogPost!.id);
+          this.commentSuccess.set('Your comment was posted.');
+          this.isSubmittingComment.set(false);
+          this.loadComments(blogPost.id);
         },
         error: () => {
-          this.commentError = 'Unable to post your comment right now.';
-          this.isSubmittingComment = false;
+          this.commentError.set('Unable to post your comment right now.');
+          this.isSubmittingComment.set(false);
         },
       });
   }
@@ -169,11 +177,6 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
   // Report remaining characters for the active reply form
   get remainingReplyCharacters(): number {
     return 2000 - this.replyControl.value.length;
-  }
-
-  // Count top-level comments and every nested reply shown for the article
-  get totalCommentCount(): number {
-    return this.countComments(this.comments);
   }
 
   // Count every reply nested below the selected comment
@@ -192,34 +195,39 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
     comment: BlogComment,
     reaction: Exclude<BlogCommentReaction, null>,
   ): void {
-    this.commentError = undefined;
-    this.commentSuccess = undefined;
+    this.commentError.set(undefined);
+    this.commentSuccess.set(undefined);
 
-    if (!this.currentUser) {
+    if (!this.currentUser()) {
       this.router.navigate(['/login']);
       return;
     }
 
-    if (!this.blogPost || this.reactingCommentIds.has(comment.id)) {
+    const blogPost = this.blogPost();
+    if (!blogPost || this.reactingCommentIds().has(comment.id)) {
       return;
     }
 
-    this.reactingCommentIds.add(comment.id);
+    this.reactingCommentIds.update((commentIds) =>
+      new Set(commentIds).add(comment.id),
+    );
     const subscription = this.blogPostService
-      .toggleBlogCommentReaction(this.blogPost.id, comment.id, reaction)
+      .toggleBlogCommentReaction(blogPost.id, comment.id, reaction)
       .subscribe({
         next: (updatedComment) => {
-          this.comments = this.sortCommentsByPriority(
-            this.updateCommentInTree(
-              this.comments,
-              this.normalizeComment(updatedComment, comment.depth ?? 1),
+          this.comments.update((comments) =>
+            this.sortCommentsByPriority(
+              this.updateCommentInTree(
+                comments,
+                this.normalizeComment(updatedComment, comment.depth ?? 1),
+              ),
             ),
           );
-          this.reactingCommentIds.delete(comment.id);
+          this.removePendingCommentId(this.reactingCommentIds, comment.id);
         },
         error: () => {
-          this.commentError = 'Unable to update your reaction right now.';
-          this.reactingCommentIds.delete(comment.id);
+          this.commentError.set('Unable to update your reaction right now.');
+          this.removePendingCommentId(this.reactingCommentIds, comment.id);
         },
       });
 
@@ -228,52 +236,57 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
 
   // Open one reply form at a time and reset stale reply feedback
   onToggleReplyForm(commentId: string): void {
-    this.commentError = undefined;
-    this.commentSuccess = undefined;
+    this.commentError.set(undefined);
+    this.commentSuccess.set(undefined);
 
-    if (!this.currentUser) {
+    if (!this.currentUser()) {
       this.router.navigate(['/login']);
       return;
     }
 
-    if (this.activeReplyCommentId === commentId) {
+    if (this.activeReplyCommentId() === commentId) {
       this.onCancelReply();
       return;
     }
 
-    const parentComment = this.findCommentById(this.comments, commentId);
+    const parentComment = this.findCommentById(this.comments(), commentId);
     if (!parentComment || !this.canReplyToComment(parentComment)) {
-      this.commentError = `Replies can go up to ${this.maxThreadDepth} comments in a thread.`;
+      this.commentError.set(
+        `Replies can go up to ${this.maxThreadDepth} comments in a thread.`,
+      );
       return;
     }
 
-    this.activeReplyCommentId = commentId;
+    this.activeReplyCommentId.set(commentId);
     this.replyControl.reset('');
   }
 
   // Close the active reply form and discard its unsent content
   onCancelReply(): void {
-    this.activeReplyCommentId = undefined;
+    this.activeReplyCommentId.set(undefined);
     this.replyControl.reset('');
     this.replyControl.setErrors(null);
   }
 
   // Submit a nested reply while enforcing authentication and depth limits
   onSubmitReply(parentComment: BlogComment): void {
-    this.commentError = undefined;
-    this.commentSuccess = undefined;
+    this.commentError.set(undefined);
+    this.commentSuccess.set(undefined);
 
-    if (!this.currentUser) {
+    if (!this.currentUser()) {
       this.router.navigate(['/login']);
       return;
     }
 
-    if (!this.blogPost) {
+    const blogPost = this.blogPost();
+    if (!blogPost) {
       return;
     }
 
     if (!this.canReplyToComment(parentComment)) {
-      this.commentError = `Replies can go up to ${this.maxThreadDepth} comments in a thread.`;
+      this.commentError.set(
+        `Replies can go up to ${this.maxThreadDepth} comments in a thread.`,
+      );
       return;
     }
 
@@ -290,54 +303,56 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.isSubmittingReply = true;
+    this.isSubmittingReply.set(true);
     this.createReplySubscription?.unsubscribe();
     this.createReplySubscription = this.blogPostService
-      .createBlogComment(this.blogPost.id, {
+      .createBlogComment(blogPost.id, {
         content,
         parentCommentId: parentComment.id,
       })
       .subscribe({
         next: (reply) => {
           const nextDepth = (parentComment.depth ?? 1) + 1;
-          this.comments = this.sortCommentsByPriority(
-            this.appendReplyToComment(
-              this.comments,
-              parentComment.id,
-              this.normalizeComment(reply, nextDepth),
+          this.comments.update((comments) =>
+            this.sortCommentsByPriority(
+              this.appendReplyToComment(
+                comments,
+                parentComment.id,
+                this.normalizeComment(reply, nextDepth),
+              ),
             ),
           );
           const topLevelCommentId =
-            this.findTopLevelCommentId(this.comments, parentComment.id) ??
+            this.findTopLevelCommentId(this.comments(), parentComment.id) ??
             parentComment.id;
-          this.expandedThreadCommentIds.add(topLevelCommentId);
-          this.commentSuccess = 'Your reply was posted.';
-          this.isSubmittingReply = false;
+          this.expandedThreadCommentIds.update((commentIds) =>
+            new Set(commentIds).add(topLevelCommentId),
+          );
+          this.commentSuccess.set('Your reply was posted.');
+          this.isSubmittingReply.set(false);
           this.onCancelReply();
-          this.loadComments(this.blogPost!.id);
+          this.loadComments(blogPost.id);
         },
         error: () => {
-          this.commentError = 'Unable to post your reply right now.';
-          this.isSubmittingReply = false;
+          this.commentError.set('Unable to post your reply right now.');
+          this.isSubmittingReply.set(false);
         },
       });
   }
 
   // Disable reaction controls while that comment's request is in flight
   isReacting(commentId: string): boolean {
-    return this.reactingCommentIds.has(commentId);
+    return this.reactingCommentIds().has(commentId);
   }
 
   // Soft-delete the selected comment without removing its replies
   onDeleteComment(comment: BlogComment): void {
-    this.commentError = undefined;
-    this.commentSuccess = undefined;
+    this.commentError.set(undefined);
+    this.commentSuccess.set(undefined);
 
-    if (
-      !this.currentUser ||
-      !this.blogPost ||
-      !this.canDeleteComment(comment)
-    ) {
+    const currentUser = this.currentUser();
+    const blogPost = this.blogPost();
+    if (!currentUser || !blogPost || !this.canDeleteComment(comment)) {
       return;
     }
 
@@ -347,24 +362,29 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.deletingCommentIds.add(comment.id);
+    this.deletingCommentIds.update((commentIds) =>
+      new Set(commentIds).add(comment.id),
+    );
     const subscription = this.blogPostService
-      .deleteBlogComment(this.blogPost.id, comment.id)
+      .deleteBlogComment(blogPost.id, comment.id)
       .subscribe({
         next: (deletedComment) => {
-          this.comments = this.sortCommentsByPriority(
-            this.updateCommentInTree(
-              this.comments,
-              this.normalizeComment(deletedComment, comment.depth ?? 1),
+          this.comments.update((comments) =>
+            this.sortCommentsByPriority(
+              this.updateCommentInTree(
+                comments,
+                this.normalizeComment(deletedComment, comment.depth ?? 1),
+              ),
             ),
           );
-          this.deletingCommentIds.delete(comment.id);
-          this.commentSuccess =
-            'Your comment was deleted. Replies remain visible.';
+          this.removePendingCommentId(this.deletingCommentIds, comment.id);
+          this.commentSuccess.set(
+            'Your comment was deleted. Replies remain visible.',
+          );
         },
         error: () => {
-          this.deletingCommentIds.delete(comment.id);
-          this.commentError = 'Unable to delete this comment right now.';
+          this.removePendingCommentId(this.deletingCommentIds, comment.id);
+          this.commentError.set('Unable to delete this comment right now.');
         },
       });
 
@@ -373,22 +393,25 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
 
   // Disable delete controls while that comment's request is in flight
   isDeletingComment(commentId: string): boolean {
-    return this.deletingCommentIds.has(commentId);
+    return this.deletingCommentIds().has(commentId);
   }
 
   // Expand or collapse the flattened reply thread for a top-level comment
   onToggleThread(commentId: string): void {
-    if (this.expandedThreadCommentIds.has(commentId)) {
-      this.expandedThreadCommentIds.delete(commentId);
+    const expandedCommentIds = new Set(this.expandedThreadCommentIds());
+    if (expandedCommentIds.has(commentId)) {
+      expandedCommentIds.delete(commentId);
+      this.expandedThreadCommentIds.set(expandedCommentIds);
       return;
     }
 
-    this.expandedThreadCommentIds.add(commentId);
+    expandedCommentIds.add(commentId);
+    this.expandedThreadCommentIds.set(expandedCommentIds);
   }
 
   // Check whether the selected top-level thread is currently expanded
   isThreadExpanded(commentId: string): boolean {
-    return this.expandedThreadCommentIds.has(commentId);
+    return this.expandedThreadCommentIds().has(commentId);
   }
 
   // Prevent replies that would exceed the supported nesting depth
@@ -398,11 +421,12 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
 
   // Allow deletion by the author or a writer while protecting deleted entries
   canDeleteComment(comment: BlogComment): boolean {
+    const currentUser = this.currentUser();
     return (
       !comment.isDeleted &&
-      !!this.currentUser &&
-      (comment.authorId === this.currentUser.id ||
-        this.currentUser.roles.includes('Writer'))
+      !!currentUser &&
+      (comment.authorId === currentUser.id ||
+        currentUser.roles.includes('Writer'))
     );
   }
 
@@ -412,7 +436,7 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
       return undefined;
     }
 
-    return this.findCommentById(this.comments, comment.parentCommentId)
+    return this.findCommentById(this.comments(), comment.parentCommentId)
       ?.authorName;
   }
 
@@ -448,50 +472,51 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
 
   // Load the route's article and drive the shared overlay from the request state
   private loadBlogPost(url: string): void {
-    this.isBlogPostLoading = true;
-    this.commentError = undefined;
-    this.commentSuccess = undefined;
+    this.isBlogPostLoading.set(true);
+    this.commentError.set(undefined);
+    this.commentSuccess.set(undefined);
     this.blogPostSubscription?.unsubscribe();
 
     this.blogPostSubscription = this.blogPostService
       .getBlogPostByUrlHandle(url)
       .subscribe({
         next: (blogPost) => {
-          this.blogPost = blogPost;
-          this.isBlogPostLoading = false;
+          this.blogPost.set(blogPost);
+          this.isBlogPostLoading.set(false);
 
           if (blogPost.isVisible) {
             this.loadComments(blogPost.id);
           } else {
-            this.comments = [];
+            this.comments.set([]);
           }
         },
         error: () => {
           // Replace the blocking loader with a readable page-level error
-          this.isBlogPostLoading = false;
-          this.commentError = 'Unable to load this blog post.';
+          this.isBlogPostLoading.set(false);
+          this.commentError.set('Unable to load this blog post.');
         },
       });
   }
 
   // Load comments inline after the article itself is already available to read
   private loadComments(blogPostId: string): void {
-    this.isCommentsLoading = true;
+    this.isCommentsLoading.set(true);
     this.commentsSubscription?.unsubscribe();
 
     this.commentsSubscription = this.blogPostService
       .getCommentsForBlogPost(blogPostId)
       .subscribe({
         next: (comments) => {
-          this.comments = this.sortCommentsByPriority(
+          const normalizedComments = this.sortCommentsByPriority(
             comments.map((comment) => this.normalizeComment(comment, 1)),
           );
-          this.isCommentsLoading = false;
-          this.trimExpandedThreadIds(this.comments);
+          this.comments.set(normalizedComments);
+          this.isCommentsLoading.set(false);
+          this.trimExpandedThreadIds(normalizedComments);
         },
         error: () => {
-          this.commentError = 'Unable to load comments right now.';
-          this.isCommentsLoading = false;
+          this.commentError.set('Unable to load comments right now.');
+          this.isCommentsLoading.set(false);
         },
       });
   }
@@ -622,11 +647,21 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
   // Remove expansion state for top-level comments that are no longer present
   private trimExpandedThreadIds(comments: BlogComment[]): void {
     const validIds = new Set<string>(comments.map((comment) => comment.id));
+    this.expandedThreadCommentIds.update(
+      (commentIds) =>
+        new Set([...commentIds].filter((commentId) => validIds.has(commentId))),
+    );
+  }
 
-    this.expandedThreadCommentIds.forEach((commentId) => {
-      if (!validIds.has(commentId)) {
-        this.expandedThreadCommentIds.delete(commentId);
-      }
+  // Remove one pending action ID by replacing the set so signal consumers are notified
+  private removePendingCommentId(
+    commentIds: WritableSignal<ReadonlySet<string>>,
+    commentId: string,
+  ): void {
+    commentIds.update((currentIds) => {
+      const nextIds = new Set(currentIds);
+      nextIds.delete(commentId);
+      return nextIds;
     });
   }
 

@@ -13,24 +13,24 @@
     </header>
 
     <!-- Save and load feedback messages -->
-    @if (errorMessage) {
+    @if (errorMessage(); as error) {
       <div class="cover-editor-alert cover-editor-alert-error">
-        {{ errorMessage }}
+        {{ error }}
       </div>
     }
-    @if (successMessage) {
+    @if (successMessage(); as success) {
       <div class="cover-editor-alert cover-editor-alert-success">
-        {{ successMessage }}
+        {{ success }}
       </div>
     }
-    @if (isCreatingNewPage) {
+    @if (isCreatingNewPage()) {
       <div class="cover-editor-alert cover-editor-alert-info">
         No Cover page has been published yet. Enter the cover kicker, welcome
         title, and introduction you want visitors to see.
       </div>
     }
 
-    @if (model) {
+    @if (model(); as model) {
       <!-- Cover page editing form with live preview -->
       <form
         class="cover-editor-layout"
@@ -99,7 +99,7 @@
                 class="btn btn-secondary"
                 data-bs-toggle="modal"
                 data-bs-target="#coverBackgroundModal"
-                [disabled]="isRemovingImage || isRemoving"
+                [disabled]="isRemovingImage() || isRemoving()"
               >
                 <i class="bi bi-image" aria-hidden="true"></i>
                 Select image
@@ -108,22 +108,22 @@
                 <button
                   type="button"
                   class="btn btn-outline-danger"
-                  [disabled]="isRemovingImage || isRemoving"
+                  [disabled]="isRemovingImage() || isRemoving()"
                   (click)="onRemoveBackgroundImage()"
                 >
                   <i class="bi bi-image-alt" aria-hidden="true"></i>
-                  {{ isRemovingImage ? "Removing..." : "Remove picture" }}
+                  {{ isRemovingImage() ? 'Removing...' : 'Remove picture' }}
                 </button>
               }
             </div>
           </div>
 
           <div class="cover-editor-actions">
-            @if (!isCreatingNewPage) {
+            @if (!isCreatingNewPage()) {
               <button
                 class="btn btn-outline-danger cover-editor-remove-button"
                 type="button"
-                [disabled]="isSaving || isRemoving || isRemovingImage"
+                [disabled]="isSaving() || isRemoving() || isRemovingImage()"
                 (click)="openRemoveConfirmation()"
               >
                 <i class="bi bi-trash3" aria-hidden="true"></i>
@@ -134,15 +134,15 @@
               class="btn btnPrimary"
               type="submit"
               [disabled]="
-                isSaving || isRemoving || isRemovingImage || form.invalid
+                isSaving() || isRemoving() || isRemovingImage() || form.invalid
               "
             >
               <i class="bi bi-save" aria-hidden="true"></i>
-              {{ isSaving ? "Saving..." : "Save cover page" }}
+              {{ isSaving() ? 'Saving...' : 'Save cover page' }}
             </button>
           </div>
 
-          @if (isRemoveConfirmationOpen) {
+          @if (isRemoveConfirmationOpen()) {
             <!-- Explicit confirmation keeps the published page from being removed accidentally -->
             <div class="cover-editor-remove-confirmation" role="alert">
               <strong>Remove the current cover page?</strong>
@@ -154,7 +154,7 @@
                 <button
                   class="btn btn-outline-secondary"
                   type="button"
-                  [disabled]="isRemoving"
+                  [disabled]="isRemoving()"
                   (click)="closeRemoveConfirmation()"
                 >
                   Cancel
@@ -162,11 +162,11 @@
                 <button
                   class="btn btn-danger"
                   type="button"
-                  [disabled]="isRemoving"
+                  [disabled]="isRemoving()"
                   (click)="onRemoveCoverPage()"
                 >
                   <i class="bi bi-trash3" aria-hidden="true"></i>
-                  {{ isRemoving ? "Removing..." : "Remove cover page" }}
+                  {{ isRemoving() ? 'Removing...' : 'Remove cover page' }}
                 </button>
               </div>
             </div>
@@ -216,7 +216,7 @@
               [step]="backgroundOverlayStrengthStep"
               [value]="previewBackgroundOverlayStrength"
               [disabled]="
-                !previewBackgroundImageUrl || isRemovingImage || isRemoving
+                !previewBackgroundImageUrl || isRemovingImage() || isRemoving()
               "
               (input)="onBackgroundOverlayStrengthChange($event)"
             />
@@ -227,7 +227,7 @@
           </div>
         </section>
       </form>
-    } @else if (!errorMessage) {
+    } @else if (!errorMessage()) {
       <!-- Loading state while the cover page request is pending -->
       <div class="cover-editor-loading">Loading cover page...</div>
     }
@@ -244,5 +244,5 @@
   aria-labelledby="selectModalLabel"
   aria-hidden="true"
 >
-  <app-image-selector imageCategory="CoverPage"></app-image-selector>
+  <app-image-selector imageCategory="CoverPage" />
 </div>

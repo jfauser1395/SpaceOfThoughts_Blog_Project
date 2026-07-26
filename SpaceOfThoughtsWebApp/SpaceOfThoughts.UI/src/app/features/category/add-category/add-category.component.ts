@@ -1,4 +1,9 @@
-import { Component, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  ChangeDetectionStrategy,
+  inject,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AddCategoryRequest } from '../models/add-category-request.model';
 import { CategoryService } from '../services/category.service';
@@ -11,18 +16,18 @@ import { ViewportScroller } from '@angular/common';
   selector: 'app-add-category',
   imports: [FormsModule, RouterModule],
   templateUrl: './add-category.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['./add-category.component.css'],
 })
 export class AddCategoryComponent implements OnDestroy {
+  private readonly categoryService = inject(CategoryService);
+  private readonly router = inject(Router);
+  private readonly viewportScroller = inject(ViewportScroller);
+
   model: AddCategoryRequest; // Model for the add category request
   private addCategorySubscription?: Subscription; // Subscription for the add category request
 
-  constructor(
-    private categoryService: CategoryService, // Inject CategoryService for category operations
-    private router: Router, // Inject Router for navigation
-    private viewportScroller: ViewportScroller, // Inject viewportScroller for scroll control
-  ) {
+  constructor() {
     // Initialize the model with default values
     this.model = {
       name: '',
@@ -31,7 +36,7 @@ export class AddCategoryComponent implements OnDestroy {
   }
 
   // Handle form submission to add a new category
-  onFormSubmit() {
+  onFormSubmit(): void {
     this.addCategorySubscription = this.categoryService
       .addCategory(this.model)
       .subscribe({

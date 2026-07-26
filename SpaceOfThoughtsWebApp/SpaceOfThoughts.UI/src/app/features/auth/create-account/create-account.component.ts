@@ -1,56 +1,73 @@
+import { NgClass } from '@angular/common';
 import {
+  ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   OnDestroy,
   OnInit,
-  ChangeDetectionStrategy,
+  inject,
+  signal,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
-  FormsModule,
-  FormGroup,
   FormControl,
+  FormGroup,
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { AuthService } from '../services/auth.service';
 import { Router, RouterModule } from '@angular/router';
+import { finalize, merge } from 'rxjs';
 import { StyleService } from '../../../../services/style.service';
 import { RegisterRequest } from '../models/register-request.model';
-import { Subscription } from 'rxjs';
+import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-create-account',
-  imports: [CommonModule, FormsModule, RouterModule, ReactiveFormsModule],
+  imports: [RouterModule, ReactiveFormsModule, NgClass],
   templateUrl: './create-account.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './create-account.component.css',
 })
 export class CreateAccountComponent implements OnInit, OnDestroy {
-  private addedUser?: Subscription; // Subscription for adding a user
-  private formSubscription?: Subscription; // Subscription for form value changes
-  signUpForm!: FormGroup; // FormGroup for the sign-up form
-  model: RegisterRequest; // Model to hold form data
-  passwordIsEqual: boolean = false; // Flag to check if passwords are equal
-  passwordErrorMassage: string = ''; // Error message for password mismatch
-  errorTitle: string[] = []; // Array to hold error titles
-  errorTitleEmail: string = ''; // Error message for email
-  errorTitleUserName: string = ''; // Error message for username
-  requestOk: boolean = true; // Flag to check if the request is OK
-  passwordFieldType: string = 'password'; // Type for password field
-  passwordFieldTypeRepeat: string = 'password'; // Type for repeated password field
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly styleService = inject(StyleService);
+  private readonly destroyRef = inject(DestroyRef);
 
-  constructor(
-    private authService: AuthService, // Inject AuthService for authentication
-    private router: Router, // Inject Router for navigation
-    private styleService: StyleService, // Inject StyleService for styling
-  ) {
-    // Initialize the model with empty values
-    this.model = {
-      userName: '',
-      email: '',
-      password: '',
-    };
-  }
+  // Typed, non-nullable controls remove null checks from the registration request
+  readonly signUpForm = new FormGroup({
+    userName: new FormControl('', {
+      nonNullable: true,
+      validators: Validators.required,
+    }),
+    email: new FormControl('', {
+      nonNullable: true,
+      validators: [
+        Validators.required,
+        Validators.email,
+        Validators.pattern('^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,4}$'),
+      ],
+    }),
+    password1: new FormControl('', {
+      nonNullable: true,
+      validators: Validators.required,
+    }),
+    password2: new FormControl('', {
+      nonNullable: true,
+      validators: Validators.required,
+    }),
+  });
+
+  // Signals expose request feedback and password visibility to the OnPush view
+  readonly passwordIsEqual = signal(true);
+  readonly errorTitle = signal<readonly string[]>([]);
+  readonly errorTitleEmail = signal('');
+  readonly errorTitleUserName = signal('');
+  readonly requestOk = signal(true);
+  readonly isSubmitting = signal(false);
+  readonly passwordFieldType = signal<'password' | 'text'>('password');
+  readonly passwordFieldTypeRepeat = signal<'password' | 'text'>('password');
+  readonly passwordErrorMessage = '*Entered passwords do not match';
 
   ngOnInit(): void {
     // Scroll up after loading the component
@@ -60,128 +77,122 @@ export class CreateAccountComponent implements OnInit, OnDestroy {
       behavior: 'smooth',
     });
 
-    // Set the body style to hide overflow
+    // Keep the account card fixed while this full-screen page is active
     this.styleService.setBodyStyle('overflow', 'hidden');
 
-    // Declare and initialize the sign-up form
-    this.signUpForm = new FormGroup({
-      userName: new FormControl(null, Validators.required),
-      email: new FormControl(null, [
-        Validators.required,
-        Validators.email,
-        Validators.pattern('^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,4}$'),
-      ]),
-      password1: new FormControl(null, Validators.required),
-      password2: new FormControl(null, Validators.required),
+    // Clear a previous mismatch as soon as either password is edited
+    merge(
+      this.signUpForm.controls.password1.valueChanges,
+      this.signUpForm.controls.password2.valueChanges,
+    )
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.resetPasswordErrors());
+  }
+
+  // Re-run built-in validators without preserving an old server or mismatch error
+  resetPasswordErrors(): void {
+    this.passwordIsEqual.set(true);
+    this.signUpForm.controls.password1.updateValueAndValidity({
+      emitEvent: false,
     });
-
-    // Subscribe to valueChanges observable for password fields to reset email errors
-    this.formSubscription = this.signUpForm
-      .get('password1')
-      ?.valueChanges.subscribe(() => {
-        this.resetEmailError();
-      });
-
-    this.formSubscription?.add(
-      this.signUpForm.get('password2')?.valueChanges.subscribe(() => {
-        this.resetEmailError();
-      }),
-    );
+    this.signUpForm.controls.password2.updateValueAndValidity({
+      emitEvent: false,
+    });
   }
 
-  // Reset form errors for password fields
-  resetEmailError(): void {
-    this.signUpForm.get('password1')?.setErrors(null);
-    this.signUpForm.get('password2')?.setErrors(null);
-  }
+  // Validate credentials, register the account, and use the returned login session
+  onFormSubmit(): void {
+    const { userName, email, password1, password2 } =
+      this.signUpForm.getRawValue();
 
-  onFormSubmit() {
-    // Check password equality
-    if (
-      this.signUpForm.get('password1')?.value ===
-        this.signUpForm.get('password2')?.value &&
-      this.signUpForm.get('password1')?.value != ''
-    ) {
-      // Check form validity
-      if (this.signUpForm.valid) {
-        this.model.userName = this.signUpForm.get('userName')?.value;
-        this.model.email = this.signUpForm.get('email')?.value;
-        this.model.password = this.signUpForm.get('password1')?.value;
-        this.passwordIsEqual = true;
+    // Check password equality before calling the API
+    if (password1 === password2 && password1 !== '') {
+      if (!this.signUpForm.valid) {
+        this.signUpForm.markAllAsTouched();
+        return;
+      }
 
-        // Register the new user
-        this.addedUser = this.authService.register(this.model).subscribe({
+      const model: RegisterRequest = {
+        userName,
+        email,
+        password: password1,
+      };
+      this.passwordIsEqual.set(true);
+      this.isSubmitting.set(true);
+
+      // Register the user and retain the authenticated response from the API
+      this.authService
+        .register(model)
+        .pipe(
+          finalize(() => this.isSubmitting.set(false)),
+          takeUntilDestroyed(this.destroyRef),
+        )
+        .subscribe({
           next: (response) => {
-            // Store the returned user details; the API has already set the HttpOnly auth cookie
+            // The API has already set the HttpOnly cookie for this new account
             this.authService.setUserFromLoginResponse(response);
             void this.router.navigateByUrl('/', { replaceUrl: true });
           },
           error: (error) => {
-            // Handle registration errors
-            this.requestOk = error.ok;
-            this.errorTitleUserName = error.error.errors['userName'];
-            this.errorTitleEmail = error.error.errors['email'];
-            this.errorTitle = [];
+            // Map API validation details back to their matching form controls
+            this.requestOk.set(error.ok);
+            const errors = (error.error?.errors ?? {}) as Record<
+              string,
+              string[]
+            >;
+            this.errorTitleUserName.set(errors['userName']?.[0] ?? '');
+            this.errorTitleEmail.set(errors['email']?.[0] ?? '');
+            this.errorTitle.set(Object.values(errors).flat());
 
-            // Iterate through the error object and collect error messages
-            for (let key in error.error.errors) {
-              if (error.error.errors.hasOwnProperty(key)) {
-                this.errorTitle.push(error.error.errors[key]);
+            for (const key in errors) {
+              if (!Object.prototype.hasOwnProperty.call(errors, key)) {
+                continue;
               }
-            }
 
-            // Check which field caused the error and set custom errors on the form controls
-            const errorObj = error.error.errors;
-            for (const key in errorObj) {
-              if (errorObj.hasOwnProperty(key)) {
-                if (key === 'email') {
-                  this.signUpForm
-                    .get('email')
-                    ?.setErrors({ customError: true });
-                } else if (key === 'userName') {
-                  this.signUpForm
-                    .get('userName')
-                    ?.setErrors({ customError: true });
-                } else {
-                  this.signUpForm
-                    .get('password1')
-                    ?.setErrors({ customError: true });
-                  this.signUpForm
-                    .get('password2')
-                    ?.setErrors({ customError: true });
-                }
+              if (key === 'email') {
+                this.signUpForm.controls.email.setErrors({
+                  customError: true,
+                });
+              } else if (key === 'userName') {
+                this.signUpForm.controls.userName.setErrors({
+                  customError: true,
+                });
+              } else {
+                this.signUpForm.controls.password1.setErrors({
+                  customError: true,
+                });
+                this.signUpForm.controls.password2.setErrors({
+                  customError: true,
+                });
               }
             }
           },
         });
-      } else {
-        this.signUpForm.markAllAsTouched(); // Mark all form controls as touched if the form is invalid
-      }
-    } else {
-      // Handle password mismatch
-      this.passwordIsEqual = false;
-      this.signUpForm.get('password1')?.setErrors({ customError: true });
-      this.signUpForm.get('password2')?.setErrors({ customError: true });
-      this.passwordErrorMassage = '*Entered passwords do not match'; // Set password error message
+      return;
     }
+
+    // Mark both password controls when their values do not match
+    this.passwordIsEqual.set(false);
+    this.signUpForm.controls.password1.setErrors({ customError: true });
+    this.signUpForm.controls.password2.setErrors({ customError: true });
   }
 
   // Toggle the visibility of the password field
-  togglePasswordVisibility() {
-    this.passwordFieldType =
-      this.passwordFieldType === 'password' ? 'text' : 'password';
+  togglePasswordVisibility(): void {
+    this.passwordFieldType.update((type) =>
+      type === 'password' ? 'text' : 'password',
+    );
   }
 
   // Toggle the visibility of the repeated password field
-  togglePasswordVisibilityRepeat() {
-    this.passwordFieldTypeRepeat =
-      this.passwordFieldTypeRepeat === 'password' ? 'text' : 'password';
+  togglePasswordVisibilityRepeat(): void {
+    this.passwordFieldTypeRepeat.update((type) =>
+      type === 'password' ? 'text' : 'password',
+    );
   }
 
-  // Unsubscribe form subscriptions to prevent memory leaks
+  // Restore the page-level body style when the account screen closes
   ngOnDestroy(): void {
-    this.addedUser?.unsubscribe();
-    this.formSubscription?.unsubscribe();
     this.styleService.removeBodyStyle('overflow');
   }
 }

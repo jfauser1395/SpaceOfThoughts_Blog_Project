@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { PrivateImage } from '../models/private-image.model';
@@ -8,9 +8,9 @@ import { PrivateImage } from '../models/private-image.model';
   providedIn: 'root',
 })
 export class PrivateMediaService {
-  private readonly privateImagesUrl = `${environment.apiBaseUrl}/api/Images/private`;
+  private http = inject(HttpClient);
 
-  constructor(private http: HttpClient) {}
+  private readonly privateImagesUrl = `${environment.apiBaseUrl}/api/Images/private`;
 
   // Return metadata without exposing the server's physical storage path.
   getImages(): Observable<PrivateImage[]> {

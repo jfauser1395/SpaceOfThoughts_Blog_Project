@@ -812,6 +812,7 @@ namespace SpaceOfThoughts.API.Controllers
         // Keep the JWT unavailable to JavaScript while allowing the browser to send it to the API.
         private void SetAuthorizationCookie(string token, DateTimeOffset expiresAt)
         {
+            DeleteLegacyRootAuthorizationCookie();
             Response.Cookies.Append(
                 JwtCookieDefaults.Name,
                 token,
@@ -826,6 +827,7 @@ namespace SpaceOfThoughts.API.Controllers
                 JwtCookieDefaults.Name,
                 CreateAuthorizationCookieOptions(DateTimeOffset.UnixEpoch)
             );
+            DeleteLegacyRootAuthorizationCookie();
         }
 
         private CookieOptions CreateAuthorizationCookieOptions(DateTimeOffset expires)
@@ -835,12 +837,29 @@ namespace SpaceOfThoughts.API.Controllers
                 HttpOnly = true,
                 Secure = true,
                 SameSite = webHostEnvironment.IsDevelopment()
-                    ? SameSiteMode.None
+                    ? SameSiteMode.Lax
                     : SameSiteMode.Strict,
-                Path = "/",
+                Path = "/api",
                 Expires = expires,
                 IsEssential = true
             };
+        }
+
+        // Remove cookies created before authentication was restricted to API routes.
+        private void DeleteLegacyRootAuthorizationCookie()
+        {
+            Response.Cookies.Delete(
+                JwtCookieDefaults.Name,
+                new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = webHostEnvironment.IsDevelopment()
+                        ? SameSiteMode.Lax
+                        : SameSiteMode.Strict,
+                    Path = "/"
+                }
+            );
         }
 
         // Build the administrative user payload with roles, profile data, and ban state

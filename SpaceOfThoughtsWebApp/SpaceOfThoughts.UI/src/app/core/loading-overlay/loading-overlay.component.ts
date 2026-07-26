@@ -2,30 +2,31 @@ import { DOCUMENT } from '@angular/common';
 import {
   Component,
   inject,
-  Input,
   OnChanges,
   OnDestroy,
   SimpleChanges,
   ChangeDetectionStrategy,
+  input,
+  signal,
 } from '@angular/core';
 
 @Component({
   selector: 'app-loading-overlay',
   templateUrl: './loading-overlay.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './loading-overlay.component.css',
 })
 export class LoadingOverlayComponent implements OnChanges, OnDestroy {
   // Loading is controlled by the public page that owns the current API request
-  @Input({ required: true }) loading = false;
+  readonly loading = input.required<boolean>();
 
   // The cover page already manages its own full-screen body overflow
-  @Input() lockPageScroll = true;
+  readonly lockPageScroll = input(true);
 
-  // Presentation state shared by every page that uses the overlay
-  isVisible = false;
-  isLeaving = false;
-  hasConnectionTimedOut = false;
+  // Signals notify the OnPush view when timer-driven presentation state changes
+  readonly isVisible = signal(false);
+  readonly isLeaving = signal(false);
+  readonly hasConnectionTimedOut = signal(false);
 
   // Shared timings keep loader behavior consistent and avoid flashes on quick requests
   private readonly document = inject(DOCUMENT);
@@ -48,7 +49,7 @@ export class LoadingOverlayComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    if (this.loading) {
+    if (this.loading()) {
       this.beginLoading();
       return;
     }
@@ -67,19 +68,19 @@ export class LoadingOverlayComponent implements OnChanges, OnDestroy {
   // Delay the overlay so fast API responses do not produce a distracting flash
   private beginLoading(): void {
     this.clearLoadingHideTimer();
-    this.isLeaving = false;
-    this.hasConnectionTimedOut = false;
+    this.isLeaving.set(false);
+    this.hasConnectionTimedOut.set(false);
     this.startConnectionTimer();
 
-    if (this.isVisible || this.loadingDelayTimeoutId) {
+    if (this.isVisible() || this.loadingDelayTimeoutId) {
       return;
     }
 
     this.loadingDelayTimeoutId = setTimeout(() => {
       this.loadingDelayTimeoutId = undefined;
 
-      if (this.loading) {
-        this.isVisible = true;
+      if (this.loading()) {
+        this.isVisible.set(true);
         this.lockDocumentScroll();
       }
     }, this.delayedLoaderMs);
@@ -89,21 +90,21 @@ export class LoadingOverlayComponent implements OnChanges, OnDestroy {
   private finishLoading(): void {
     this.clearLoadingDelayTimer();
     this.clearConnectionTimer();
-    this.hasConnectionTimedOut = false;
+    this.hasConnectionTimedOut.set(false);
 
-    if (!this.isVisible) {
+    if (!this.isVisible()) {
       this.unlockPageScroll();
       return;
     }
 
-    if (this.isLeaving) {
+    if (this.isLeaving()) {
       return;
     }
 
-    this.isLeaving = true;
+    this.isLeaving.set(true);
     this.loadingHideTimeoutId = setTimeout(() => {
-      this.isVisible = false;
-      this.isLeaving = false;
+      this.isVisible.set(false);
+      this.isLeaving.set(false);
       this.loadingHideTimeoutId = undefined;
       this.unlockPageScroll();
     }, this.loadingTransitionMs);
@@ -113,8 +114,8 @@ export class LoadingOverlayComponent implements OnChanges, OnDestroy {
   private startConnectionTimer(): void {
     this.clearConnectionTimer();
     this.connectionTimeoutId = setTimeout(() => {
-      if (this.loading) {
-        this.hasConnectionTimedOut = true;
+      if (this.loading()) {
+        this.hasConnectionTimedOut.set(true);
       }
 
       this.connectionTimeoutId = undefined;
@@ -153,7 +154,7 @@ export class LoadingOverlayComponent implements OnChanges, OnDestroy {
 
   // Prevent the page behind a visible overlay from scrolling
   private lockDocumentScroll(): void {
-    if (!this.lockPageScroll || this.isScrollLocked) {
+    if (!this.lockPageScroll() || this.isScrollLocked) {
       return;
     }
 

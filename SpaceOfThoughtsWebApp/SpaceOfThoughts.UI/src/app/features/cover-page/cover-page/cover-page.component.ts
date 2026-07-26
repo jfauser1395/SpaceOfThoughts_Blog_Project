@@ -1,10 +1,13 @@
-import { CommonModule } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   Component,
   OnDestroy,
   OnInit,
   ChangeDetectionStrategy,
+  computed,
+  inject,
+  signal,
 } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -20,22 +23,53 @@ import { ThemeService } from '../../../core/theme/theme.service';
 
 @Component({
   selector: 'app-cover-page',
-  imports: [CommonModule, RouterModule, LoadingOverlayComponent],
+  imports: [RouterModule, LoadingOverlayComponent, DatePipe],
   templateUrl: './cover-page.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './cover-page.component.css',
 })
 export class CoverPageComponent implements OnInit, OnDestroy {
-  // Cover page content loaded from the API
-  coverPage?: CoverPage;
-  isLoading = true; // Flag for the required cover page API content
-  isNotPublished = false; // Flag for a missing persisted Cover page
-  isCoverImageLoading = false; // Flag for an optional hero image that must be ready before reveal
-  user?: User;
-  blogPreviewPosts: BlogPost[] = [];
-  activeBlogPreviewIndex = 0;
+  private readonly coverPageService = inject(CoverPageService);
+  private readonly blogPostService = inject(BlogPostService);
+  private readonly styleService = inject(StyleService);
+  private readonly authService = inject(AuthService);
+  readonly themeService = inject(ThemeService);
+
+  // Signals keep API, image, authentication, and carousel updates visible to OnPush
+  readonly coverPage = signal<CoverPage | undefined>(undefined);
+  readonly isLoading = signal(true); // Flag for the required cover page API content
+  readonly isNotPublished = signal(false); // Flag for a missing persisted Cover page
+  readonly isCoverImageLoading = signal(false); // Flag for an optional hero image that must be ready before reveal
+  readonly user = signal<User | undefined>(undefined);
+  readonly blogPreviewPosts = signal<BlogPost[]>([]);
+  readonly activeBlogPreviewIndex = signal(0);
   private readonly visibleBlogPreviewCount = 3;
-  backgroundImageUrl?: string;
+  readonly backgroundImageUrl = signal<string | undefined>(undefined);
+
+  // Derived signals recalculate only when their source state changes
+  readonly isPageLoading = computed(
+    () => this.isLoading() || this.isCoverImageLoading(),
+  );
+  readonly activeBlogPreviewPosition = computed(() => {
+    const blogPreviewPosts = this.blogPreviewPosts();
+    return blogPreviewPosts.length === 0
+      ? 0
+      : this.activeBlogPreviewIndex() + 1;
+  });
+  readonly visibleBlogPreviews = computed(() => {
+    const blogPreviewPosts = this.blogPreviewPosts();
+
+    if (blogPreviewPosts.length <= this.visibleBlogPreviewCount) {
+      return blogPreviewPosts;
+    }
+
+    return Array.from({ length: this.visibleBlogPreviewCount }, (_, offset) => {
+      const previewIndex =
+        (this.activeBlogPreviewIndex() + offset) % blogPreviewPosts.length;
+      return blogPreviewPosts[previewIndex];
+    });
+  });
+
   private backgroundImageLoadId = 0;
   private coverPageRetryTimeoutId?: number;
   private blogPreviewRetryTimeoutId?: number;
@@ -43,14 +77,6 @@ export class CoverPageComponent implements OnInit, OnDestroy {
   private coverPageSubscription?: Subscription;
   private blogPreviewSubscription?: Subscription;
   private userSubscription?: Subscription;
-
-  constructor(
-    private coverPageService: CoverPageService,
-    private blogPostService: BlogPostService,
-    private styleService: StyleService,
-    private authService: AuthService,
-    public readonly themeService: ThemeService,
-  ) {}
 
   ngOnInit(): void {
     // Set full-screen body styles for the immersive cover page
@@ -61,40 +87,15 @@ export class CoverPageComponent implements OnInit, OnDestroy {
 
     window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
     // Get the current user so the cover page can show a personal greeting
-    this.user = this.authService.getUser();
+    this.user.set(this.authService.getUser());
     this.userSubscription = this.authService.user().subscribe({
       next: (user) => {
-        this.user = user ?? this.authService.getUser();
+        this.user.set(user ?? this.authService.getUser());
       },
     });
 
     this.loadCoverPage();
     this.loadBlogPreviews();
-  }
-
-  // Keep the shared loader visible until both required cover resources are ready
-  get isPageLoading(): boolean {
-    return this.isLoading || this.isCoverImageLoading;
-  }
-
-  // Current position text for the blog preview carousel
-  get activeBlogPreviewPosition(): number {
-    return this.blogPreviewPosts.length === 0
-      ? 0
-      : this.activeBlogPreviewIndex + 1;
-  }
-
-  // Get the visible window of blog preview cards from the shuffled list
-  get visibleBlogPreviews(): BlogPost[] {
-    if (this.blogPreviewPosts.length <= this.visibleBlogPreviewCount) {
-      return this.blogPreviewPosts;
-    }
-
-    return Array.from({ length: this.visibleBlogPreviewCount }, (_, offset) => {
-      const previewIndex =
-        (this.activeBlogPreviewIndex + offset) % this.blogPreviewPosts.length;
-      return this.blogPreviewPosts[previewIndex];
-    });
   }
 
   ngOnDestroy(): void {
@@ -115,15 +116,15 @@ export class CoverPageComponent implements OnInit, OnDestroy {
 
   // Load cover page content and retry if the API is temporarily unavailable
   private loadCoverPage(): void {
-    this.isLoading = true;
-    this.isNotPublished = false;
+    this.isLoading.set(true);
+    this.isNotPublished.set(false);
     this.clearCoverPageRetry();
     this.coverPageSubscription?.unsubscribe();
     this.coverPageSubscription = this.coverPageService
       .getCoverPage()
       .subscribe({
         next: (coverPage) => {
-          this.coverPage = coverPage;
+          this.coverPage.set(coverPage);
           const backgroundImageUrl = coverPage.backgroundImageUrl?.trim();
           if (backgroundImageUrl) {
             this.preloadBackgroundImage(backgroundImageUrl);
@@ -131,15 +132,15 @@ export class CoverPageComponent implements OnInit, OnDestroy {
             // A removed image intentionally leaves the dark cover background blank
             this.clearBackgroundImage();
           }
-          this.isLoading = false;
+          this.isLoading.set(false);
         },
         error: (error: HttpErrorResponse) => {
           if (error.status === 404) {
             // Stop loading when the administrator has not published Cover content yet
-            this.coverPage = undefined;
-            this.isNotPublished = true;
+            this.coverPage.set(undefined);
+            this.isNotPublished.set(true);
             this.clearBackgroundImage();
-            this.isLoading = false;
+            this.isLoading.set(false);
             return;
           }
 
@@ -159,10 +160,10 @@ export class CoverPageComponent implements OnInit, OnDestroy {
       .getAllBlogPosts(undefined, 'publishedDate', 'desc')
       .subscribe({
         next: (blogs) => {
-          this.blogPreviewPosts = this.shuffleBlogs(
-            blogs.filter((blog) => blog.isVisible),
+          this.blogPreviewPosts.set(
+            this.shuffleBlogs(blogs.filter((blog) => blog.isVisible)),
           );
-          this.activeBlogPreviewIndex = 0;
+          this.activeBlogPreviewIndex.set(0);
           this.startBlogPreviewCarousel();
         },
         error: () => {
@@ -186,7 +187,7 @@ export class CoverPageComponent implements OnInit, OnDestroy {
   private startBlogPreviewCarousel(): void {
     this.clearBlogPreviewCarousel();
 
-    if (this.blogPreviewPosts.length < 2) {
+    if (this.blogPreviewPosts().length < 2) {
       return;
     }
 
@@ -197,15 +198,15 @@ export class CoverPageComponent implements OnInit, OnDestroy {
 
   // Pick a new blog preview without repeating the currently active card
   private showRandomBlogPreview(): void {
-    if (this.blogPreviewPosts.length < 2) {
+    const blogPreviewPosts = this.blogPreviewPosts();
+    if (blogPreviewPosts.length < 2) {
       return;
     }
 
-    const nextIndex = Math.floor(
-      Math.random() * (this.blogPreviewPosts.length - 1),
+    const nextIndex = Math.floor(Math.random() * (blogPreviewPosts.length - 1));
+    this.activeBlogPreviewIndex.update((activeIndex) =>
+      nextIndex >= activeIndex ? nextIndex + 1 : nextIndex,
     );
-    this.activeBlogPreviewIndex =
-      nextIndex >= this.activeBlogPreviewIndex ? nextIndex + 1 : nextIndex;
   }
 
   // Clear the blog preview carousel timer
@@ -242,14 +243,14 @@ export class CoverPageComponent implements OnInit, OnDestroy {
   // Preload the background image before revealing it in the cover hero
   private preloadBackgroundImage(imageUrl: string): void {
     const loadId = ++this.backgroundImageLoadId;
-    this.isCoverImageLoading = true;
+    this.isCoverImageLoading.set(true);
 
     const image = new Image();
     image.onload = () => {
       // Ignore older image loads that finish after a newer image request
       if (loadId === this.backgroundImageLoadId) {
-        this.backgroundImageUrl = imageUrl;
-        this.isCoverImageLoading = false;
+        this.backgroundImageUrl.set(imageUrl);
+        this.isCoverImageLoading.set(false);
       }
     };
     image.onerror = () => {
@@ -264,7 +265,7 @@ export class CoverPageComponent implements OnInit, OnDestroy {
   // Clear the optional cover image and invalidate any older image preload
   private clearBackgroundImage(): void {
     this.backgroundImageLoadId++;
-    this.backgroundImageUrl = undefined;
-    this.isCoverImageLoading = false;
+    this.backgroundImageUrl.set(undefined);
+    this.isCoverImageLoading.set(false);
   }
 }

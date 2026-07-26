@@ -28,18 +28,18 @@
             @if (
               signUpForm.get('userName')?.invalid &&
               signUpForm.get('userName')?.touched &&
-              !errorTitleUserName
+              !errorTitleUserName()
             ) {
               <small class="text-danger justify-content-start mt-2">
                 *This field is required
               </small>
             } @else if (
               signUpForm.get('userName')?.invalid &&
-              !requestOk &&
-              errorTitleUserName
+              !requestOk() &&
+              errorTitleUserName()
             ) {
               <small class="text-danger justify-content-start mt-2">
-                *{{ this.errorTitleUserName }}
+                *{{ errorTitleUserName() }}
               </small>
             }
           </div>
@@ -58,16 +58,18 @@
             @if (
               signUpForm.get('email')?.invalid &&
               signUpForm.get('email')?.touched &&
-              !errorTitleEmail
+              !errorTitleEmail()
             ) {
               <small class="text-danger justify-content-start mt-2">
                 *This field is required
               </small>
             } @else if (
-              signUpForm.get('email')?.invalid && !requestOk && errorTitleEmail
+              signUpForm.get('email')?.invalid &&
+              !requestOk() &&
+              errorTitleEmail()
             ) {
               <small class="text-danger justify-content-start mt-2">
-                *{{ this.errorTitleEmail }}
+                *{{ errorTitleEmail() }}
               </small>
             }
           </div>
@@ -76,7 +78,7 @@
             <label for="password1" class="form-label">Password</label>
             <div class="custom-input-group">
               <input
-                [type]="passwordFieldType"
+                [type]="passwordFieldType()"
                 class="form-control"
                 id="password1"
                 name="password1"
@@ -92,7 +94,7 @@
               >
                 <i
                   [ngClass]="
-                    passwordFieldType === 'password'
+                    passwordFieldType() === 'password'
                       ? 'bi bi-eye'
                       : 'bi bi-eye-slash'
                   "
@@ -103,7 +105,7 @@
             @if (
               signUpForm.get('password1')?.invalid &&
               signUpForm.get('password1')?.touched &&
-              errorTitle.length === 0
+              errorTitle().length === 0
             ) {
               <small class="text-danger justify-content-start mt-2">
                 *This field is required
@@ -111,12 +113,12 @@
               <br />
             }
             @if (
-              !passwordIsEqual &&
+              !passwordIsEqual() &&
               signUpForm.get('password1')?.invalid &&
               signUpForm.get('password2')?.invalid
             ) {
               <small class="text-danger justify-content-start mt-2">
-                {{ this.passwordErrorMassage }}
+                {{ passwordErrorMessage }}
               </small>
             }
           </div>
@@ -125,7 +127,7 @@
             <label for="password2" class="form-label">Repeat password</label>
             <div class="custom-input-group">
               <input
-                [type]="passwordFieldTypeRepeat"
+                [type]="passwordFieldTypeRepeat()"
                 class="form-control custom-form-control"
                 id="password2"
                 name="password2"
@@ -141,7 +143,7 @@
               >
                 <i
                   [ngClass]="
-                    passwordFieldTypeRepeat === 'password'
+                    passwordFieldTypeRepeat() === 'password'
                       ? 'bi bi-eye'
                       : 'bi bi-eye-slash'
                   "
@@ -152,7 +154,7 @@
             @if (
               signUpForm.get('password2')?.invalid &&
               signUpForm.get('password2')?.touched &&
-              errorTitle.length === 0
+              errorTitle().length === 0
             ) {
               <small class="text-danger justify-content-start mt-2">
                 *This field is required
@@ -160,25 +162,25 @@
               <br />
             }
             @if (
-              !passwordIsEqual &&
+              !passwordIsEqual() &&
               signUpForm.get('password1')?.invalid &&
               signUpForm.get('password2')?.invalid
             ) {
               <small class="text-danger justify-content-start mt-2">
-                {{ this.passwordErrorMassage }}
+                {{ passwordErrorMessage }}
               </small>
             }
           </div>
           @if (
-            errorTitle &&
+            errorTitle().length > 0 &&
             signUpForm.get('password1')?.invalid &&
             signUpForm.get('password2')?.invalid &&
             signUpForm.get('userName')?.valid &&
             signUpForm.get('email')?.valid &&
-            passwordIsEqual
+            passwordIsEqual()
           ) {
             <div class="mt-2">
-              @for (error of errorTitle; track error) {
+              @for (error of errorTitle(); track error) {
                 <small class="text-danger justify-content-start mt-2">
                   *{{ error }}
                 </small>
@@ -192,8 +194,9 @@
               type="submit"
               class="btn btnPrimary form-control mt-4"
               name="create account"
+              [disabled]="isSubmitting()"
             >
-              Create account
+              {{ isSubmitting() ? 'Creating account...' : 'Create account' }}
             </button>
           </div>
           <!-- Link to the login page -->

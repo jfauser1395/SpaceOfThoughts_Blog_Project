@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { BlogImage } from '../../models/blog-image.model';
 import { HttpClient, HttpParams } from '@angular/common/http';
@@ -12,6 +12,8 @@ export type PublicImageCategory = 'Blog' | 'CoverPage' | 'AboutPage';
   providedIn: 'root', // This service will be provided at the root level
 })
 export class ImageService {
+  private http = inject(HttpClient);
+
   // BehaviorSubject to store and emit the selected image
   selectedImage: BehaviorSubject<BlogImage> = new BehaviorSubject<BlogImage>({
     id: '',
@@ -21,8 +23,6 @@ export class ImageService {
     dateCreated: '',
     url: '',
   });
-
-  constructor(private http: HttpClient) {}
 
   // Get all images with optional sorting
   getAllImages(

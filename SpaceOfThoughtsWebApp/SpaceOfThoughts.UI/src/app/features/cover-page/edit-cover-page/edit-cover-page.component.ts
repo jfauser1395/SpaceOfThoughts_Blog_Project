@@ -1,11 +1,14 @@
-import { CommonModule, ViewportScroller } from '@angular/common';
+import { ViewportScroller } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
-  Component,
-  OnDestroy,
-  OnInit,
   ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  inject,
+  signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -16,81 +19,87 @@ import { UpdateCoverPage } from '../models/update-cover-page.model';
 
 @Component({
   selector: 'app-edit-cover-page',
-  imports: [CommonModule, FormsModule, RouterModule, ImageSelectorComponent],
+  imports: [FormsModule, RouterModule, ImageSelectorComponent],
   templateUrl: './edit-cover-page.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './edit-cover-page.component.css',
 })
-export class EditCoverPageComponent implements OnInit, OnDestroy {
-  // Editable cover page model shown in the form and preview
-  model?: UpdateCoverPage;
-  isCreatingNewPage = false;
-  isSaving = false;
-  isRemoving = false;
-  isRemovingImage = false;
-  isRemoveConfirmationOpen = false;
-  errorMessage?: string;
-  successMessage?: string;
+export class EditCoverPageComponent implements OnInit {
+  private readonly coverPageService = inject(CoverPageService);
+  private readonly imageService = inject(ImageService);
+  private readonly viewportScroller = inject(ViewportScroller);
+  private readonly destroyRef = inject(DestroyRef);
+
+  // Signals notify the OnPush editor after API and image-library updates
+  readonly model = signal<UpdateCoverPage | undefined>(undefined);
+  readonly isCreatingNewPage = signal(false);
+  readonly isSaving = signal(false);
+  readonly isRemoving = signal(false);
+  readonly isRemovingImage = signal(false);
+  readonly isRemoveConfirmationOpen = signal(false);
+  readonly errorMessage = signal<string | undefined>(undefined);
+  readonly successMessage = signal<string | undefined>(undefined);
   readonly minimumBackgroundOverlayStrength = 0;
   readonly maximumBackgroundOverlayStrength = 100;
   readonly backgroundOverlayStrengthStep = 1;
-  private coverPageSubscription?: Subscription;
   private updateCoverPageSubscription?: Subscription;
   private deleteCoverPageSubscription?: Subscription;
   private removeBackgroundImageSubscription?: Subscription;
-  private imageSelectSubscription?: Subscription;
-
-  constructor(
-    private coverPageService: CoverPageService,
-    private imageService: ImageService,
-    private viewportScroller: ViewportScroller,
-  ) {}
 
   ngOnInit(): void {
     // Load the saved cover page content
-    this.coverPageSubscription = this.coverPageService
+    this.coverPageService
       .getCoverPage()
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (coverPage) => {
-          this.model = {
+          this.model.set({
             ...coverPage,
             backgroundOverlayStrength: this.normalizeBackgroundOverlayStrength(
               coverPage.backgroundOverlayStrength,
             ),
-          };
-          this.isCreatingNewPage = false;
+          });
+          this.isCreatingNewPage.set(false);
         },
         error: (error: HttpErrorResponse) => {
           if (error.status === 404) {
             // Start with empty fields when no Cover page has been published yet
-            this.model = this.createBlankCoverPage();
-            this.isCreatingNewPage = true;
+            this.model.set(this.createBlankCoverPage());
+            this.isCreatingNewPage.set(true);
             return;
           }
 
-          this.errorMessage = 'Unable to load the cover page.';
+          this.errorMessage.set('Unable to load the cover page.');
         },
       });
 
     // Listen for image selections from the shared image selector modal
-    this.imageSelectSubscription = this.imageService.onSelectImage().subscribe({
-      next: (selectedImage) => {
-        if (this.model && selectedImage.url) {
-          this.model.backgroundImageUrl = selectedImage.url;
-        }
-      },
-    });
+    this.imageService
+      .onSelectImage()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (selectedImage) => {
+          if (selectedImage.url) {
+            // Replace the model so the signal refreshes the live preview
+            this.model.update((model) =>
+              model
+                ? { ...model, backgroundImageUrl: selectedImage.url }
+                : model,
+            );
+          }
+        },
+      });
   }
 
   // Return the selected background URL or no image for a deliberately blank page
   get previewBackgroundImageUrl(): string | null {
-    return this.model?.backgroundImageUrl?.trim() || null;
+    return this.model()?.backgroundImageUrl?.trim() || null;
   }
 
   // Keep the live preview and saved request inside the supported overlay range
   get previewBackgroundOverlayStrength(): number {
     return this.normalizeBackgroundOverlayStrength(
-      this.model?.backgroundOverlayStrength,
+      this.model()?.backgroundOverlayStrength,
     );
   }
 
@@ -101,65 +110,76 @@ export class EditCoverPageComponent implements OnInit, OnDestroy {
 
   // Update the draft immediately while the user moves the overlay scale
   onBackgroundOverlayStrengthChange(event: Event): void {
-    if (!this.model) {
+    if (!this.model()) {
       return;
     }
 
     const input = event.target as HTMLInputElement;
-    this.model.backgroundOverlayStrength =
-      this.normalizeBackgroundOverlayStrength(input.value);
+    this.model.update((model) =>
+      model
+        ? {
+            ...model,
+            backgroundOverlayStrength: this.normalizeBackgroundOverlayStrength(
+              input.value,
+            ),
+          }
+        : model,
+    );
   }
 
   // Handle form submission to update the cover page
   onFormSubmit(): void {
-    if (this.isRemoving || this.isRemovingImage) {
+    if (this.isRemoving() || this.isRemovingImage()) {
       return;
     }
 
-    this.errorMessage = undefined;
-    this.successMessage = undefined;
+    this.errorMessage.set(undefined);
+    this.successMessage.set(undefined);
+    const model = this.model();
 
     // Validate required cover page copy before saving
     if (
-      !this.model?.kicker.trim() ||
-      !this.model.welcomeTitle.trim() ||
-      !this.model.introduction.trim()
+      !model?.kicker.trim() ||
+      !model.welcomeTitle.trim() ||
+      !model.introduction.trim()
     ) {
-      this.errorMessage =
-        'Cover kicker, welcome title, and introduction are required.';
+      this.errorMessage.set(
+        'Cover kicker, welcome title, and introduction are required.',
+      );
       this.viewportScroller.scrollToPosition([0, 0]);
       return;
     }
 
-    this.isSaving = true;
+    this.isSaving.set(true);
     this.updateCoverPageSubscription?.unsubscribe();
 
     // Trim editable fields before sending them to the API
     this.updateCoverPageSubscription = this.coverPageService
       .updateCoverPage({
-        kicker: this.model.kicker.trim(),
-        welcomeTitle: this.model.welcomeTitle.trim(),
-        introduction: this.model.introduction.trim(),
-        backgroundImageUrl: this.model.backgroundImageUrl?.trim() || null,
+        kicker: model.kicker.trim(),
+        welcomeTitle: model.welcomeTitle.trim(),
+        introduction: model.introduction.trim(),
+        backgroundImageUrl: model.backgroundImageUrl?.trim() || null,
         backgroundOverlayStrength: this.previewBackgroundOverlayStrength,
       })
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (coverPage) => {
-          this.model = {
+          this.model.set({
             ...coverPage,
             backgroundOverlayStrength: this.normalizeBackgroundOverlayStrength(
               coverPage.backgroundOverlayStrength,
             ),
-          };
-          this.isCreatingNewPage = false;
-          this.isRemoveConfirmationOpen = false;
-          this.successMessage = 'Cover page updated.';
-          this.isSaving = false;
+          });
+          this.isCreatingNewPage.set(false);
+          this.isRemoveConfirmationOpen.set(false);
+          this.successMessage.set('Cover page updated.');
+          this.isSaving.set(false);
           this.viewportScroller.scrollToPosition([0, 0]);
         },
         error: () => {
-          this.errorMessage = 'Unable to update the cover page.';
-          this.isSaving = false;
+          this.errorMessage.set('Unable to update the cover page.');
+          this.isSaving.set(false);
           this.viewportScroller.scrollToPosition([0, 0]);
         },
       });
@@ -167,45 +187,52 @@ export class EditCoverPageComponent implements OnInit, OnDestroy {
 
   // Show a second confirmation step before removing the published cover page
   openRemoveConfirmation(): void {
-    this.errorMessage = undefined;
-    this.successMessage = undefined;
-    this.isRemoveConfirmationOpen = true;
+    this.errorMessage.set(undefined);
+    this.successMessage.set(undefined);
+    this.isRemoveConfirmationOpen.set(true);
   }
 
   // Cancel cover page removal and return to normal editing
   closeRemoveConfirmation(): void {
-    if (this.isRemoving) {
+    if (this.isRemoving()) {
       return;
     }
 
-    this.isRemoveConfirmationOpen = false;
+    this.isRemoveConfirmationOpen.set(false);
   }
 
   // Remove the persisted page and restore the editor's initial blank draft
   onRemoveCoverPage(): void {
-    if (this.isCreatingNewPage || this.isRemoving || this.isRemovingImage) {
+    if (
+      this.isCreatingNewPage() ||
+      this.isRemoving() ||
+      this.isRemovingImage()
+    ) {
       return;
     }
 
-    this.errorMessage = undefined;
-    this.successMessage = undefined;
-    this.isRemoving = true;
+    this.errorMessage.set(undefined);
+    this.successMessage.set(undefined);
+    this.isRemoving.set(true);
     this.deleteCoverPageSubscription?.unsubscribe();
 
     this.deleteCoverPageSubscription = this.coverPageService
       .deleteCoverPage()
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          this.model = this.createBlankCoverPage();
-          this.isCreatingNewPage = true;
-          this.isRemoveConfirmationOpen = false;
-          this.isRemoving = false;
-          this.successMessage = 'Cover page removed. A blank draft is ready.';
+          this.model.set(this.createBlankCoverPage());
+          this.isCreatingNewPage.set(true);
+          this.isRemoveConfirmationOpen.set(false);
+          this.isRemoving.set(false);
+          this.successMessage.set(
+            'Cover page removed. A blank draft is ready.',
+          );
           this.viewportScroller.scrollToPosition([0, 0]);
         },
         error: () => {
-          this.errorMessage = 'Unable to remove the cover page.';
-          this.isRemoving = false;
+          this.errorMessage.set('Unable to remove the cover page.');
+          this.isRemoving.set(false);
           this.viewportScroller.scrollToPosition([0, 0]);
         },
       });
@@ -214,50 +241,44 @@ export class EditCoverPageComponent implements OnInit, OnDestroy {
   // Remove only the current background reference while keeping the page content
   onRemoveBackgroundImage(): void {
     if (
-      !this.model?.backgroundImageUrl ||
-      this.isRemovingImage ||
-      this.isRemoving
+      !this.model()?.backgroundImageUrl ||
+      this.isRemovingImage() ||
+      this.isRemoving()
     ) {
       return;
     }
 
-    this.errorMessage = undefined;
-    this.successMessage = undefined;
+    this.errorMessage.set(undefined);
+    this.successMessage.set(undefined);
 
-    if (this.isCreatingNewPage) {
+    if (this.isCreatingNewPage()) {
       // A new draft has no persisted image reference to remove from the API
-      this.model.backgroundImageUrl = null;
-      this.successMessage = 'Picture removed from the draft.';
+      this.model.update((model) =>
+        model ? { ...model, backgroundImageUrl: null } : model,
+      );
+      this.successMessage.set('Picture removed from the draft.');
       return;
     }
 
-    this.isRemovingImage = true;
+    this.isRemovingImage.set(true);
     this.removeBackgroundImageSubscription?.unsubscribe();
     this.removeBackgroundImageSubscription = this.coverPageService
       .removeBackgroundImage()
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          if (this.model) {
-            // Keep any unsaved text edits while clearing the persisted image URL
-            this.model.backgroundImageUrl = null;
-          }
-          this.successMessage = 'Cover picture removed.';
-          this.isRemovingImage = false;
+          // Keep any unsaved text edits while clearing the persisted image URL
+          this.model.update((model) =>
+            model ? { ...model, backgroundImageUrl: null } : model,
+          );
+          this.successMessage.set('Cover picture removed.');
+          this.isRemovingImage.set(false);
         },
         error: () => {
-          this.errorMessage = 'Unable to remove the cover picture.';
-          this.isRemovingImage = false;
+          this.errorMessage.set('Unable to remove the cover picture.');
+          this.isRemovingImage.set(false);
         },
       });
-  }
-
-  ngOnDestroy(): void {
-    // Unsubscribe from subscriptions to prevent memory leaks
-    this.coverPageSubscription?.unsubscribe();
-    this.updateCoverPageSubscription?.unsubscribe();
-    this.deleteCoverPageSubscription?.unsubscribe();
-    this.removeBackgroundImageSubscription?.unsubscribe();
-    this.imageSelectSubscription?.unsubscribe();
   }
 
   // Create a blank draft rather than filling the editor with static welcome copy

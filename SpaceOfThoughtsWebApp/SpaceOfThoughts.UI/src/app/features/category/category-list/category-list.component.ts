@@ -3,34 +3,66 @@ import {
   OnDestroy,
   OnInit,
   ChangeDetectionStrategy,
+  computed,
+  inject,
+  signal,
 } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { CategoryService } from '../services/category.service';
 import { Category } from '../models/category.model';
-import { Observable, of, Subscription } from 'rxjs';
-import { CommonModule } from '@angular/common';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-category-list',
-  imports: [RouterModule, CommonModule],
+  imports: [RouterModule],
   templateUrl: './category-list.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './category-list.component.css',
 })
 export class CategoryListComponent implements OnInit, OnDestroy {
-  categories$?: Observable<Category[]>; // Observable for the list of categories
+  private readonly categoryService = inject(CategoryService);
+
   categoryQuant$?: Subscription; // Subscription for getting the total category count
   categoriesSubscription$?: Subscription; // Subscription for getting category rows
-  totalCount!: number; // Total number of categories
-  list: number[] = []; // Array for pagination
-  pageNumber = 1; // Current page number
-  pageSize = 8; // Number of categories per page
-  query = ''; // Current search query
-  sortedBy = ''; // Current sorted column
-  sortDirection: 'asc' | 'desc' = 'asc'; // Current sort direction
-  private allCategories: Category[] = [];
+  readonly pageNumber = signal(1); // Current page number
+  readonly pageSize = 8; // Number of categories per page
+  readonly query = signal(''); // Current search query
+  readonly sortedBy = signal(''); // Current sorted column
+  readonly sortDirection = signal<'asc' | 'desc'>('asc'); // Current sort direction
+  private readonly allCategories = signal<Category[]>([]);
 
-  constructor(private categoryService: CategoryService) {}
+  // Derive sorted rows and pagination once per relevant signal update
+  private readonly matchingCategories = computed(() => {
+    const normalizedQuery = this.query().toLowerCase();
+    const sortedBy = this.sortedBy();
+    const sortDirection = this.sortDirection();
+    let categories = [...this.allCategories()];
+
+    if (normalizedQuery) {
+      categories = categories.filter((category) =>
+        category.name.toLowerCase().includes(normalizedQuery),
+      );
+    }
+
+    if (sortedBy) {
+      categories.sort((first, second) => {
+        const firstValue = this.getSortValue(first, sortedBy);
+        const secondValue = this.getSortValue(second, sortedBy);
+        const result = firstValue.localeCompare(secondValue);
+        return sortDirection === 'asc' ? result : -result;
+      });
+    }
+
+    return categories;
+  });
+  readonly totalCount = computed(() => this.matchingCategories().length);
+  readonly list = computed(
+    () => new Array(Math.ceil(this.totalCount() / this.pageSize)),
+  );
+  readonly categories = computed(() => {
+    const skip = (this.pageNumber() - 1) * this.pageSize;
+    return this.matchingCategories().slice(skip, skip + this.pageSize);
+  });
 
   ngOnInit(): void {
     // Scroll to the top of the page smoothly on component initialization
@@ -53,8 +85,7 @@ export class CategoryListComponent implements OnInit, OnDestroy {
           )
           .subscribe({
             next: (categories) => {
-              this.allCategories = categories;
-              this.loadCategories();
+              this.allCategories.set(categories);
             },
           });
       },
@@ -62,28 +93,28 @@ export class CategoryListComponent implements OnInit, OnDestroy {
   }
 
   // Search for categories by query
-  onSearch(query: string) {
-    this.query = query.trim();
-    this.pageNumber = 1;
-    this.loadCategories();
+  onSearch(query: string): void {
+    this.query.set(query.trim());
+    this.pageNumber.set(1);
   }
 
   // Sort the category list
-  sort(sortBy: string) {
-    if (this.sortedBy === sortBy) {
-      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+  sort(sortBy: string): void {
+    if (this.sortedBy() === sortBy) {
+      this.sortDirection.update((direction) =>
+        direction === 'asc' ? 'desc' : 'asc',
+      );
     } else {
-      this.sortedBy = sortBy;
-      this.sortDirection = 'asc';
+      this.sortedBy.set(sortBy);
+      this.sortDirection.set('asc');
     }
 
-    this.pageNumber = 1;
-    this.loadCategories();
+    this.pageNumber.set(1);
   }
 
   // Check whether a table column owns the active sort state
   isSortedBy(sortBy: string): boolean {
-    return this.sortedBy === sortBy;
+    return this.sortedBy() === sortBy;
   }
 
   // Expose the active direction for accessible sortable table headers
@@ -92,13 +123,13 @@ export class CategoryListComponent implements OnInit, OnDestroy {
       return null;
     }
 
-    return this.sortDirection === 'asc' ? 'ascending' : 'descending';
+    return this.sortDirection() === 'asc' ? 'ascending' : 'descending';
   }
 
   // Describe the direction that clicking a sortable header will apply next
   getSortLabel(label: string, sortBy: string): string {
     const nextDirection =
-      this.isSortedBy(sortBy) && this.sortDirection === 'asc'
+      this.isSortedBy(sortBy) && this.sortDirection() === 'asc'
         ? 'descending'
         : 'ascending';
 
@@ -106,59 +137,24 @@ export class CategoryListComponent implements OnInit, OnDestroy {
   }
 
   // Get a specific page of categories
-  getPage(pageNumber: number) {
-    this.pageNumber = pageNumber;
-    this.loadCategories();
+  getPage(pageNumber: number): void {
+    this.pageNumber.set(pageNumber);
   }
 
   // Get the next page of categories
-  getNextPage() {
-    if (this.pageNumber + 1 > this.list.length) {
+  getNextPage(): void {
+    if (this.pageNumber() + 1 > this.list().length) {
       return;
     }
-    this.pageNumber += 1;
-    this.loadCategories();
+    this.pageNumber.update((pageNumber) => pageNumber + 1);
   }
 
   // Get the previous page of categories
-  getPrevPage() {
-    if (this.pageNumber - 1 < 1) {
+  getPrevPage(): void {
+    if (this.pageNumber() - 1 < 1) {
       return;
     }
-    this.pageNumber -= 1;
-    this.loadCategories();
-  }
-
-  // Apply search, sorting, and pagination to the cached category collection
-  private loadCategories(): void {
-    let categories = [...this.allCategories];
-    const normalizedQuery = this.query.toLowerCase();
-
-    if (normalizedQuery) {
-      categories = categories.filter((category) =>
-        category.name.toLowerCase().includes(normalizedQuery),
-      );
-    }
-
-    if (this.sortedBy) {
-      categories.sort((first, second) => {
-        const firstValue = this.getSortValue(first, this.sortedBy);
-        const secondValue = this.getSortValue(second, this.sortedBy);
-        const result = firstValue.localeCompare(secondValue);
-
-        return this.sortDirection === 'asc' ? result : -result;
-      });
-    }
-
-    this.totalCount = categories.length;
-    this.list = new Array(Math.ceil(this.totalCount / this.pageSize));
-
-    if (this.pageNumber > this.list.length && this.list.length > 0) {
-      this.pageNumber = this.list.length;
-    }
-
-    const skip = (this.pageNumber - 1) * this.pageSize;
-    this.categories$ = of(categories.slice(skip, skip + this.pageSize));
+    this.pageNumber.update((pageNumber) => pageNumber - 1);
   }
 
   // Normalize category fields before comparing values in the active sort column

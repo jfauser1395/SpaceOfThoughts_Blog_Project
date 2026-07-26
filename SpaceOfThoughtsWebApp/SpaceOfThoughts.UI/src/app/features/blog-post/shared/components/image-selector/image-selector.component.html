@@ -24,10 +24,10 @@
           (ngSubmit)="uploadImage()"
           name="imageForm"
         >
-          @if (uploadError) {
+          @if (uploadError(); as errorMessage) {
             <!-- Keep API validation visible so the administrator can choose another name -->
             <div class="alert alert-danger" role="alert">
-              {{ uploadError }}
+              {{ errorMessage }}
             </div>
           }
 
@@ -76,7 +76,7 @@
               class="admin-primary-action"
               aria-label="Upload image"
               name="uploadButton"
-              [disabled]="!form.valid || isUploading"
+              [disabled]="!form.valid || isUploading()"
             >
               <i class="bi bi-upload" aria-hidden="true"></i>
               Upload
@@ -85,7 +85,7 @@
         </form>
       </section>
 
-      @if (!noImages) {
+      @if (!noImages()) {
         <!-- Library of previously uploaded images -->
         <section class="admin-image-library">
           <h2>Uploaded Images</h2>

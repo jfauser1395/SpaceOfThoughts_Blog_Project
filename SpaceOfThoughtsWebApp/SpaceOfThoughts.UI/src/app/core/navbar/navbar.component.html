@@ -1,4 +1,5 @@
 <!-- Main navigation bar -->
+@let currentUser = user();
 <nav class="navbar navbar-expand-lg site-navbar fixed-top p-2">
   <!-- Container div holds all elements of the navbar -->
   <div class="container">
@@ -6,21 +7,21 @@
 
     <a
       class="navbar-brand blogFontThemeNav align-items-start"
-      [class.is-brand-click-reset]="brandLinkColorReset"
+      [class.is-brand-click-reset]="brandLinkColorReset()"
       [routerLink]="['/']"
       (click)="onBrandClick($event)"
       (mouseleave)="resetBrandLinkColor()"
       >Space of Thoughts</a
     >
 
-    @if (isSmallScreen) {
+    @if (isSmallScreen()) {
       <div class="d-flex align-items-center justify-content-center">
         <div
           class="searchIconAnimation searchIconSmallScreen searchIconLargerScreen"
-          [class.expanded]="searchExpanded"
-          [style.width]="searchExpanded ? 'calc(100vw - 8px)' : '35px'"
+          [class.expanded]="searchExpanded()"
+          [style.width]="searchExpanded() ? 'calc(100vw - 8px)' : '35px'"
           [style.transform]="
-            searchExpanded
+            searchExpanded()
               ? 'translateX(calc(-100vw + 140px))'
               : 'translateX(0)'
           "
@@ -34,7 +35,7 @@
             (keyup.enter)="collapseSearch(searchInput.value)"
             class="searchIconAnimationInput"
             placeholder="Search blog ..."
-            [style.opacity]="searchExpanded ? '1' : '0'"
+            [style.opacity]="searchExpanded() ? '1' : '0'"
           />
           <i
             #mobileSearchToggle
@@ -89,26 +90,26 @@
         </button>
       </div>
     }
-    @if (isSmallScreen && user !== undefined) {
+    @if (isSmallScreen() && currentUser !== undefined) {
       <a
         [routerLink]="['/profile']"
         (click)="collapseNavbar()"
         class="profile-avatar-button navbar-mobile-avatar"
-        [class.is-search-expanded]="searchExpanded"
+        [class.is-search-expanded]="searchExpanded()"
         title="Open profile"
         aria-label="Open profile"
       >
-        @if (user.profileImageUrl) {
+        @if (currentUser.profileImageUrl) {
           <img
-            [src]="user.profileImageUrl"
-            [alt]="user.userName + ' profile picture'"
-            [style.height.%]="getProfileImageZoom(user)"
-            [style.object-position]="getProfileImagePosition(user)"
-            [style.transform]="getProfileImageTransform(user)"
-            [style.width.%]="getProfileImageZoom(user)"
+            [src]="currentUser.profileImageUrl"
+            [alt]="currentUser.userName + ' profile picture'"
+            [style.height.%]="getProfileImageZoom(currentUser)"
+            [style.object-position]="getProfileImagePosition(currentUser)"
+            [style.transform]="getProfileImageTransform(currentUser)"
+            [style.width.%]="getProfileImageZoom(currentUser)"
           />
         } @else {
-          <span>{{ getUserInitial(user) }}</span>
+          <span>{{ getUserInitial(currentUser) }}</span>
         }
       </a>
     }
@@ -132,7 +133,7 @@
         </div>
       </button>
     </div>
-    @if (isMediumScreen) {
+    @if (isMediumScreen()) {
       <!-- Div contains the actual navigation links -->
       <div class="collapse navbar-collapse" id="navbarSupportedContent">
         <!-- Ul contains the list of navigation links -->
@@ -161,7 +162,9 @@
           </li>
 
           <!-- Part is only visible to users with the 'Writer' role -->
-          @if (user !== undefined && user.roles.includes("Writer")) {
+          @if (
+            currentUser !== undefined && currentUser.roles.includes('Writer')
+          ) {
             <li class="nav-item dropdown">
               <a
                 class="nav-link dropdown-toggle admin-tools-toggle"
@@ -233,7 +236,7 @@
                     ><span>Manage users</span></a
                   >
                 </li>
-                @if (user.roles.includes("InitialAdmin")) {
+                @if (currentUser.roles.includes('InitialAdmin')) {
                   <li><hr class="dropdown-divider" /></li>
                   <li>
                     <a
@@ -256,7 +259,7 @@
 
         <!--  login/logout functionality -->
         <div class="d-flex navbar-auth-actions">
-          @if (user === undefined) {
+          @if (currentUser === undefined) {
             <a
               [routerLink]="['/login']"
               (click)="collapseNavbar()"
@@ -268,7 +271,7 @@
             </a>
           } @else {
             <div class="profile-actions">
-              @if (!isSmallScreen) {
+              @if (!isSmallScreen()) {
                 <a
                   [routerLink]="['/profile']"
                   (click)="collapseNavbar()"
@@ -276,17 +279,19 @@
                   title="Open profile"
                   aria-label="Open profile"
                 >
-                  @if (user.profileImageUrl) {
+                  @if (currentUser.profileImageUrl) {
                     <img
-                      [src]="user.profileImageUrl"
-                      [alt]="user.userName + ' profile picture'"
-                      [style.height.%]="getProfileImageZoom(user)"
-                      [style.object-position]="getProfileImagePosition(user)"
-                      [style.transform]="getProfileImageTransform(user)"
-                      [style.width.%]="getProfileImageZoom(user)"
+                      [src]="currentUser.profileImageUrl"
+                      [alt]="currentUser.userName + ' profile picture'"
+                      [style.height.%]="getProfileImageZoom(currentUser)"
+                      [style.object-position]="
+                        getProfileImagePosition(currentUser)
+                      "
+                      [style.transform]="getProfileImageTransform(currentUser)"
+                      [style.width.%]="getProfileImageZoom(currentUser)"
                     />
                   } @else {
-                    <span>{{ getUserInitial(user) }}</span>
+                    <span>{{ getUserInitial(currentUser) }}</span>
                   }
                 </a>
               }
@@ -323,7 +328,9 @@
           </li>
 
           <!-- Part is only visible to users with the 'Writer' role -->
-          @if (user !== undefined && user.roles.includes("Writer")) {
+          @if (
+            currentUser !== undefined && currentUser.roles.includes('Writer')
+          ) {
             <li class="nav-item dropdown">
               <a
                 class="nav-link dropdown-toggle admin-tools-toggle"
@@ -395,7 +402,7 @@
                     ><span>Manage users</span></a
                   >
                 </li>
-                @if (user.roles.includes("InitialAdmin")) {
+                @if (currentUser.roles.includes('InitialAdmin')) {
                   <li><hr class="dropdown-divider" /></li>
                   <li>
                     <a
@@ -418,7 +425,7 @@
 
         <!--  login/logout functionality -->
         <div class="d-flex navbar-auth-actions">
-          @if (user === undefined) {
+          @if (currentUser === undefined) {
             <a
               [routerLink]="['/login']"
               (click)="collapseNavbar()"
@@ -438,17 +445,19 @@
                 title="Open profile"
                 aria-label="Open profile"
               >
-                @if (user.profileImageUrl) {
+                @if (currentUser.profileImageUrl) {
                   <img
-                    [src]="user.profileImageUrl"
-                    [alt]="user.userName + ' profile picture'"
-                    [style.height.%]="getProfileImageZoom(user)"
-                    [style.object-position]="getProfileImagePosition(user)"
-                    [style.transform]="getProfileImageTransform(user)"
-                    [style.width.%]="getProfileImageZoom(user)"
+                    [src]="currentUser.profileImageUrl"
+                    [alt]="currentUser.userName + ' profile picture'"
+                    [style.height.%]="getProfileImageZoom(currentUser)"
+                    [style.object-position]="
+                      getProfileImagePosition(currentUser)
+                    "
+                    [style.transform]="getProfileImageTransform(currentUser)"
+                    [style.width.%]="getProfileImageZoom(currentUser)"
                   />
                 } @else {
-                  <span>{{ getUserInitial(user) }}</span>
+                  <span>{{ getUserInitial(currentUser) }}</span>
                 }
               </a>
             </div>
@@ -458,7 +467,7 @@
     }
   </div>
 </nav>
-@if (isMediumScreen && isPageInteractionLocked) {
+@if (isMediumScreen() && isPageInteractionLocked()) {
   <button
     type="button"
     class="navbar-page-backdrop"

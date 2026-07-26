@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { BlogSummaryPage } from '../models/blog-summary-page.model';
@@ -9,7 +9,7 @@ import { UpdateBlogSummaryPage } from '../models/update-blog-summary-page.model'
   providedIn: 'root',
 })
 export class BlogSummaryPageService {
-  constructor(private http: HttpClient) {}
+  private http = inject(HttpClient);
 
   // Get the public blogs summary page settings
   getBlogSummaryPage(): Observable<BlogSummaryPage> {

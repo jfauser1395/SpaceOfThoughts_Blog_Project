@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { AddBlogPost } from '../models/add-blog-post.model';
 import { Observable, Subject } from 'rxjs';
 import { BlogPost } from '../models/blog-post.model';
@@ -13,7 +13,7 @@ import { AddBlogComment } from '../models/add-blog-comment.model';
   providedIn: 'root', // This service will be provided at the root level
 })
 export class BlogPostService {
-  constructor(private http: HttpClient) {}
+  private http = inject(HttpClient);
 
   // Create a new blog post
   createBlogPost(data: AddBlogPost): Observable<BlogPost> {
@@ -113,7 +113,10 @@ export class BlogPostService {
   }
 
   // Soft-delete a comment while preserving its reply thread
-  deleteBlogComment(blogPostId: string, commentId: string): Observable<BlogComment> {
+  deleteBlogComment(
+    blogPostId: string,
+    commentId: string,
+  ): Observable<BlogComment> {
     return this.http.delete<BlogComment>(
       `${environment.apiBaseUrl}/api/Blogposts/${blogPostId}/comments/${commentId}`,
     );

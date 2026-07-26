@@ -5,7 +5,7 @@
       <h1>Edit Blogpost</h1>
     </header>
 
-    @if (model) {
+    @if (model(); as blog) {
       <!-- Form for editing blog post data -->
       <form #form="ngForm" (ngSubmit)="onFormSubmit()" name="editBlogEntries">
         <div class="admin-form-body">
@@ -18,7 +18,7 @@
                 id="title"
                 name="title"
                 class="form-control"
-                [(ngModel)]="model.title"
+                [(ngModel)]="blog.title"
               />
             </div>
 
@@ -29,10 +29,10 @@
                 id="urlHandle"
                 name="urlHandle"
                 class="form-control"
-                [(ngModel)]="model.urlHandle"
+                [(ngModel)]="blog.urlHandle"
               />
-              @if (urlHandleWarning) {
-                <small class="admin-form-warning">{{ urlHandleWarning }}</small>
+              @if (urlHandleWarning(); as warning) {
+                <small class="admin-form-warning">{{ warning }}</small>
               }
             </div>
 
@@ -43,7 +43,7 @@
                 id="shortDescription"
                 name="shortDescription"
                 class="form-control"
-                [(ngModel)]="model.shortDescription"
+                [(ngModel)]="blog.shortDescription"
               />
             </div>
 
@@ -56,7 +56,7 @@
                   id="featuredImageUrl"
                   name="featuredImageUrl"
                   class="form-control"
-                  [(ngModel)]="model.featuredImageUrl"
+                  [(ngModel)]="blog.featuredImageUrl"
                 />
                 <button
                   type="button"
@@ -70,10 +70,10 @@
                 </button>
               </div>
 
-              @if (model.featuredImageUrl != "") {
+              @if (blog.featuredImageUrl !== '') {
                 <div class="admin-form-media-preview">
                   <img
-                    [src]="model.featuredImageUrl"
+                    [src]="blog.featuredImageUrl"
                     alt="Selected featured image"
                   />
                 </div>
@@ -93,8 +93,8 @@
                 <app-markdown-editor
                   editorId="content"
                   ariaLabelledBy="contentLabel"
-                  [(content)]="model.content"
-                ></app-markdown-editor>
+                  [(content)]="blog.content"
+                />
               </section>
             </div>
 
@@ -106,9 +106,9 @@
                 id="publishedDate"
                 name="publishedDate"
                 class="form-control"
-                [value]="model.publishedDate | date: 'yyyy-MM-dd'"
-                [ngModel]="model.publishedDate | date: 'yyyy-MM-dd'"
-                (ngModelChange)="model.publishedDate = $event"
+                [value]="blog.publishedDate | date: 'yyyy-MM-dd'"
+                [ngModel]="blog.publishedDate | date: 'yyyy-MM-dd'"
+                (ngModelChange)="blog.publishedDate = $event"
               />
             </div>
 
@@ -119,7 +119,7 @@
                 id="author"
                 name="author"
                 class="form-control"
-                [(ngModel)]="model.author"
+                [(ngModel)]="blog.author"
               />
             </div>
 
@@ -130,7 +130,7 @@
                   class="form-check-input"
                   type="checkbox"
                   id="isVisible"
-                  [(ngModel)]="model.isVisible"
+                  [(ngModel)]="blog.isVisible"
                   name="isVisible"
                 />
                 <label class="form-check-label" for="isVisible">Publish</label>
@@ -243,5 +243,5 @@
   aria-labelledby="selectModalLabel"
   aria-hidden="true"
 >
-  <app-image-selector imageCategory="Blog"></app-image-selector>
+  <app-image-selector imageCategory="Blog" />
 </div>

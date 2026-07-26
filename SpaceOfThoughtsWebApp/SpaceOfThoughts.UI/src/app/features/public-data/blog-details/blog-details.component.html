@@ -1,28 +1,33 @@
+@let post = blogPost();
+@let viewer = currentUser();
+@let commentList = comments();
+@let errorMessage = commentError();
+@let successMessage = commentSuccess();
 <!-- Show the shared loader while the initial article request is pending -->
-<app-loading-overlay [loading]="isBlogPostLoading" />
+<app-loading-overlay [loading]="isBlogPostLoading()" />
 
 <!-- Render article content after the route request returns successfully -->
-@if (blogPost) {
+@if (post) {
   <div class="container">
     <div class="py-5">
       <div class="col-12 col-md-12 col-lg-12 mx-auto">
         <!-- Blog post title -->
-        <h1 class="mb-4 text-center">{{ blogPost.title }}</h1>
+        <h1 class="mb-4 text-center">{{ post.title }}</h1>
 
         <!-- Featured image of the blog post -->
         <img
-          [src]="blogPost.featuredImageUrl"
-          [title]="blogPost.title"
+          [src]="post.featuredImageUrl"
+          [title]="post.title"
           class="img-fluid full-width mt-2 rounded-3"
           aria-label="Featured image"
         />
 
         <!-- Blog post categories and published date -->
-        @if (blogPost.categories) {
+        @if (post.categories) {
           <div class="d-flex justify-content-between flex-wrap gap-2 mt-4 mb-3">
             <div class="d-flex flex-wrap gap-2">
               <!-- Loop through the categories and display each category -->
-              @for (category of blogPost.categories; track category) {
+              @for (category of post.categories; track category) {
                 <span class="blog-category-badge">
                   {{ category.name }}
                 </span>
@@ -30,21 +35,21 @@
             </div>
             <div class="d-flex justify-content-end">
               <!-- Display the published date of the blog post -->
-              <span>{{ blogPost.publishedDate | date: "MM-dd-yy" }}</span>
+              <span>{{ post.publishedDate | date: 'MM-dd-yy' }}</span>
             </div>
           </div>
         }
 
         <!-- Blog post content -->
         <div class="mt-4 blog-content p-3">
-          <markdown [data]="blogPost.content"></markdown>
+          <markdown [data]="post.content" />
           <!-- Blog post author -->
           <h6 class="mt-1 text-end blogFontTheme">
-            Article published by: {{ blogPost.author }}
+            Article published by: {{ post.author }}
           </h6>
         </div>
 
-        @if (blogPost.isVisible) {
+        @if (post.isVisible) {
           <!-- Blog post comments -->
           <section
             class="comments-section mt-5"
@@ -54,19 +59,19 @@
               <div>
                 <h2 id="comments-heading" class="comments-title">Comments</h2>
                 <p class="comments-count mb-0">
-                  {{ totalCommentCount }}
-                  {{ totalCommentCount === 1 ? "comment" : "comments" }}
+                  {{ totalCommentCount() }}
+                  {{ totalCommentCount() === 1 ? 'comment' : 'comments' }}
                 </p>
               </div>
 
-              @if (currentUser) {
+              @if (viewer) {
                 <span class="comment-author-pill">
-                  {{ currentUser.userName }}
+                  {{ viewer.userName }}
                 </span>
               }
             </div>
 
-            @if (currentUser) {
+            @if (viewer) {
               <form
                 [formGroup]="commentForm"
                 (ngSubmit)="onSubmitComment()"
@@ -86,9 +91,9 @@
                   <div class="comment-validation">
                     @if (commentControl.invalid && commentControl.touched) {
                       <small>
-                        @if (commentControl.hasError("required")) {
+                        @if (commentControl.hasError('required')) {
                           A comment is required.
-                        } @else if (commentControl.hasError("maxlength")) {
+                        } @else if (commentControl.hasError('maxlength')) {
                           Comments can be up to 2000 characters.
                         }
                       </small>
@@ -103,10 +108,10 @@
                   <button
                     type="submit"
                     class="btn btnPrimary comment-submit-button"
-                    [disabled]="isSubmittingComment || commentControl.invalid"
+                    [disabled]="isSubmittingComment() || commentControl.invalid"
                     aria-label="Post comment button"
                   >
-                    @if (isSubmittingComment) {
+                    @if (isSubmittingComment()) {
                       Posting...
                     } @else {
                       Post comment
@@ -121,30 +126,30 @@
               </div>
             }
 
-            @if (commentError) {
+            @if (errorMessage) {
               <div class="comment-alert comment-alert-error" role="alert">
-                {{ commentError }}
+                {{ errorMessage }}
               </div>
             }
 
-            @if (commentSuccess) {
+            @if (successMessage) {
               <div class="comment-alert comment-alert-success" role="status">
-                {{ commentSuccess }}
+                {{ successMessage }}
               </div>
             }
 
-            @if (isCommentsLoading) {
+            @if (isCommentsLoading()) {
               <div class="comments-empty-state">Loading comments...</div>
-            } @else if (comments.length > 0) {
+            } @else if (commentList.length > 0) {
               <div class="comment-list">
-                @for (comment of comments; track comment.id) {
+                @for (comment of commentList; track comment.id) {
                   <ng-container
                     [ngTemplateOutlet]="threadedCommentTemplate"
                     [ngTemplateOutletContext]="{
                       $implicit: comment,
                       isThreadItem: false,
                     }"
-                  ></ng-container>
+                  />
                 }
               </div>
 
@@ -195,7 +200,7 @@
                         comment.authorName
                       }}</strong>
                       <time class="comment-date">
-                        {{ comment.createdAt | date: "yyyy-MM-dd HH:mm" }}
+                        {{ comment.createdAt | date: 'yyyy-MM-dd HH:mm' }}
                       </time>
                     </div>
                     @if (getReplyTargetName(comment); as replyTargetName) {
@@ -242,7 +247,7 @@
                         </button>
                       }
 
-                      @if (currentUser && canReplyToComment(comment)) {
+                      @if (viewer && canReplyToComment(comment)) {
                         <button
                           type="button"
                           class="comment-control-button"
@@ -262,12 +267,16 @@
                           aria-label="Delete comment"
                         >
                           <i class="bi bi-trash3" aria-hidden="true"></i>
-                          {{ isDeletingComment(comment.id) ? "Deleting..." : "Delete" }}
+                          {{
+                            isDeletingComment(comment.id)
+                              ? 'Deleting...'
+                              : 'Delete'
+                          }}
                         </button>
                       }
                     </div>
 
-                    @if (activeReplyCommentId === comment.id) {
+                    @if (activeReplyCommentId() === comment.id) {
                       <form
                         [formGroup]="replyForm"
                         (ngSubmit)="onSubmitReply(comment)"
@@ -292,10 +301,10 @@
                           <div class="comment-validation">
                             @if (replyControl.invalid && replyControl.touched) {
                               <small>
-                                @if (replyControl.hasError("required")) {
+                                @if (replyControl.hasError('required')) {
                                   A reply is required.
                                 } @else if (
-                                  replyControl.hasError("maxlength")
+                                  replyControl.hasError('maxlength')
                                 ) {
                                   Replies can be up to 2000 characters.
                                 }
@@ -319,11 +328,11 @@
                             type="submit"
                             class="btn btnPrimary comment-submit-button"
                             [disabled]="
-                              isSubmittingReply || replyControl.invalid
+                              isSubmittingReply() || replyControl.invalid
                             "
                             aria-label="Post reply button"
                           >
-                            @if (isSubmittingReply) {
+                            @if (isSubmittingReply()) {
                               Posting...
                             } @else {
                               Post reply
@@ -355,8 +364,8 @@
                         <span>
                           {{
                             isThreadExpanded(comment.id)
-                              ? "Hide replies"
-                              : "Show replies"
+                              ? 'Hide replies'
+                              : 'Show replies'
                           }}
                         </span>
                         <span class="thread-toggle-count">{{
@@ -376,7 +385,7 @@
                                 $implicit: reply,
                                 isThreadItem: true,
                               }"
-                            ></ng-container>
+                            />
                           }
                         </div>
                       }
@@ -392,11 +401,11 @@
       </div>
     </div>
   </div>
-} @else if (!isBlogPostLoading) {
+} @else if (!isBlogPostLoading()) {
   <!-- Keep request failures visible after the loading overlay closes -->
   <div class="container py-5" role="alert">
     <div class="comment-alert comment-alert-error">
-      {{ commentError || "Unable to load this blog post." }}
+      {{ errorMessage || 'Unable to load this blog post.' }}
     </div>
   </div>
 }

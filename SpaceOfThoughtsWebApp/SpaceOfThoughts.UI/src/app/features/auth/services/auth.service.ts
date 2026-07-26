@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { LoginRequest } from '../models/login-request.model';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { LoginResponse } from '../models/login-response.model';
@@ -12,10 +12,10 @@ import { UpdateProfileRequest } from '../models/update-profile-request.model';
   providedIn: 'root', // This service will be provided in the root level
 })
 export class AuthService {
+  private http = inject(HttpClient);
+
   // BehaviorSubject to store and emit the current user
   $user = new BehaviorSubject<User | undefined>(undefined);
-
-  constructor(private http: HttpClient) {}
 
   // Register a new user and receive the session data needed for immediate login
   register(request: RegisterRequest): Observable<LoginResponse> {
@@ -42,9 +42,7 @@ export class AuthService {
 
   // Get the current user's editable profile
   getCurrentProfile(): Observable<User> {
-    return this.http.get<User>(
-      `${environment.apiBaseUrl}/api/Auth/me`,
-    );
+    return this.http.get<User>(`${environment.apiBaseUrl}/api/Auth/me`);
   }
 
   // Update the current user's profile credentials
@@ -57,9 +55,7 @@ export class AuthService {
 
   // Delete the currently authenticated user's own account
   deleteCurrentAccount(): Observable<void> {
-    return this.http.delete<void>(
-      `${environment.apiBaseUrl}/api/Auth/me`,
-    );
+    return this.http.delete<void>(`${environment.apiBaseUrl}/api/Auth/me`);
   }
 
   // Upload or replace the current user's profile picture

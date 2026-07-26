@@ -1,7 +1,7 @@
 <!-- Use the same delayed loading presentation as the other public data pages -->
-<app-loading-overlay [loading]="isLoading" />
+<app-loading-overlay [loading]="isLoading()" />
 
-@if (!isLoading && aboutPage) {
+@if (!isLoading() && aboutPage(); as page) {
   <main class="about-page" aria-labelledby="about-page-title">
     <!-- Author signature section -->
     <section class="about-signature" aria-label="Author signature">
@@ -12,7 +12,7 @@
         width="210"
         height="210"
       />
-      <p>{{ aboutPage.signatureCaption }}</p>
+      <p>{{ page.signatureCaption }}</p>
     </section>
 
     <div class="about-shell">
@@ -25,55 +25,53 @@
       <!-- Author biography section -->
       <section
         class="about-section about-author"
-        [class.about-author-without-image]="!aboutPage.profileImageUrl"
+        [class.about-author-without-image]="!page.profileImageUrl"
         aria-labelledby="about-me-title"
       >
-        @if (aboutPage.profileImageUrl) {
+        @if (page.profileImageUrl) {
           <img
             class="about-profile-image"
-            [src]="aboutPage.profileImageUrl"
-            [alt]="aboutPage.authorName + ' profile photo'"
+            [src]="page.profileImageUrl"
+            [alt]="page.authorName + ' profile photo'"
           />
         }
 
         <div>
           <h2 id="about-me-title">About Me</h2>
-          <p>{{ aboutPage.authorIntro }}</p>
-          <p>{{ aboutPage.authorAside }}</p>
+          <p>{{ page.authorIntro }}</p>
+          <p>{{ page.authorAside }}</p>
         </div>
       </section>
 
       <!-- Blog description section -->
       <section class="about-section" aria-labelledby="about-blog-title">
         <h2 id="about-blog-title">About This Blog</h2>
-        <p>{{ aboutPage.blogOverview }}</p>
-        <p>{{ aboutPage.blogAudience }}</p>
-        <p>{{ aboutPage.blogDifference }}</p>
+        <p>{{ page.blogOverview }}</p>
+        <p>{{ page.blogAudience }}</p>
+        <p>{{ page.blogDifference }}</p>
       </section>
 
       <!-- Community guidelines and contact section -->
       <section class="about-section" aria-labelledby="community-title">
         <h2 id="community-title">Community Guidelines &amp; Terms of Use</h2>
-        <p>{{ aboutPage.communityIntro }}</p>
+        <p>{{ page.communityIntro }}</p>
         <ul class="terms-list">
-          <li>{{ aboutPage.respectGuideline }}</li>
-          <li>{{ aboutPage.topicGuideline }}</li>
-          <li>{{ aboutPage.spamGuideline }}</li>
-          <li>{{ aboutPage.moderationGuideline }}</li>
-          <li>{{ aboutPage.agreementGuideline }}</li>
+          <li>{{ page.respectGuideline }}</li>
+          <li>{{ page.topicGuideline }}</li>
+          <li>{{ page.spamGuideline }}</li>
+          <li>{{ page.moderationGuideline }}</li>
+          <li>{{ page.agreementGuideline }}</li>
         </ul>
-        <p>{{ aboutPage.consequences }}</p>
+        <p>{{ page.consequences }}</p>
         <p class="about-contact">
           Questions? Reach out at
-          <a [href]="'mailto:' + aboutPage.contactEmail">{{
-            aboutPage.contactEmail
-          }}</a
+          <a [href]="'mailto:' + page.contactEmail">{{ page.contactEmail }}</a
           >.
         </p>
       </section>
     </div>
   </main>
-} @else if (!isLoading && isNotPublished) {
+} @else if (!isLoading() && isNotPublished()) {
   <!-- Empty state shown until an administrator publishes the first About page -->
   <main class="about-page" aria-labelledby="about-page-title">
     <div class="about-shell">

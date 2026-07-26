@@ -1,3 +1,6 @@
+@let visibleBlogPosts = blogPosts();
+@let pages = list();
+@let currentPage = pageNumber();
 <div class="admin-page">
   <!-- Admin panel for managing blog posts -->
   <section class="admin-panel">
@@ -42,7 +45,7 @@
       </div>
     </div>
 
-    @if (blogPost$ | async; as blogPosts) {
+    @if (visibleBlogPosts.length > 0) {
       <!-- Blog post table with sortable columns -->
       <div class="table-responsive admin-table-wrap">
         <table class="table admin-table">
@@ -103,10 +106,10 @@
           </thead>
 
           <tbody>
-            @for (blogPost of blogPosts; track blogPost.id) {
+            @for (blogPost of visibleBlogPosts; track blogPost.id) {
               <tr>
                 <td class="admin-strong-cell">{{ blogPost.title }}</td>
-                <td>{{ blogPost.publishedDate | date: "MM-dd-yy" }}</td>
+                <td>{{ blogPost.publishedDate | date: 'MM-dd-yy' }}</td>
                 <td>
                   <span
                     class="admin-status-pill"
@@ -148,16 +151,16 @@
       </div>
     }
 
-    @if (list.length > 1) {
+    @if (pages.length > 1) {
       <!-- Pagination controls for the blog post table -->
       <footer class="admin-panel-footer">
         <nav aria-label="Page navigation">
           <ul class="pagination admin-pagination">
-            <li class="page-item" [class.disabled]="pageNumber === 1">
+            <li class="page-item" [class.disabled]="currentPage === 1">
               <button
                 class="page-link"
                 (click)="getPrevPage()"
-                [disabled]="pageNumber === 1"
+                [disabled]="currentPage === 1"
                 name="previousButton"
                 aria-label="Previous page"
               >
@@ -165,12 +168,12 @@
               </button>
             </li>
 
-            @for (item of list; track $index; let idx = $index) {
-              <li class="page-item" [class.active]="pageNumber === idx + 1">
+            @for (item of pages; track $index; let idx = $index) {
+              <li class="page-item" [class.active]="currentPage === idx + 1">
                 <button
                   class="page-link"
                   (click)="getPage(idx + 1)"
-                  [attr.aria-current]="pageNumber === idx + 1 ? 'page' : null"
+                  [attr.aria-current]="currentPage === idx + 1 ? 'page' : null"
                   [attr.aria-label]="'Page ' + (idx + 1)"
                   name="pageNumberButtons"
                 >
@@ -181,12 +184,12 @@
 
             <li
               class="page-item"
-              [class.disabled]="pageNumber === list.length"
+              [class.disabled]="currentPage === pages.length"
             >
               <button
                 class="page-link"
                 (click)="getNextPage()"
-                [disabled]="pageNumber === list.length"
+                [disabled]="currentPage === pages.length"
                 name="nextButton"
                 aria-label="Next page"
               >

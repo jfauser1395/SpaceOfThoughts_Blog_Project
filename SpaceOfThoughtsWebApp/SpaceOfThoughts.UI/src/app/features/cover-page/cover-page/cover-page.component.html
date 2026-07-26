@@ -1,39 +1,43 @@
+@let page = coverPage();
+@let currentUser = user();
+@let previewPosts = blogPreviewPosts();
+@let backgroundImage = backgroundImageUrl();
 <main class="cover-page">
   <!-- Full-screen cover hero with dynamic background image -->
   <section
     class="cover-hero"
     aria-labelledby="cover-title"
     [style.--cover-overlay-opacity]="
-      (coverPage?.backgroundOverlayStrength ?? 100) / 100
+      (page?.backgroundOverlayStrength ?? 100) / 100
     "
   >
     <div
       class="cover-hero-background media-page-background"
       [style.background-image]="
-        backgroundImageUrl ? 'url(' + backgroundImageUrl + ')' : 'none'
+        backgroundImage ? 'url(' + backgroundImage + ')' : 'none'
       "
       aria-hidden="true"
     ></div>
     <!-- Use the shared public loader while cover content and the hero image initialize -->
-    <app-loading-overlay [loading]="isPageLoading" [lockPageScroll]="false" />
+    <app-loading-overlay [loading]="isPageLoading()" [lockPageScroll]="false" />
 
     <!-- Welcome message and primary cover actions -->
-    <div class="cover-hero-content" [class.is-loading]="isPageLoading">
-      @if (user !== undefined) {
+    <div class="cover-hero-content" [class.is-loading]="isPageLoading()">
+      @if (currentUser !== undefined) {
         <div class="cover-greeting">
-          Hay <span>{{ user.userName }}</span> !
+          Hay <span>{{ currentUser.userName }}</span> !
         </div>
       }
 
-      @if (isLoading) {
+      @if (isLoading()) {
         <span class="cover-kicker">Loading</span>
         <h1 id="cover-title">Space of Thoughts</h1>
         <p>Preparing the latest welcome...</p>
-      } @else if (coverPage) {
-        <span class="cover-kicker">{{ coverPage.kicker }}</span>
-        <h1 id="cover-title">{{ coverPage.welcomeTitle }}</h1>
-        <p>{{ coverPage.introduction }}</p>
-      } @else if (isNotPublished) {
+      } @else if (page) {
+        <span class="cover-kicker">{{ page.kicker }}</span>
+        <h1 id="cover-title">{{ page.welcomeTitle }}</h1>
+        <p>{{ page.introduction }}</p>
+      } @else if (isNotPublished()) {
         <!-- Status only; public welcome copy is never supplied from source defaults -->
         <span class="cover-kicker">Cover page</span>
         <h1 id="cover-title">Not published yet</h1>
@@ -45,7 +49,7 @@
           <i class="bi bi-journal-text" aria-hidden="true"></i>
           Read blogs
         </a>
-        @if (user === undefined) {
+        @if (currentUser === undefined) {
           <a class="btn btn-outline-light" [routerLink]="['/login']">
             <i class="bi bi-person" aria-hidden="true"></i>
             Sign in
@@ -54,23 +58,23 @@
       </div>
     </div>
 
-    @if (blogPreviewPosts.length > 0) {
+    @if (previewPosts.length > 0) {
       <!-- Rotating preview of published blog posts -->
       <aside
         class="cover-blog-preview"
-        [class.is-loading]="isPageLoading"
+        [class.is-loading]="isPageLoading()"
         aria-label="Blog previews"
       >
         <div class="cover-blog-preview-header">
           <span>From the blog</span>
           <span class="cover-blog-preview-count">
-            {{ activeBlogPreviewPosition + " / " + blogPreviewPosts.length }}
+            {{ activeBlogPreviewPosition() + ' / ' + previewPosts.length }}
           </span>
         </div>
 
         <div class="cover-blog-preview-stage">
           @for (
-            blog of visibleBlogPreviews;
+            blog of visibleBlogPreviews();
             track blog.id;
             let index = $index
           ) {
@@ -89,7 +93,7 @@
               </span>
               <span class="cover-blog-card-body">
                 <span class="cover-blog-meta">
-                  <span>{{ blog.publishedDate | date: "MMM d, yyyy" }}</span>
+                  <span>{{ blog.publishedDate | date: 'MMM d, yyyy' }}</span>
                   @if (blog.categories.length > 0) {
                     <span>{{ blog.categories[0].name }}</span>
                   }

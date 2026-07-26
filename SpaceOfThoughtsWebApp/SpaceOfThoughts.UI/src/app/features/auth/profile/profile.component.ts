@@ -1,11 +1,14 @@
-import { CommonModule } from '@angular/common';
 import {
+  ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   HostListener,
   OnDestroy,
   OnInit,
-  ChangeDetectionStrategy,
+  inject,
+  signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   FormControl,
   FormGroup,
@@ -19,16 +22,22 @@ import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-profile',
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [ReactiveFormsModule, RouterModule],
   templateUrl: './profile.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './profile.component.css',
 })
 export class ProfileComponent implements OnInit, OnDestroy {
-  // Current user profile loaded from the API
-  currentUser?: User;
-  selectedProfileImageFile?: File;
-  selectedProfileImagePreviewUrl?: string;
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+
+  // Signals keep profile API results and image-editor changes visible with OnPush
+  readonly currentUser = signal<User | undefined>(undefined);
+  readonly selectedProfileImageFile = signal<File | undefined>(undefined);
+  readonly selectedProfileImagePreviewUrl = signal<string | undefined>(
+    undefined,
+  );
 
   // Avatar editor limits used by the zoom control
   readonly minimumAvatarZoom = 85;
@@ -42,11 +51,11 @@ export class ProfileComponent implements OnInit, OnDestroy {
   private readonly minimumAvatarPanOffsetPercent = 12.5;
   private readonly defaultAvatarPosition = '50% 50% 100%';
   private readonly savedCroppedAvatarPosition = '50% 50%';
-  avatarPositionX = 50;
-  avatarPositionY = 50;
-  avatarZoom = this.defaultAvatarZoom;
-  isProfilePictureEditorOpen = false;
-  isDraggingAvatar = false;
+  readonly avatarPositionX = signal(50);
+  readonly avatarPositionY = signal(50);
+  readonly avatarZoom = signal(this.defaultAvatarZoom);
+  readonly isProfilePictureEditorOpen = signal(false);
+  readonly isDraggingAvatar = signal(false);
 
   // Active pointer and incremental drag values used for smooth two-axis movement
   private activeAvatarPointerId?: number;
@@ -55,19 +64,19 @@ export class ProfileComponent implements OnInit, OnDestroy {
   private dragLastClientY = 0;
   private dragPositionX = 50;
   private dragPositionY = 50;
-  isLoading = true;
-  isSavingProfile = false;
-  isUploadingProfileImage = false;
-  isDeletingAccount = false;
-  isDeleteAccountConfirmationOpen = false;
-  profileError?: string;
-  profileSuccess?: string;
-  imageError?: string;
-  imageSuccess?: string;
-  deleteAccountError?: string;
+  readonly isLoading = signal(true);
+  readonly isSavingProfile = signal(false);
+  readonly isUploadingProfileImage = signal(false);
+  readonly isDeletingAccount = signal(false);
+  readonly isDeleteAccountConfirmationOpen = signal(false);
+  readonly profileError = signal<string | undefined>(undefined);
+  readonly profileSuccess = signal<string | undefined>(undefined);
+  readonly imageError = signal<string | undefined>(undefined);
+  readonly imageSuccess = signal<string | undefined>(undefined);
+  readonly deleteAccountError = signal<string | undefined>(undefined);
 
   // Reactive form for profile credentials and optional password change
-  profileForm = new FormGroup({
+  readonly profileForm = new FormGroup({
     userName: new FormControl('', {
       nonNullable: true,
       validators: [Validators.required, Validators.maxLength(256)],
@@ -90,11 +99,6 @@ export class ProfileComponent implements OnInit, OnDestroy {
   private uploadProfileImageSubscription?: Subscription;
   private deleteAccountSubscription?: Subscription;
 
-  constructor(
-    private authService: AuthService,
-    private router: Router,
-  ) {}
-
   ngOnInit(): void {
     // Scroll up after loading the profile page
     window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
@@ -114,8 +118,8 @@ export class ProfileComponent implements OnInit, OnDestroy {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
 
-    this.imageError = undefined;
-    this.imageSuccess = undefined;
+    this.imageError.set(undefined);
+    this.imageSuccess.set(undefined);
 
     if (!file) {
       return;
@@ -128,46 +132,46 @@ export class ProfileComponent implements OnInit, OnDestroy {
 
     // Create a temporary preview URL for the avatar editor
     this.revokeSelectedProfileImagePreview();
-    this.selectedProfileImageFile = file;
-    this.selectedProfileImagePreviewUrl = URL.createObjectURL(file);
-    this.avatarPositionX = 50;
-    this.avatarPositionY = 50;
-    this.avatarZoom = this.selectedImageDefaultAvatarZoom;
+    this.selectedProfileImageFile.set(file);
+    this.selectedProfileImagePreviewUrl.set(URL.createObjectURL(file));
+    this.avatarPositionX.set(50);
+    this.avatarPositionY.set(50);
+    this.avatarZoom.set(this.selectedImageDefaultAvatarZoom);
   }
 
   // Open the profile picture editor popup
   openProfilePictureEditor(): void {
-    this.imageError = undefined;
-    this.imageSuccess = undefined;
-    this.isProfilePictureEditorOpen = true;
+    this.imageError.set(undefined);
+    this.imageSuccess.set(undefined);
+    this.isProfilePictureEditorOpen.set(true);
   }
 
   // Close the profile picture editor and reset unsaved image changes
   closeProfilePictureEditor(): void {
-    if (this.isUploadingProfileImage) {
+    if (this.isUploadingProfileImage()) {
       return;
     }
 
-    this.imageError = undefined;
-    this.imageSuccess = undefined;
-    this.selectedProfileImageFile = undefined;
+    this.imageError.set(undefined);
+    this.imageSuccess.set(undefined);
+    this.selectedProfileImageFile.set(undefined);
     this.revokeSelectedProfileImagePreview();
     this.finishAvatarDrag(this.activeAvatarPointerId);
-    this.applyAvatarPosition(this.currentUser);
-    this.isProfilePictureEditorOpen = false;
+    this.applyAvatarPosition(this.currentUser());
+    this.isProfilePictureEditorOpen.set(false);
   }
 
   // Crop and upload the selected profile image
   async onUploadProfileImage(): Promise<void> {
-    this.imageError = undefined;
-    this.imageSuccess = undefined;
+    this.imageError.set(undefined);
+    this.imageSuccess.set(undefined);
 
     if (!this.avatarImageUrl) {
-      this.imageError = 'Choose a JPG, PNG, or WEBP picture first.';
+      this.imageError.set('Choose a JPG, PNG, or WEBP picture first.');
       return;
     }
 
-    this.isUploadingProfileImage = true;
+    this.isUploadingProfileImage.set(true);
     this.uploadProfileImageSubscription?.unsubscribe();
 
     // Prepare a cropped square image before sending it to the API
@@ -175,11 +179,12 @@ export class ProfileComponent implements OnInit, OnDestroy {
     try {
       croppedProfileImageFile = await this.createCroppedProfileImageFile();
     } catch (error) {
-      this.imageError =
+      this.imageError.set(
         error instanceof Error
           ? error.message
-          : 'Unable to prepare this profile picture.';
-      this.isUploadingProfileImage = false;
+          : 'Unable to prepare this profile picture.',
+      );
+      this.isUploadingProfileImage.set(false);
       return;
     }
 
@@ -189,29 +194,31 @@ export class ProfileComponent implements OnInit, OnDestroy {
         croppedProfileImageFile,
         this.savedCroppedAvatarPosition,
       )
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (updatedUser) => {
           this.applyUser(updatedUser);
           this.authService.setUser(updatedUser);
-          this.selectedProfileImageFile = undefined;
+          this.selectedProfileImageFile.set(undefined);
           this.revokeSelectedProfileImagePreview();
-          this.imageSuccess = 'Profile picture updated.';
-          this.isUploadingProfileImage = false;
-          this.isProfilePictureEditorOpen = false;
+          this.imageSuccess.set('Profile picture updated.');
+          this.isUploadingProfileImage.set(false);
+          this.isProfilePictureEditorOpen.set(false);
         },
         error: (error) => {
-          this.imageError =
+          this.imageError.set(
             this.getRequestErrorMessage(error) ||
-            'Unable to upload this profile picture.';
-          this.isUploadingProfileImage = false;
+              'Unable to upload this profile picture.',
+          );
+          this.isUploadingProfileImage.set(false);
         },
       });
   }
 
   // Handle profile credential form submission
   onSaveProfile(): void {
-    this.profileError = undefined;
-    this.profileSuccess = undefined;
+    this.profileError.set(undefined);
+    this.profileSuccess.set(undefined);
 
     if (this.profileForm.invalid) {
       this.profileForm.markAllAsTouched();
@@ -236,7 +243,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.isSavingProfile = true;
+    this.isSavingProfile.set(true);
     this.updateProfileSubscription?.unsubscribe();
 
     // Save profile fields and keep the stored avatar position in sync
@@ -248,6 +255,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
         newPassword: newPassword || null,
         profileImagePosition: this.avatarObjectPosition,
       })
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (response) => {
           this.authService.setUserFromLoginResponse(response);
@@ -255,8 +263,8 @@ export class ProfileComponent implements OnInit, OnDestroy {
           this.profileForm.controls.currentPassword.reset('');
           this.profileForm.controls.newPassword.reset('');
           this.profileForm.controls.confirmPassword.reset('');
-          this.profileSuccess = 'Profile updated.';
-          this.isSavingProfile = false;
+          this.profileSuccess.set('Profile updated.');
+          this.isSavingProfile.set(false);
         },
         error: (error) => {
           const validationErrors = error?.error?.errors;
@@ -278,42 +286,44 @@ export class ProfileComponent implements OnInit, OnDestroy {
             emailControl.markAsTouched();
           }
 
-          this.profileError =
+          this.profileError.set(
             this.getRequestErrorMessage(error) ||
-            'Unable to update your profile.';
-          this.isSavingProfile = false;
+              'Unable to update your profile.',
+          );
+          this.isSavingProfile.set(false);
         },
       });
   }
 
   // Show the explicit confirmation step before allowing permanent account deletion
   openDeleteAccountConfirmation(): void {
-    this.deleteAccountError = undefined;
-    this.isDeleteAccountConfirmationOpen = true;
+    this.deleteAccountError.set(undefined);
+    this.isDeleteAccountConfirmationOpen.set(true);
   }
 
   // Return to the normal profile view without deleting the account
   closeDeleteAccountConfirmation(): void {
-    if (this.isDeletingAccount) {
+    if (this.isDeletingAccount()) {
       return;
     }
 
-    this.deleteAccountError = undefined;
-    this.isDeleteAccountConfirmationOpen = false;
+    this.deleteAccountError.set(undefined);
+    this.isDeleteAccountConfirmationOpen.set(false);
   }
 
   // Delete the signed-in user's account and clear the now-invalid local session
   onDeleteAccount(): void {
-    if (!this.canDeleteAccount || this.isDeletingAccount) {
+    if (!this.canDeleteAccount || this.isDeletingAccount()) {
       return;
     }
 
-    this.deleteAccountError = undefined;
-    this.isDeletingAccount = true;
+    this.deleteAccountError.set(undefined);
+    this.isDeletingAccount.set(true);
     this.deleteAccountSubscription?.unsubscribe();
 
     this.deleteAccountSubscription = this.authService
       .deleteCurrentAccount()
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
           // Remove all local authentication state before leaving the protected profile page
@@ -321,8 +331,8 @@ export class ProfileComponent implements OnInit, OnDestroy {
           void this.router.navigateByUrl('/', { replaceUrl: true });
         },
         error: (error) => {
-          this.deleteAccountError = this.getDeleteAccountErrorMessage(error);
-          this.isDeletingAccount = false;
+          this.deleteAccountError.set(this.getDeleteAccountErrorMessage(error));
+          this.isDeletingAccount.set(false);
         },
       });
   }
@@ -340,11 +350,11 @@ export class ProfileComponent implements OnInit, OnDestroy {
     const avatar = event.currentTarget as HTMLElement;
     this.activeAvatarPointerId = event.pointerId;
     this.avatarDragTarget = avatar;
-    this.isDraggingAvatar = true;
+    this.isDraggingAvatar.set(true);
     this.dragLastClientX = event.clientX;
     this.dragLastClientY = event.clientY;
-    this.dragPositionX = this.avatarPositionX;
-    this.dragPositionY = this.avatarPositionY;
+    this.dragPositionX = this.avatarPositionX();
+    this.dragPositionY = this.avatarPositionY();
     avatar.setPointerCapture(event.pointerId);
   }
 
@@ -352,7 +362,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
   @HostListener('window:pointermove', ['$event'])
   onAvatarPointerMove(event: PointerEvent): void {
     if (
-      !this.isDraggingAvatar ||
+      !this.isDraggingAvatar() ||
       event.pointerId !== this.activeAvatarPointerId
     ) {
       return;
@@ -369,7 +379,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
   @HostListener('window:pointerup', ['$event'])
   onAvatarPointerUp(event: PointerEvent): void {
     if (
-      !this.isDraggingAvatar ||
+      !this.isDraggingAvatar() ||
       event.pointerId !== this.activeAvatarPointerId
     ) {
       return;
@@ -390,34 +400,34 @@ export class ProfileComponent implements OnInit, OnDestroy {
   // Update avatar zoom from the range input
   onAvatarZoomChange(event: Event): void {
     const input = event.target as HTMLInputElement;
-    this.avatarZoom = this.clampZoom(Number(input.value));
+    this.avatarZoom.set(this.clampZoom(Number(input.value)));
   }
 
   // Image URL used by the avatar preview
   get avatarImageUrl(): string | undefined {
     return (
-      this.selectedProfileImagePreviewUrl ||
-      this.currentUser?.profileImageUrl ||
+      this.selectedProfileImagePreviewUrl() ||
+      this.currentUser()?.profileImageUrl ||
       undefined
     );
   }
 
   // Combined avatar position string including zoom
   get avatarPosition(): string {
-    return `${this.avatarPositionX}% ${this.avatarPositionY}% ${this.avatarZoom}%`;
+    return `${this.avatarPositionX()}% ${this.avatarPositionY()}% ${this.avatarZoom()}%`;
   }
 
   // Object-position string saved for cropped avatars
   get avatarObjectPosition(): string {
-    return `${this.avatarPositionX}% ${this.avatarPositionY}%`;
+    return `${this.avatarPositionX()}% ${this.avatarPositionY()}%`;
   }
 
   // Transform used to visually pan the enlarged avatar image
   get avatarImageTransform(): string {
     return this.buildAvatarTransform(
-      this.avatarPositionX,
-      this.avatarPositionY,
-      this.avatarZoom,
+      this.avatarPositionX(),
+      this.avatarPositionY(),
+      this.avatarZoom(),
     );
   }
 
@@ -425,49 +435,47 @@ export class ProfileComponent implements OnInit, OnDestroy {
   get userInitial(): string {
     const userName =
       this.profileForm.controls.userName.value.trim() ||
-      this.currentUser?.userName;
+      this.currentUser()?.userName;
     return userName ? userName.charAt(0).toUpperCase() : '?';
   }
 
   // The initial seeded administrator is intentionally excluded from self-service deletion
   get canDeleteAccount(): boolean {
-    return (
-      !!this.currentUser && !this.currentUser.roles.includes('InitialAdmin')
-    );
+    const currentUser = this.currentUser();
+    return !!currentUser && !currentUser.roles.includes('InitialAdmin');
   }
 
   ngOnDestroy(): void {
-    // Unsubscribe from subscriptions and release preview URLs to prevent memory leaks
-    this.profileSubscription?.unsubscribe();
-    this.updateProfileSubscription?.unsubscribe();
-    this.uploadProfileImageSubscription?.unsubscribe();
-    this.deleteAccountSubscription?.unsubscribe();
+    // Release pointer capture and temporary image URLs owned by this page
     this.finishAvatarDrag(this.activeAvatarPointerId);
     this.revokeSelectedProfileImagePreview();
   }
 
   // Load the current user's editable profile data
   private loadProfile(): void {
-    this.isLoading = true;
+    this.isLoading.set(true);
     this.profileSubscription?.unsubscribe();
-    this.profileSubscription = this.authService.getCurrentProfile().subscribe({
-      next: (user) => {
-        this.applyUser(user);
-        this.authService.setUser(user);
-        this.isLoading = false;
-      },
-      error: () => {
-        const fallbackUser = this.authService.getUser();
-        if (fallbackUser) {
-          // Use the session user if the profile endpoint cannot be reached
-          this.applyUser(fallbackUser);
-        } else {
-          this.profileError = 'Unable to load your profile.';
-        }
+    this.profileSubscription = this.authService
+      .getCurrentProfile()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (user) => {
+          this.applyUser(user);
+          this.authService.setUser(user);
+          this.isLoading.set(false);
+        },
+        error: () => {
+          const fallbackUser = this.authService.getUser();
+          if (fallbackUser) {
+            // Use the session user if the profile endpoint cannot be reached
+            this.applyUser(fallbackUser);
+          } else {
+            this.profileError.set('Unable to load your profile.');
+          }
 
-        this.isLoading = false;
-      },
-    });
+          this.isLoading.set(false);
+        },
+      });
   }
 
   // Apply user values to the component state and form
@@ -476,7 +484,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.currentUser = user;
+    this.currentUser.set(user);
     this.applyAvatarPosition(user);
 
     this.profileForm.patchValue({
@@ -488,9 +496,9 @@ export class ProfileComponent implements OnInit, OnDestroy {
   // Apply saved avatar position values or defaults
   private applyAvatarPosition(user?: User): void {
     const position = this.parseAvatarPosition(user?.profileImagePosition);
-    this.avatarPositionX = position.x;
-    this.avatarPositionY = position.y;
-    this.avatarZoom = position.zoom;
+    this.avatarPositionX.set(position.x);
+    this.avatarPositionY.set(position.y);
+    this.avatarZoom.set(position.zoom);
   }
 
   // Convert pointer movement into percentage-based avatar position
@@ -512,8 +520,8 @@ export class ProfileComponent implements OnInit, OnDestroy {
 
     this.dragPositionX = this.clampPercent(this.dragPositionX - deltaX);
     this.dragPositionY = this.clampPercent(this.dragPositionY - deltaY);
-    this.avatarPositionX = Math.round(this.dragPositionX);
-    this.avatarPositionY = Math.round(this.dragPositionY);
+    this.avatarPositionX.set(Math.round(this.dragPositionX));
+    this.avatarPositionY.set(Math.round(this.dragPositionY));
     this.dragLastClientX = event.clientX;
     this.dragLastClientY = event.clientY;
   }
@@ -527,7 +535,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
       this.avatarDragTarget.releasePointerCapture(pointerId);
     }
 
-    this.isDraggingAvatar = false;
+    this.isDraggingAvatar.set(false);
     this.activeAvatarPointerId = undefined;
     this.avatarDragTarget = undefined;
   }
@@ -604,7 +612,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
     const image = await this.loadImage(
       imageUrl,
       // Saved images need CORS enabled before drawing to canvas
-      !this.selectedProfileImagePreviewUrl,
+      !this.selectedProfileImagePreviewUrl(),
     );
     const canvas = document.createElement('canvas');
     canvas.width = this.croppedAvatarSize;
@@ -637,7 +645,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
     image: HTMLImageElement,
   ): void {
     const canvasSize = this.croppedAvatarSize;
-    const zoom = this.clampZoom(this.avatarZoom);
+    const zoom = this.clampZoom(this.avatarZoom());
     const imageBoxSize = (canvasSize * zoom) / 100;
     // Keep both axes movable even when the image exactly fills the crop frame
     const maxOffset = Math.max(
@@ -645,9 +653,9 @@ export class ProfileComponent implements OnInit, OnDestroy {
       (Math.abs(zoom - 100) / (2 * zoom)) * 100,
     );
     const offsetX =
-      ((((50 - this.avatarPositionX) / 50) * maxOffset) / 100) * imageBoxSize;
+      ((((50 - this.avatarPositionX()) / 50) * maxOffset) / 100) * imageBoxSize;
     const offsetY =
-      ((((50 - this.avatarPositionY) / 50) * maxOffset) / 100) * imageBoxSize;
+      ((((50 - this.avatarPositionY()) / 50) * maxOffset) / 100) * imageBoxSize;
     const imageBoxX = (canvasSize - imageBoxSize) / 2 + offsetX;
     const imageBoxY = (canvasSize - imageBoxSize) / 2 + offsetY;
     const imageAspectRatio = image.naturalWidth / image.naturalHeight;
@@ -657,8 +665,8 @@ export class ProfileComponent implements OnInit, OnDestroy {
       imageAspectRatio >= 1 ? imageBoxSize : imageBoxSize / imageAspectRatio;
     const overflowX = Math.max(0, drawWidth - imageBoxSize);
     const overflowY = Math.max(0, drawHeight - imageBoxSize);
-    const drawX = imageBoxX - overflowX * (this.avatarPositionX / 100);
-    const drawY = imageBoxY - overflowY * (this.avatarPositionY / 100);
+    const drawX = imageBoxX - overflowX * (this.avatarPositionX() / 100);
+    const drawY = imageBoxY - overflowY * (this.avatarPositionY() / 100);
 
     // Fill transparency and any exposed crop area with the required black background
     context.fillStyle = '#000000';
@@ -688,7 +696,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
   // Build a predictable file name for the cropped avatar upload
   private getCroppedProfileImageFileName(): string {
     const originalName =
-      this.selectedProfileImageFile?.name ?? 'profile-picture';
+      this.selectedProfileImageFile()?.name ?? 'profile-picture';
     const fileNameWithoutExtension =
       originalName.replace(/\.[^.]+$/, '') || 'profile-picture';
 
@@ -712,12 +720,12 @@ export class ProfileComponent implements OnInit, OnDestroy {
     const hasValidType = allowedTypes.includes(file.type);
 
     if (!hasValidExtension && !hasValidType) {
-      this.imageError = 'Please choose a JPG, PNG, or WEBP image.';
+      this.imageError.set('Please choose a JPG, PNG, or WEBP image.');
       return false;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      this.imageError = 'Profile picture size cannot be more than 5MB.';
+      this.imageError.set('Profile picture size cannot be more than 5MB.');
       return false;
     }
 
@@ -726,9 +734,10 @@ export class ProfileComponent implements OnInit, OnDestroy {
 
   // Release the temporary object URL used for the selected image preview
   private revokeSelectedProfileImagePreview(): void {
-    if (this.selectedProfileImagePreviewUrl) {
-      URL.revokeObjectURL(this.selectedProfileImagePreviewUrl);
-      this.selectedProfileImagePreviewUrl = undefined;
+    const previewUrl = this.selectedProfileImagePreviewUrl();
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      this.selectedProfileImagePreviewUrl.set(undefined);
     }
   }
 

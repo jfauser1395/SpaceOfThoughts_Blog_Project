@@ -1,50 +1,56 @@
+import { NgClass } from '@angular/common';
 import {
-  Component,
-  OnInit,
-  OnDestroy,
   ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnDestroy,
+  OnInit,
+  inject,
+  signal,
 } from '@angular/core';
-import { LoginRequest } from '../models/login-request.model';
-import { CommonModule } from '@angular/common';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
-  FormsModule,
-  FormGroup,
   FormControl,
+  FormGroup,
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { AuthService } from '../services/auth.service';
 import { Router, RouterModule } from '@angular/router';
+import { finalize } from 'rxjs';
 import { StyleService } from '../../../../services/style.service';
-import { Subscription } from 'rxjs';
+import { LoginRequest } from '../models/login-request.model';
+import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-login',
-  imports: [CommonModule, FormsModule, RouterModule, ReactiveFormsModule],
+  imports: [RouterModule, ReactiveFormsModule, NgClass],
   templateUrl: './login.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['./login.component.css'],
 })
 export class LoginComponent implements OnInit, OnDestroy {
-  private user?: Subscription; // Subscription for user login
-  private formSubscription?: Subscription; // Subscription for form value changes
-  model: LoginRequest; // Model to hold login data
-  errorTitle: string[] = []; // Array to hold error messages
-  requestOk: boolean = true; // Flag to check if the request is successful
-  passwordFieldType: string = 'password'; // Type for password field
-  loginFormGroup!: FormGroup; // FormGroup for the login form
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly styleService = inject(StyleService);
+  private readonly destroyRef = inject(DestroyRef);
 
-  constructor(
-    private authService: AuthService, // Inject AuthService for authentication
-    private router: Router, // Inject Router for navigation
-    private styleService: StyleService, // Inject StyleService for styling
-  ) {
-    // Initialize the login model with empty values
-    this.model = {
-      email: '',
-      password: '',
-    };
-  }
+  // Typed controls guarantee that the API request contains two strings
+  readonly loginFormGroup = new FormGroup({
+    email: new FormControl('', {
+      nonNullable: true,
+      validators: Validators.required,
+    }),
+    password: new FormControl('', {
+      nonNullable: true,
+      validators: Validators.required,
+    }),
+  });
+
+  // Signals notify the OnPush template when an asynchronous login finishes
+  readonly errorTitle = signal<readonly string[]>([]);
+  readonly requestOk = signal(true);
+  readonly isSubmitting = signal(false);
+  readonly passwordFieldType = signal<'password' | 'text'>('password');
 
   ngOnInit(): void {
     // Scroll up after loading the component
@@ -54,80 +60,77 @@ export class LoginComponent implements OnInit, OnDestroy {
       behavior: 'smooth',
     });
 
-    // Set the body style to hide overflow
+    // Keep the login card fixed while this full-screen page is active
     this.styleService.setBodyStyle('overflow', 'hidden');
 
-    // Declare and initialize the login form group
-    this.loginFormGroup = new FormGroup({
-      email: new FormControl(null, Validators.required),
-      password: new FormControl(null, Validators.required),
-    });
-
-    // Subscribe to valueChanges observable for form controls to reset form errors
-    this.formSubscription = this.loginFormGroup.valueChanges.subscribe(() => {
-      this.resetFormErrors();
-    });
+    // Remove server errors when the user edits either credential
+    this.loginFormGroup.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.resetFormErrors());
   }
 
-  // Reset form errors for all form controls
+  // Re-run required validators without retaining a previous API error
   resetFormErrors(): void {
-    Object.keys(this.loginFormGroup.controls).forEach((key) => {
-      this.loginFormGroup.get(key)?.setErrors(null);
+    this.errorTitle.set([]);
+    this.requestOk.set(true);
+    this.loginFormGroup.controls.email.updateValueAndValidity({
+      emitEvent: false,
+    });
+    this.loginFormGroup.controls.password.updateValueAndValidity({
+      emitEvent: false,
     });
   }
 
-  // Handle form submission
-  onFormSubmit() {
-    // Check if the form is valid
-    if (this.loginFormGroup.valid) {
-      this.model.email = this.loginFormGroup.get('email')?.value;
-      this.model.password = this.loginFormGroup.get('password')?.value;
+  // Authenticate the typed credentials and retain the returned user session
+  onFormSubmit(): void {
+    if (!this.loginFormGroup.valid) {
+      this.loginFormGroup.markAllAsTouched();
+      return;
+    }
 
-      // Call the login method from AuthService
-      this.user = this.authService.login(this.model).subscribe({
+    const model: LoginRequest = this.loginFormGroup.getRawValue();
+    this.isSubmitting.set(true);
+
+    this.authService
+      .login(model)
+      .pipe(
+        finalize(() => this.isSubmitting.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
         next: (response) => {
-          // Store the returned user details; the API has already set the HttpOnly auth cookie
+          // The API has already set the HttpOnly authentication cookie
           this.authService.setUserFromLoginResponse(response);
-
-          // Redirect to the home page
-          this.router.navigateByUrl('/');
+          void this.router.navigateByUrl('/');
         },
         error: (error) => {
-          // Handle login errors
-          this.requestOk = error.ok;
-          this.errorTitle = [];
-
-          // Iterate through the error object and collect error messages
-          for (let key in error.error.errors) {
-            if (error.error.errors.hasOwnProperty(key)) {
-              this.errorTitle.push(error.error.errors[key]);
-            }
-          }
-
-          // Set custom errors on the form controls if there are error messages
-          if (this.errorTitle) {
-            this.loginFormGroup.get('email')?.setErrors({ customError: true });
-            this.loginFormGroup
-              .get('password')
-              ?.setErrors({ customError: true });
-          }
+          // Show API validation details or a useful fallback for network errors
+          this.requestOk.set(error.ok);
+          const errors = (error.error?.errors ?? {}) as Record<
+            string,
+            string[]
+          >;
+          const messages = Object.values(errors).flat();
+          this.errorTitle.set(
+            messages.length > 0 ? messages : ['Unable to sign in.'],
+          );
+          this.loginFormGroup.controls.email.setErrors({ customError: true });
+          this.loginFormGroup.controls.password.setErrors({
+            customError: true,
+          });
         },
       });
-    } else {
-      // Mark all form controls as touched if the form is invalid
-      this.loginFormGroup.markAllAsTouched();
-    }
   }
 
   // Toggle the visibility of the password field
-  togglePasswordVisibility() {
-    this.passwordFieldType =
-      this.passwordFieldType === 'password' ? 'text' : 'password';
+  togglePasswordVisibility(): void {
+    this.passwordFieldType.update((type) =>
+      type === 'password' ? 'text' : 'password',
+    );
   }
 
-  // Unsubscribe form subscriptions to prevent memory leaks
+  // Restore the page-level body style when the login screen closes
   ngOnDestroy(): void {
-    this.user?.unsubscribe();
-    this.formSubscription?.unsubscribe();
+    this.styleService.removeBodyStyle('overflow');
   }
 }

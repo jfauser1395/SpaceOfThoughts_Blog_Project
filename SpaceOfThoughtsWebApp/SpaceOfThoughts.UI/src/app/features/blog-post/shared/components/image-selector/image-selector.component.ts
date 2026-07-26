@@ -1,13 +1,15 @@
 import {
   Component,
   ElementRef,
-  Input,
   OnDestroy,
   OnInit,
-  ViewChild,
   ChangeDetectionStrategy,
+  inject,
+  input,
+  signal,
+  viewChild,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { AsyncPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   FormControl,
@@ -22,36 +24,31 @@ import { BlogImage } from '../../models/blog-image.model';
 
 @Component({
   selector: 'app-image-selector',
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [FormsModule, ReactiveFormsModule, AsyncPipe],
   templateUrl: './image-selector.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['./image-selector.component.css'],
 })
 export class ImageSelectorComponent implements OnInit, OnDestroy {
+  private readonly imageService = inject(ImageService);
+
   // Route uploads and the visible library to the page-specific public folder
-  @Input() imageCategory: PublicImageCategory = 'Blog';
+  readonly imageCategory = input<PublicImageCategory>('Blog');
 
   // Use the existing Bootstrap dismiss control only after a successful upload
-  @ViewChild('closeModalButton')
-  private closeModalButton?: ElementRef<HTMLButtonElement>;
+  private readonly closeModalButton =
+    viewChild<ElementRef<HTMLButtonElement>>('closeModalButton');
 
   private file?: File; // Variable to hold the uploaded file
   form!: FormGroup; // FormGroup for the image upload form
-  fileName: string = ''; // Name of the uploaded file
-  title: string = ''; // Title of the uploaded image
-  uploadError?: string; // Explain duplicate or failed uploads without closing the modal
-  isUploading = false; // Prevent concurrent submissions of the same form
+  readonly uploadError = signal<string | undefined>(undefined); // Explain duplicate or failed uploads without closing the modal
+  readonly isUploading = signal(false); // Prevent concurrent submissions of the same form
   images$?: Observable<BlogImage[]>; // Observable for the list of images
-  sortedBy: string; // Field to sort the images by
-  sortDirection: string; // Direction of sorting
+  readonly sortedBy = 'DateCreated'; // Field to sort the images by
+  readonly sortDirection = 'asc'; // Direction of sorting
   uploadImageSubscription?: Subscription; // Subscription for uploading an image
   deleteUploadedImage$?: Subscription; // Subscription for deleting uploaded images
-  noImages?: boolean; // Flag to indicate if there are no images
-
-  constructor(private imageService: ImageService) {
-    this.sortedBy = 'DateCreated'; // Default sorting by date created
-    this.sortDirection = 'asc'; // Default sorting direction
-  }
+  readonly noImages = signal<boolean | undefined>(undefined); // Flag to indicate if there are no images
 
   ngOnInit(): void {
     // Declare and initialize the form group
@@ -74,27 +71,27 @@ export class ImageSelectorComponent implements OnInit, OnDestroy {
   // Upload new file
   uploadImage(): void {
     // Map form values to the appropriate BlogImage values
-    this.uploadError = undefined;
-    this.fileName = this.form.get('fileName')?.value;
-    this.title = this.form.get('title')?.value;
-    if (this.file && this.fileName !== '' && this.title !== '') {
-      this.isUploading = true;
+    this.uploadError.set(undefined);
+    const fileName = this.form.get('fileName')?.value;
+    const title = this.form.get('title')?.value;
+    if (this.file && fileName !== '' && title !== '') {
+      this.isUploading.set(true);
 
       // Image service to upload the image
       this.uploadImageSubscription = this.imageService
-        .uploadImage(this.file, this.fileName, this.title, this.imageCategory)
+        .uploadImage(this.file, fileName, title, this.imageCategory())
         .subscribe({
           next: (response) => {
-            this.isUploading = false;
+            this.isUploading.set(false);
             this.getImages(); // Get all images again
             this.selectImage(response); // Send image URL to the parent component
             this.form.reset(); // Reset form after upload
             this.file = undefined;
-            this.closeModalButton?.nativeElement.click();
+            this.closeModalButton()?.nativeElement.click();
           },
           error: (error: HttpErrorResponse) => {
-            this.isUploading = false;
-            this.uploadError = this.getUploadErrorMessage(error);
+            this.isUploading.set(false);
+            this.uploadError.set(this.getUploadErrorMessage(error));
           },
         });
     }
@@ -131,18 +128,18 @@ export class ImageSelectorComponent implements OnInit, OnDestroy {
   }
 
   // Get all images
-  getImages() {
+  getImages(): void {
     this.images$ = this.imageService.getAllImages(
       this.sortedBy,
       this.sortDirection,
-      this.imageCategory,
+      this.imageCategory(),
     );
 
     // Check if any images are uploaded
     this.imageService
-      .checkIfImagesEmpty(this.imageCategory)
+      .checkIfImagesEmpty(this.imageCategory())
       .subscribe((isEmpty) => {
-        this.noImages = isEmpty;
+        this.noImages.set(isEmpty);
       });
   }
 

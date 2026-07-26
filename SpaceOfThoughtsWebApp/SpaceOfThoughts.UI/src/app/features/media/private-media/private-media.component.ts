@@ -1,15 +1,19 @@
 import {
+  ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   HostListener,
   OnDestroy,
   OnInit,
-  ViewChild,
-  ChangeDetectionStrategy,
+  inject,
+  signal,
+  viewChild,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { finalize, forkJoin, map, of, Subscription, switchMap } from 'rxjs';
+import { finalize, forkJoin, map, of, switchMap } from 'rxjs';
 import { PrivateImage } from '../models/private-image.model';
 import { PrivateMediaService } from '../services/private-media.service';
 
@@ -19,26 +23,26 @@ interface PrivateImageView extends PrivateImage {
 
 @Component({
   selector: 'app-private-media',
-  imports: [CommonModule],
+  imports: [DatePipe],
   templateUrl: './private-media.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './private-media.component.css',
 })
 export class PrivateMediaComponent implements OnInit, OnDestroy {
-  @ViewChild('fileInput')
-  private fileInput?: ElementRef<HTMLInputElement>;
+  private readonly privateMediaService = inject(PrivateMediaService);
+  private readonly destroyRef = inject(DestroyRef);
 
-  images: PrivateImageView[] = [];
-  selectedImage?: PrivateImageView;
-  selectedFile?: File;
-  isLoading = true;
-  isUploading = false;
-  deletingFileName?: string;
-  errorMessage?: string;
+  private readonly fileInput =
+    viewChild<ElementRef<HTMLInputElement>>('fileInput');
 
-  private readonly subscriptions = new Subscription();
-
-  constructor(private privateMediaService: PrivateMediaService) {}
+  // Protected API results and action progress are exposed as OnPush-safe signals
+  readonly images = signal<readonly PrivateImageView[]>([]);
+  readonly selectedImage = signal<PrivateImageView | undefined>(undefined);
+  readonly selectedFile = signal<File | undefined>(undefined);
+  readonly isLoading = signal(true);
+  readonly isUploading = signal(false);
+  readonly deletingFileName = signal<string | undefined>(undefined);
+  readonly errorMessage = signal<string | undefined>(undefined);
 
   ngOnInit(): void {
     this.loadImages();
@@ -47,81 +51,89 @@ export class PrivateMediaComponent implements OnInit, OnDestroy {
   // Remember the selected file while leaving its bytes in the browser file input.
   onFileSelected(event: Event): void {
     const input = event.currentTarget as HTMLInputElement;
-    this.selectedFile = input.files?.[0];
-    this.errorMessage = undefined;
+    this.selectedFile.set(input.files?.[0]);
+    this.errorMessage.set(undefined);
   }
 
   // Upload the chosen photo and refresh the protected gallery.
   uploadImage(): void {
-    if (!this.selectedFile || this.isUploading) {
+    const selectedFile = this.selectedFile();
+    if (!selectedFile || this.isUploading()) {
       return;
     }
 
-    this.isUploading = true;
-    this.errorMessage = undefined;
+    this.isUploading.set(true);
+    this.errorMessage.set(undefined);
 
-    this.subscriptions.add(
-      this.privateMediaService
-        .uploadImage(this.selectedFile)
-        .pipe(finalize(() => (this.isUploading = false)))
-        .subscribe({
-          next: () => {
-            this.selectedFile = undefined;
-            if (this.fileInput) {
-              this.fileInput.nativeElement.value = '';
-            }
-            this.loadImages();
-          },
-          error: (error: HttpErrorResponse) => {
-            this.errorMessage = this.getErrorMessage(
+    this.privateMediaService
+      .uploadImage(selectedFile)
+      .pipe(
+        finalize(() => this.isUploading.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: () => {
+          this.selectedFile.set(undefined);
+          const fileInput = this.fileInput();
+          if (fileInput) {
+            fileInput.nativeElement.value = '';
+          }
+          this.loadImages();
+        },
+        error: (error: HttpErrorResponse) => {
+          this.errorMessage.set(
+            this.getErrorMessage(
               error,
               'The photo could not be uploaded. Please try again.',
-            );
-          },
-        }),
-    );
+            ),
+          );
+        },
+      });
   }
 
   // Ask for confirmation because deletion removes the only stored copy.
   deleteImage(image: PrivateImageView): void {
     if (
-      this.deletingFileName ||
+      this.deletingFileName() ||
       !window.confirm('Permanently delete this private photo?')
     ) {
       return;
     }
 
-    this.deletingFileName = image.fileName;
-    this.errorMessage = undefined;
+    this.deletingFileName.set(image.fileName);
+    this.errorMessage.set(undefined);
 
-    this.subscriptions.add(
-      this.privateMediaService
-        .deleteImage(image.fileName)
-        .pipe(finalize(() => (this.deletingFileName = undefined)))
-        .subscribe({
-          next: () => {
-            if (this.selectedImage?.fileName === image.fileName) {
-              this.selectedImage = undefined;
-            }
-            this.loadImages();
-          },
-          error: (error: HttpErrorResponse) => {
-            this.errorMessage = this.getErrorMessage(
+    this.privateMediaService
+      .deleteImage(image.fileName)
+      .pipe(
+        finalize(() => this.deletingFileName.set(undefined)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: () => {
+          if (this.selectedImage()?.fileName === image.fileName) {
+            this.selectedImage.set(undefined);
+          }
+          this.loadImages();
+        },
+        error: (error: HttpErrorResponse) => {
+          this.errorMessage.set(
+            this.getErrorMessage(
               error,
               'The photo could not be deleted. Please try again.',
-            );
-          },
-        }),
-    );
+            ),
+          );
+        },
+      });
   }
 
   // Open a larger in-page view without navigating to the protected API URL.
   viewImage(image: PrivateImageView): void {
-    this.selectedImage = image;
+    this.selectedImage.set(image);
   }
 
   closeImage(): void {
-    this.selectedImage = undefined;
+    this.selectedImage.set(undefined);
   }
 
   // Make file sizes readable in each gallery card.
@@ -139,56 +151,57 @@ export class PrivateMediaComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.subscriptions.unsubscribe();
+    // Release browser-generated blob URLs when the protected gallery closes
     this.revokePreviewUrls();
   }
 
   // Load metadata first, then request every protected photo using authenticated HTTP.
   private loadImages(): void {
-    this.isLoading = true;
-    this.errorMessage = undefined;
+    this.isLoading.set(true);
+    this.errorMessage.set(undefined);
 
-    this.subscriptions.add(
-      this.privateMediaService
-        .getImages()
-        .pipe(
-          switchMap((images) => {
-            if (images.length === 0) {
-              return of([]);
-            }
+    this.privateMediaService
+      .getImages()
+      .pipe(
+        switchMap((images) => {
+          if (images.length === 0) {
+            return of([]);
+          }
 
-            return forkJoin(
-              images.map((image) =>
-                this.privateMediaService.getImage(image.fileName).pipe(
-                  map((blob) => ({
-                    ...image,
-                    previewUrl: URL.createObjectURL(blob),
-                  })),
-                ),
+          return forkJoin(
+            images.map((image) =>
+              this.privateMediaService.getImage(image.fileName).pipe(
+                map((blob) => ({
+                  ...image,
+                  previewUrl: URL.createObjectURL(blob),
+                })),
               ),
-            );
-          }),
-          finalize(() => (this.isLoading = false)),
-        )
-        .subscribe({
-          next: (images) => {
-            this.selectedImage = undefined;
-            this.revokePreviewUrls();
-            this.images = images;
-          },
-          error: (error: HttpErrorResponse) => {
-            this.errorMessage = this.getErrorMessage(
+            ),
+          );
+        }),
+        finalize(() => this.isLoading.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (images) => {
+          this.selectedImage.set(undefined);
+          this.revokePreviewUrls();
+          this.images.set(images);
+        },
+        error: (error: HttpErrorResponse) => {
+          this.errorMessage.set(
+            this.getErrorMessage(
               error,
               'The private media library could not be loaded.',
-            );
-          },
-        }),
-    );
+            ),
+          );
+        },
+      });
   }
 
   private revokePreviewUrls(): void {
-    this.images.forEach((image) => URL.revokeObjectURL(image.previewUrl));
-    this.images = [];
+    this.images().forEach((image) => URL.revokeObjectURL(image.previewUrl));
+    this.images.set([]);
   }
 
   // Prefer API validation details while keeping errors useful for network failures.

@@ -1,27 +1,30 @@
+@let backgroundImage = backgroundImageUrl();
+@let visibleBlogs = filteredBlogs();
 <div class="blog-summary-page">
   <div
     class="blog-summary-background media-page-background"
     [style.background-image]="
-      backgroundImageUrl ? 'url(' + backgroundImageUrl + ')' : 'none'
+      backgroundImage ? 'url(' + backgroundImage + ')' : 'none'
     "
     aria-hidden="true"
   ></div>
   <!-- Block the page while its required posts, categories, or settings are loading -->
-  <app-loading-overlay [loading]="isPageLoading" />
+  <app-loading-overlay [loading]="isPageLoading()" />
 
-  <div class="blog-summary-content">
+  <!-- Keep async category loading active while hiding all page controls until initialization finishes -->
+  <div class="blog-summary-content" [hidden]="isPageLoading()">
     @if (categories$ | async; as categories) {
       <!-- Category filter bar for public blog posts -->
       <div
         class="category-filter-shell"
-        [class.can-scroll-back]="canScrollCategoriesBack"
-        [class.can-scroll-forward]="canScrollCategoriesForward"
+        [class.can-scroll-back]="canScrollCategoriesBack()"
+        [class.can-scroll-forward]="canScrollCategoriesForward()"
       >
         <button
           type="button"
           class="category-scroll-button category-scroll-button-back"
-          [class.is-visible]="canScrollCategoriesBack"
-          [disabled]="!canScrollCategoriesBack"
+          [class.is-visible]="canScrollCategoriesBack()"
+          [disabled]="!canScrollCategoriesBack()"
           aria-label="Show previous categories"
           (click)="scrollCategories('back')"
         >
@@ -39,8 +42,8 @@
           <button
             type="button"
             class="category-filter-button"
-            [class.is-active]="selectedCategoryId === 'all'"
-            [attr.aria-pressed]="selectedCategoryId === 'all'"
+            [class.is-active]="selectedCategoryId() === 'all'"
+            [attr.aria-pressed]="selectedCategoryId() === 'all'"
             (click)="selectCategory('all')"
           >
             All
@@ -49,8 +52,8 @@
             <button
               type="button"
               class="category-filter-button"
-              [class.is-active]="selectedCategoryId === category.id"
-              [attr.aria-pressed]="selectedCategoryId === category.id"
+              [class.is-active]="selectedCategoryId() === category.id"
+              [attr.aria-pressed]="selectedCategoryId() === category.id"
               (click)="selectCategory(category.id)"
             >
               {{ category.name }}
@@ -61,8 +64,8 @@
         <button
           type="button"
           class="category-scroll-button category-scroll-button-forward"
-          [class.is-visible]="canScrollCategoriesForward"
-          [disabled]="!canScrollCategoriesForward"
+          [class.is-visible]="canScrollCategoriesForward()"
+          [disabled]="!canScrollCategoriesForward()"
           aria-label="Show more categories"
           (click)="scrollCategories('forward')"
         >
@@ -77,16 +80,17 @@
     <section class="category-results" aria-label="Blog posts">
       <div
         class="category-results-stage"
-        [style.animation-name]="categoryResultsAnimationName"
+        [class.is-empty]="!isLoadingBlogs() && visibleBlogs.length === 0"
+        [style.animation-name]="categoryResultsAnimationName()"
       >
-        @if (!isLoadingBlogs) {
-          @if (filteredBlogs.length > 0) {
+        @if (!isLoadingBlogs()) {
+          @if (visibleBlogs.length > 0) {
             <!-- Grid of public blog summary cards -->
             <div class="blog-summary-grid">
-              @for (blog of filteredBlogs; track blog.id; let index = $index) {
+              @for (blog of visibleBlogs; track blog.id; let index = $index) {
                 <a
                   class="blog-summary-card"
-                  [style.animation-name]="categoryCardsAnimationName"
+                  [style.animation-name]="categoryCardsAnimationName()"
                   [style.--category-card-index]="index % 8"
                   [routerLink]="['/blog', blog.urlHandle]"
                   [attr.aria-label]="'Read blog ' + blog.title"
@@ -109,7 +113,7 @@
                         }
                       </span>
                       <time [attr.datetime]="blog.publishedDate">
-                        {{ blog.publishedDate | date: "yyyy-MM-dd" }}
+                        {{ blog.publishedDate | date: 'yyyy-MM-dd' }}
                       </time>
                     </span>
 
@@ -131,7 +135,7 @@
                 aria-hidden="true"
               />
               <p>
-                @if (selectedCategoryId === "all") {
+                @if (selectedCategoryId() === 'all') {
                   No blogs found.
                 } @else {
                   No blogs in this category yet.

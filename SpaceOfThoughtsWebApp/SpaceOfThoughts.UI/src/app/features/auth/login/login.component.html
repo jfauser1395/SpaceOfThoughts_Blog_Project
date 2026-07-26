@@ -28,16 +28,18 @@
               @if (
                 loginFormGroup.get('email')?.invalid &&
                 loginFormGroup.get('email')?.touched &&
-                errorTitle.length === 0
+                errorTitle().length === 0
               ) {
                 <small class="text-danger justify-content-start mt-2">
                   *This field is required
                 </small>
               } @else if (
-                loginFormGroup.get('email')?.invalid && !requestOk && errorTitle
+                loginFormGroup.get('email')?.invalid &&
+                !requestOk() &&
+                errorTitle().length > 0
               ) {
                 <small class="text-danger justify-content-start mt-2">
-                  *{{ errorTitle }}
+                  *{{ errorTitle().join(' ') }}
                 </small>
               }
             </div>
@@ -47,7 +49,7 @@
             <label for="password" class="form-label">Password</label>
             <div class="custom-input-group">
               <input
-                [type]="passwordFieldType"
+                [type]="passwordFieldType()"
                 class="form-control"
                 id="password"
                 name="password"
@@ -65,7 +67,7 @@
               >
                 <i
                   [ngClass]="
-                    passwordFieldType === 'password'
+                    passwordFieldType() === 'password'
                       ? 'bi bi-eye'
                       : 'bi bi-eye-slash'
                   "
@@ -77,18 +79,18 @@
               @if (
                 loginFormGroup.get('password')?.invalid &&
                 loginFormGroup.get('password')?.touched &&
-                errorTitle.length === 0
+                errorTitle().length === 0
               ) {
                 <small class="text-danger justify-content-start mt-2">
                   *This field is required
                 </small>
               } @else if (
                 loginFormGroup.get('password')?.invalid &&
-                !requestOk &&
-                errorTitle
+                !requestOk() &&
+                errorTitle().length > 0
               ) {
                 <small class="text-danger justify-content-start mt-2">
-                  *{{ errorTitle }}
+                  *{{ errorTitle().join(' ') }}
                 </small>
               }
             </div>
@@ -100,8 +102,9 @@
               class="btn btnPrimary form-control mt-4"
               name="loginButton"
               aria-label="Login button"
+              [disabled]="isSubmitting()"
             >
-              Sign in
+              {{ isSubmitting() ? 'Signing in...' : 'Sign in' }}
             </button>
           </div>
           <!-- Link to create a new account -->

@@ -1,11 +1,17 @@
 import {
   ApplicationConfig,
-  importProvidersFrom,
   inject,
   isDevMode,
   provideAppInitializer,
+  provideBrowserGlobalErrorListeners,
 } from '@angular/core';
-import { provideRouter, withInMemoryScrolling } from '@angular/router';
+import {
+  isActive,
+  provideRouter,
+  Router,
+  withInMemoryScrolling,
+  withViewTransitions,
+} from '@angular/router';
 import {
   provideHttpClient,
   withFetch,
@@ -19,11 +25,36 @@ import { ThemeService } from './core/theme/theme.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
+    // Forward uncaught browser errors and rejected promises to Angular's ErrorHandler
+    provideBrowserGlobalErrorListeners(),
     provideRouter(
       routes,
       withInMemoryScrolling({ scrollPositionRestoration: 'top' }),
+      // Let Angular replace routed views inside the browser's native cross-fade
+      withViewTransitions({
+        skipInitialTransition: true,
+        onViewTransitionCreated: ({ transition }) => {
+          const router = inject(Router);
+          const targetUrl = router.currentNavigation()?.finalUrl;
+
+          if (!targetUrl) {
+            return;
+          }
+
+          // Avoid animating searches or filters that only change URL parameters
+          const keepsCurrentRoute = isActive(targetUrl, router, {
+            paths: 'exact',
+            matrixParams: 'exact',
+            fragment: 'ignored',
+            queryParams: 'ignored',
+          });
+
+          if (keepsCurrentRoute()) {
+            transition.skipTransition();
+          }
+        },
+      }),
     ), // Start every route at the top without preloading lazy page bundles
-    importProvidersFrom(), // Import additional providers
     provideMarkdown(), // Provide Markdown support
     provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
     provideAppInitializer(() => inject(ThemeService).initialize()),

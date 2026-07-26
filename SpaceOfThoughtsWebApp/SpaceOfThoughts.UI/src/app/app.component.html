@@ -1,18 +1,14 @@
 <!-- Main site navigation -->
 <header>
-  <app-navbar></app-navbar>
+  <app-navbar />
 </header>
 
-<!-- Routed page content with optional fade transition classes -->
-<main
-  id="main-content"
-  [class.route-fade-fallback]="useRouteFadeFallback"
-  [class.route-fade-out]="isRouteFadingOut"
->
+<!-- Angular replaces routed content inside the native browser view transition -->
+<main id="main-content">
   <router-outlet />
 </main>
 
-@if (isUpdateDialogOpen) {
+@if (isUpdateDialogOpen()) {
   <!-- App-styled prompt shown only after Angular has downloaded a complete update -->
   <div
     class="update-dialog-backdrop"
@@ -36,16 +32,16 @@
         <div class="update-dialog-heading">
           <span>
             {{
-              isUpdateRecoveryRequired
-                ? "Application recovery"
-                : "Application update"
+              isUpdateRecoveryRequired()
+                ? 'Application recovery'
+                : 'Application update'
             }}
           </span>
           <h2 id="app-update-dialog-heading">
             {{
-              isUpdateRecoveryRequired
-                ? "A reload is required"
-                : "A new version is ready"
+              isUpdateRecoveryRequired()
+                ? 'A reload is required'
+                : 'A new version is ready'
             }}
           </h2>
         </div>
@@ -63,7 +59,7 @@
       <!-- Explain that Angular already downloaded the update before prompting -->
       <div class="update-dialog-body">
         <p id="app-update-dialog-description">
-          @if (isUpdateRecoveryRequired) {
+          @if (isUpdateRecoveryRequired()) {
             The cached application can no longer continue safely. Reload to
             restore a complete version.
           } @else {
@@ -99,7 +95,7 @@
   </div>
 }
 
-@if (isUpdateAvailable && !isUpdateDialogOpen) {
+@if (isUpdateAvailable() && !isUpdateDialogOpen()) {
   <!-- Persistent reminder kept visible until the downloaded update is loaded -->
   <aside
     class="update-ready-banner"
@@ -114,7 +110,7 @@
     <div class="update-ready-banner-copy">
       <strong>
         {{
-          isUpdateRecoveryRequired ? "Reload required" : "New version ready"
+          isUpdateRecoveryRequired() ? 'Reload required' : 'New version ready'
         }}
       </strong>
       <span>Save unfinished work before updating.</span>

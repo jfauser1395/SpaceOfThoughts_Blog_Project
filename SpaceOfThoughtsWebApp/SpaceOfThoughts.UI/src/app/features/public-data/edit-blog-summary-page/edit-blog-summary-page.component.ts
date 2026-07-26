@@ -1,11 +1,14 @@
-import { CommonModule, ViewportScroller } from '@angular/common';
+import { ViewportScroller } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
-  Component,
-  OnDestroy,
-  OnInit,
   ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  inject,
+  signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -16,97 +19,104 @@ import { BlogSummaryPageService } from '../services/blog-summary-page.service';
 
 @Component({
   selector: 'app-edit-blog-summary-page',
-  imports: [CommonModule, FormsModule, RouterModule, ImageSelectorComponent],
+  imports: [FormsModule, RouterModule, ImageSelectorComponent],
   templateUrl: './edit-blog-summary-page.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './edit-blog-summary-page.component.css',
 })
-export class EditBlogSummaryPageComponent implements OnInit, OnDestroy {
-  // Editable blogs summary page settings shown in the form and preview
-  model?: BlogSummaryPage;
-  isCreatingNewPage = false;
-  isSaving = false;
-  isRemoving = false;
-  isRemovingImage = false;
-  isRemoveConfirmationOpen = false;
-  errorMessage?: string;
-  successMessage?: string;
-  private blogSummaryPageSubscription?: Subscription;
-  private imageSelectSubscription?: Subscription;
+export class EditBlogSummaryPageComponent implements OnInit {
+  private readonly blogSummaryPageService = inject(BlogSummaryPageService);
+  private readonly imageService = inject(ImageService);
+  private readonly viewportScroller = inject(ViewportScroller);
+  private readonly destroyRef = inject(DestroyRef);
+
+  // Signals keep API and image-library changes synchronized with the OnPush view
+  readonly model = signal<BlogSummaryPage | undefined>(undefined);
+  readonly isCreatingNewPage = signal(false);
+  readonly isSaving = signal(false);
+  readonly isRemoving = signal(false);
+  readonly isRemovingImage = signal(false);
+  readonly isRemoveConfirmationOpen = signal(false);
+  readonly errorMessage = signal<string | undefined>(undefined);
+  readonly successMessage = signal<string | undefined>(undefined);
   private updateBlogSummaryPageSubscription?: Subscription;
   private deleteBlogSummaryPageSubscription?: Subscription;
   private removeBackgroundImageSubscription?: Subscription;
 
-  constructor(
-    private blogSummaryPageService: BlogSummaryPageService,
-    private imageService: ImageService,
-    private viewportScroller: ViewportScroller,
-  ) {}
-
   ngOnInit(): void {
     // Load the saved blogs summary page settings
-    this.blogSummaryPageSubscription = this.blogSummaryPageService
+    this.blogSummaryPageService
       .getBlogSummaryPage()
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (blogSummaryPage) => {
-          this.model = blogSummaryPage;
-          this.isCreatingNewPage = false;
+          this.model.set(blogSummaryPage);
+          this.isCreatingNewPage.set(false);
         },
         error: (error: HttpErrorResponse) => {
           if (error.status === 404) {
             // Start with a blank draft when no blogs page settings are stored
-            this.model = this.createBlankBlogSummaryPage();
-            this.isCreatingNewPage = true;
+            this.model.set(this.createBlankBlogSummaryPage());
+            this.isCreatingNewPage.set(true);
             return;
           }
 
-          this.errorMessage = 'Unable to load the blogs page.';
+          this.errorMessage.set('Unable to load the blogs page.');
         },
       });
 
     // Listen for image selections from the shared image selector modal
-    this.imageSelectSubscription = this.imageService.onSelectImage().subscribe({
-      next: (selectedImage) => {
-        if (this.model && selectedImage.url) {
-          this.model.backgroundImageUrl = selectedImage.url;
-        }
-      },
-    });
+    this.imageService
+      .onSelectImage()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (selectedImage) => {
+          if (selectedImage.url) {
+            // Replace the object so the signal refreshes the preview
+            this.model.update((model) =>
+              model
+                ? { ...model, backgroundImageUrl: selectedImage.url }
+                : model,
+            );
+          }
+        },
+      });
   }
 
   // Return the selected background URL or no image for a deliberately blank page
   get previewBackgroundImageUrl(): string | null {
-    return this.model?.backgroundImageUrl?.trim() || null;
+    return this.model()?.backgroundImageUrl?.trim() || null;
   }
 
   // Handle form submission to update the blogs summary page settings
   onFormSubmit(): void {
-    if (this.isRemoving || this.isRemovingImage) {
+    if (this.isRemoving() || this.isRemovingImage()) {
       return;
     }
 
-    this.errorMessage = undefined;
-    this.successMessage = undefined;
-    this.isSaving = true;
+    this.errorMessage.set(undefined);
+    this.successMessage.set(undefined);
+    this.isSaving.set(true);
     this.updateBlogSummaryPageSubscription?.unsubscribe();
 
     // Save the optional background image URL to the API
     this.updateBlogSummaryPageSubscription = this.blogSummaryPageService
       .updateBlogSummaryPage({
-        backgroundImageUrl: this.model?.backgroundImageUrl?.trim() || null,
+        backgroundImageUrl: this.model()?.backgroundImageUrl?.trim() || null,
       })
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (blogSummaryPage) => {
-          this.model = blogSummaryPage;
-          this.isCreatingNewPage = false;
-          this.isRemoveConfirmationOpen = false;
-          this.successMessage = 'Blogs page updated.';
-          this.isSaving = false;
+          this.model.set(blogSummaryPage);
+          this.isCreatingNewPage.set(false);
+          this.isRemoveConfirmationOpen.set(false);
+          this.successMessage.set('Blogs page updated.');
+          this.isSaving.set(false);
           this.viewportScroller.scrollToPosition([0, 0]);
         },
         error: () => {
-          this.errorMessage = 'Unable to update the blogs page.';
-          this.isSaving = false;
+          this.errorMessage.set('Unable to update the blogs page.');
+          this.isSaving.set(false);
           this.viewportScroller.scrollToPosition([0, 0]);
         },
       });
@@ -114,46 +124,52 @@ export class EditBlogSummaryPageComponent implements OnInit, OnDestroy {
 
   // Show a second confirmation step before removing the blogs page settings
   openRemoveConfirmation(): void {
-    this.errorMessage = undefined;
-    this.successMessage = undefined;
-    this.isRemoveConfirmationOpen = true;
+    this.errorMessage.set(undefined);
+    this.successMessage.set(undefined);
+    this.isRemoveConfirmationOpen.set(true);
   }
 
   // Cancel blogs page removal and return to normal editing
   closeRemoveConfirmation(): void {
-    if (this.isRemoving) {
+    if (this.isRemoving()) {
       return;
     }
 
-    this.isRemoveConfirmationOpen = false;
+    this.isRemoveConfirmationOpen.set(false);
   }
 
   // Remove page-level settings and restore the editor's initial blank draft
   onRemoveBlogSummaryPage(): void {
-    if (this.isCreatingNewPage || this.isRemoving || this.isRemovingImage) {
+    if (
+      this.isCreatingNewPage() ||
+      this.isRemoving() ||
+      this.isRemovingImage()
+    ) {
       return;
     }
 
-    this.errorMessage = undefined;
-    this.successMessage = undefined;
-    this.isRemoving = true;
+    this.errorMessage.set(undefined);
+    this.successMessage.set(undefined);
+    this.isRemoving.set(true);
     this.deleteBlogSummaryPageSubscription?.unsubscribe();
 
     this.deleteBlogSummaryPageSubscription = this.blogSummaryPageService
       .deleteBlogSummaryPage()
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          this.model = this.createBlankBlogSummaryPage();
-          this.isCreatingNewPage = true;
-          this.isRemoveConfirmationOpen = false;
-          this.isRemoving = false;
-          this.successMessage =
-            'Blogs page settings removed. A blank draft is ready.';
+          this.model.set(this.createBlankBlogSummaryPage());
+          this.isCreatingNewPage.set(true);
+          this.isRemoveConfirmationOpen.set(false);
+          this.isRemoving.set(false);
+          this.successMessage.set(
+            'Blogs page settings removed. A blank draft is ready.',
+          );
           this.viewportScroller.scrollToPosition([0, 0]);
         },
         error: () => {
-          this.errorMessage = 'Unable to remove the blogs page settings.';
-          this.isRemoving = false;
+          this.errorMessage.set('Unable to remove the blogs page settings.');
+          this.isRemoving.set(false);
           this.viewportScroller.scrollToPosition([0, 0]);
         },
       });
@@ -162,49 +178,43 @@ export class EditBlogSummaryPageComponent implements OnInit, OnDestroy {
   // Remove only the current background reference while preserving the blogs page
   onRemoveBackgroundImage(): void {
     if (
-      !this.model?.backgroundImageUrl ||
-      this.isRemovingImage ||
-      this.isRemoving
+      !this.model()?.backgroundImageUrl ||
+      this.isRemovingImage() ||
+      this.isRemoving()
     ) {
       return;
     }
 
-    this.errorMessage = undefined;
-    this.successMessage = undefined;
+    this.errorMessage.set(undefined);
+    this.successMessage.set(undefined);
 
-    if (this.isCreatingNewPage) {
+    if (this.isCreatingNewPage()) {
       // A new draft has no persisted image reference to remove from the API
-      this.model.backgroundImageUrl = null;
-      this.successMessage = 'Picture removed from the draft.';
+      this.model.update((model) =>
+        model ? { ...model, backgroundImageUrl: null } : model,
+      );
+      this.successMessage.set('Picture removed from the draft.');
       return;
     }
 
-    this.isRemovingImage = true;
+    this.isRemovingImage.set(true);
     this.removeBackgroundImageSubscription?.unsubscribe();
     this.removeBackgroundImageSubscription = this.blogSummaryPageService
       .removeBackgroundImage()
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          if (this.model) {
-            this.model.backgroundImageUrl = null;
-          }
-          this.successMessage = 'Blogs page picture removed.';
-          this.isRemovingImage = false;
+          this.model.update((model) =>
+            model ? { ...model, backgroundImageUrl: null } : model,
+          );
+          this.successMessage.set('Blogs page picture removed.');
+          this.isRemovingImage.set(false);
         },
         error: () => {
-          this.errorMessage = 'Unable to remove the blogs page picture.';
-          this.isRemovingImage = false;
+          this.errorMessage.set('Unable to remove the blogs page picture.');
+          this.isRemovingImage.set(false);
         },
       });
-  }
-
-  ngOnDestroy(): void {
-    // Unsubscribe from subscriptions to prevent memory leaks
-    this.blogSummaryPageSubscription?.unsubscribe();
-    this.imageSelectSubscription?.unsubscribe();
-    this.updateBlogSummaryPageSubscription?.unsubscribe();
-    this.deleteBlogSummaryPageSubscription?.unsubscribe();
-    this.removeBackgroundImageSubscription?.unsubscribe();
   }
 
   // Create the empty editor state used before any blogs page settings are saved

@@ -1,4 +1,9 @@
 <div class="admin-page">
+  @let selected = selectedUser();
+  @let writingUpdateId = updatingWritingPrivilegesForId();
+  @let pages = list();
+  @let activePage = pageNumber();
+
   <section class="admin-panel">
     <header class="admin-panel-header">
       <div>
@@ -7,20 +12,20 @@
 
       <span class="admin-count-pill">
         <i class="bi bi-person-lines-fill" aria-hidden="true"></i>
-        {{ totalCount }} users
+        {{ totalCount() }} users
       </span>
     </header>
 
-    @if (privilegeMessage) {
+    @if (privilegeMessage(); as message) {
       <div class="admin-role-feedback is-success" role="status">
         <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
-        <span>{{ privilegeMessage }}</span>
+        <span>{{ message }}</span>
       </div>
     }
-    @if (privilegeError) {
+    @if (privilegeError(); as error) {
       <div class="admin-role-feedback is-error" role="alert">
         <i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i>
-        <span>{{ privilegeError }}</span>
+        <span>{{ error }}</span>
       </div>
     }
 
@@ -48,7 +53,7 @@
       </div>
     </div>
 
-    @if (users$ | async; as users) {
+    @if (users(); as users) {
       <div class="table-responsive admin-table-wrap">
         <table class="table admin-table">
           <thead>
@@ -145,7 +150,7 @@
                         data-bs-toggle="modal"
                         data-bs-target="#writingPrivilegesModal"
                         (click)="selectUser(user)"
-                        [disabled]="updatingWritingPrivilegesForId === user.id"
+                        [disabled]="writingUpdateId === user.id"
                         name="writingPrivilegesButton"
                         [attr.aria-label]="
                           hasWritingPrivileges(user)
@@ -155,7 +160,7 @@
                       >
                         <i class="bi bi-pencil-square" aria-hidden="true"></i>
                         <span>
-                          @if (updatingWritingPrivilegesForId === user.id) {
+                          @if (writingUpdateId === user.id) {
                             Updating...
                           } @else if (hasWritingPrivileges(user)) {
                             Remove rights
@@ -200,7 +205,7 @@
           <div class="modal-content">
             <div class="modal-header">
               <h1 class="modal-title fs-5" id="banUserModalLabel">
-                @if (selectedUser?.isBanned) {
+                @if (selected?.isBanned) {
                   Unban user
                 } @else {
                   Ban user
@@ -214,19 +219,19 @@
               ></button>
             </div>
             <div class="modal-body">
-              @if (selectedUser) {
+              @if (selected) {
                 <div class="admin-modal-copy">
                   <p class="admin-modal-prompt">
-                    @if (selectedUser.isBanned) {
+                    @if (selected.isBanned) {
                       Restore this user's access?
                     } @else {
                       Suspend this user's access?
                     }
                   </p>
                   <div class="admin-modal-user-identity">
-                    <strong>{{ selectedUser.userName }}</strong>
+                    <strong>{{ selected.userName }}</strong>
                     <span class="admin-modal-user-email">
-                      {{ selectedUser.email }}
+                      {{ selected.email }}
                     </span>
                   </div>
                 </div>
@@ -243,7 +248,7 @@
               <button
                 type="button"
                 [class]="
-                  selectedUser?.isBanned
+                  selected?.isBanned
                     ? 'admin-row-action'
                     : 'admin-danger-action'
                 "
@@ -253,11 +258,11 @@
               >
                 <i
                   class="bi"
-                  [class.bi-person-check]="selectedUser?.isBanned"
-                  [class.bi-person-slash]="!selectedUser?.isBanned"
+                  [class.bi-person-check]="selected?.isBanned"
+                  [class.bi-person-slash]="!selected?.isBanned"
                   aria-hidden="true"
                 ></i>
-                <span>{{ selectedUser?.isBanned ? 'Unban' : 'Ban' }}</span>
+                <span>{{ selected?.isBanned ? 'Unban' : 'Ban' }}</span>
               </button>
             </div>
           </div>
@@ -278,7 +283,7 @@
           <div class="modal-content">
             <div class="modal-header">
               <h1 class="modal-title fs-5" id="writingPrivilegesModalLabel">
-                @if (selectedUser && hasWritingPrivileges(selectedUser)) {
+                @if (selected && hasWritingPrivileges(selected)) {
                   Remove writing rights
                 } @else {
                   Grant writing rights
@@ -292,19 +297,19 @@
               ></button>
             </div>
             <div class="modal-body">
-              @if (selectedUser) {
+              @if (selected) {
                 <div class="admin-modal-copy">
                   <p class="admin-modal-prompt">
-                    @if (hasWritingPrivileges(selectedUser)) {
+                    @if (hasWritingPrivileges(selected)) {
                       Remove writing access for this user?
                     } @else {
                       Grant writing access to this user?
                     }
                   </p>
                   <div class="admin-modal-user-identity">
-                    <strong>{{ selectedUser.userName }}</strong>
+                    <strong>{{ selected.userName }}</strong>
                     <span class="admin-modal-user-email">
-                      {{ selectedUser.email }}
+                      {{ selected.email }}
                     </span>
                   </div>
                   <p class="admin-modal-note">
@@ -325,16 +330,14 @@
               <button
                 type="button"
                 class="admin-row-action admin-writing-action"
-                [class.is-revoke]="
-                  selectedUser && hasWritingPrivileges(selectedUser)
-                "
+                [class.is-revoke]="selected && hasWritingPrivileges(selected)"
                 (click)="onWritingPrivilegesToggle()"
                 data-bs-dismiss="modal"
                 name="confirmWritingPrivilegesButton"
               >
                 <i class="bi bi-pencil-square" aria-hidden="true"></i>
                 <span>
-                  @if (selectedUser && hasWritingPrivileges(selectedUser)) {
+                  @if (selected && hasWritingPrivileges(selected)) {
                     Remove writing
                   } @else {
                     Grant writing
@@ -370,15 +373,15 @@
               ></button>
             </div>
             <div class="modal-body">
-              @if (selectedUser) {
+              @if (selected) {
                 <div class="admin-modal-copy">
                   <p class="admin-modal-prompt">
                     Permanently delete this user?
                   </p>
                   <div class="admin-modal-user-identity">
-                    <strong>{{ selectedUser.userName }}</strong>
+                    <strong>{{ selected.userName }}</strong>
                     <span class="admin-modal-user-email">
-                      {{ selectedUser.email }}
+                      {{ selected.email }}
                     </span>
                   </div>
                 </div>
@@ -408,15 +411,15 @@
       </div>
     }
 
-    @if (list.length > 1) {
+    @if (pages.length > 1) {
       <footer class="admin-panel-footer">
         <nav aria-label="Page navigation">
           <ul class="pagination admin-pagination">
-            <li class="page-item" [class.disabled]="pageNumber === 1">
+            <li class="page-item" [class.disabled]="activePage === 1">
               <button
                 class="page-link"
                 (click)="getPrevPage()"
-                [disabled]="pageNumber === 1"
+                [disabled]="activePage === 1"
                 name="previousButton"
                 aria-label="Previous page"
               >
@@ -424,12 +427,12 @@
               </button>
             </li>
 
-            @for (item of list; track $index; let idx = $index) {
-              <li class="page-item" [class.active]="pageNumber === idx + 1">
+            @for (item of pages; track $index; let idx = $index) {
+              <li class="page-item" [class.active]="activePage === idx + 1">
                 <button
                   class="page-link"
                   (click)="getPage(idx + 1)"
-                  [attr.aria-current]="pageNumber === idx + 1 ? 'page' : null"
+                  [attr.aria-current]="activePage === idx + 1 ? 'page' : null"
                   [attr.aria-label]="'Page ' + (idx + 1)"
                   name="pageNumberButton"
                 >
@@ -439,12 +442,12 @@
             }
             <li
               class="page-item"
-              [class.disabled]="pageNumber === list.length"
+              [class.disabled]="activePage === pages.length"
             >
               <button
                 class="page-link"
                 (click)="getNextPage()"
-                [disabled]="pageNumber === list.length"
+                [disabled]="activePage === pages.length"
                 name="nextButton"
                 aria-label="Next page"
               >

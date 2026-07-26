@@ -3,38 +3,72 @@ import {
   OnDestroy,
   OnInit,
   ChangeDetectionStrategy,
+  computed,
+  inject,
+  signal,
 } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { BlogPostService } from '../services/blog-post.service';
-import { Observable, of, Subscription } from 'rxjs';
+import { Subscription } from 'rxjs';
 import { BlogPost } from '../models/blog-post.model';
-import { CommonModule } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-blogpost-list',
-  imports: [RouterModule, CommonModule],
+  imports: [RouterModule, DatePipe],
   templateUrl: './blogpost-list.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './blogpost-list.component.css',
 })
 export class BlogpostListComponent implements OnInit, OnDestroy {
-  blogPost$?: Observable<BlogPost[]>; // Observable for the list of blog posts
+  private readonly blogPostService = inject(BlogPostService);
+  private readonly router = inject(Router);
+
   blogPostQuant$?: Subscription; // Subscription for getting the total blog post count
   blogPostsSubscription$?: Subscription; // Subscription for getting blog post rows
-  totalCount!: number; // Total number of blog posts
-  list: number[] = []; // Array for pagination
-  pageNumber = 1; // Current page number
-  pageSize = 8; // Number of blog posts per page
-  query = ''; // Current search query
-  sortedBy = ''; // Current sorted column
-  sortDirection: 'asc' | 'desc' = 'asc'; // Current sort direction
-  private allBlogPosts: BlogPost[] = [];
+  readonly pageNumber = signal(1); // Current page number
+  readonly pageSize = 8; // Number of blog posts per page
+  readonly query = signal(''); // Current search query
+  readonly sortedBy = signal(''); // Current sorted column
+  readonly sortDirection = signal<'asc' | 'desc'>('asc'); // Current sort direction
+  private readonly allBlogPosts = signal<BlogPost[]>([]);
 
-  constructor(
-    private blogPostService: BlogPostService,
-    private router: Router,
-  ) {}
+  // Derive search, sort, and pagination without rebuilding rows on every view check
+  private readonly matchingBlogPosts = computed(() => {
+    const normalizedQuery = this.query().toLowerCase();
+    const sortedBy = this.sortedBy();
+    const sortDirection = this.sortDirection();
+    let blogPosts = [...this.allBlogPosts()];
+
+    if (normalizedQuery) {
+      blogPosts = blogPosts.filter((blogPost) =>
+        blogPost.title.toLowerCase().includes(normalizedQuery),
+      );
+    }
+
+    if (sortedBy) {
+      blogPosts.sort((first, second) => {
+        const firstValue = this.getSortValue(first, sortedBy);
+        const secondValue = this.getSortValue(second, sortedBy);
+        const result =
+          typeof firstValue === 'string' && typeof secondValue === 'string'
+            ? firstValue.localeCompare(secondValue)
+            : Number(firstValue) - Number(secondValue);
+        return sortDirection === 'asc' ? result : -result;
+      });
+    }
+
+    return blogPosts;
+  });
+  readonly totalCount = computed(() => this.matchingBlogPosts().length);
+  readonly list = computed(
+    () => new Array(Math.ceil(this.totalCount() / this.pageSize)),
+  );
+  readonly blogPosts = computed(() => {
+    const skip = (this.pageNumber() - 1) * this.pageSize;
+    return this.matchingBlogPosts().slice(skip, skip + this.pageSize);
+  });
 
   ngOnInit(): void {
     // Scroll to the top of the page smoothly on component initialization
@@ -57,51 +91,46 @@ export class BlogpostListComponent implements OnInit, OnDestroy {
           )
           .subscribe({
             next: (blogPosts) => {
-              this.allBlogPosts = blogPosts;
-              this.loadBlogPosts();
+              this.allBlogPosts.set(blogPosts);
             },
           });
       },
     });
   }
 
-  // Navigate to the add blogpost page and reload
-  navigateToAddBlogPost() {
-    this.router.navigateByUrl('/admin/blogposts/add').then(() => {
-      window.location.reload();
-    });
+  // Navigate within the SPA without forcing all Angular bundles to reload
+  navigateToAddBlogPost(): void {
+    void this.router.navigateByUrl('/admin/blogposts/add');
   }
 
-  // Navigate to the edit blogpost page and reload
-  navigateToEditBlogPost(blogpost: string) {
-    this.router.navigateByUrl(`/admin/blogposts/${blogpost}`).then(() => {
-      window.location.reload();
-    });
+  // Open the selected editor while preserving the current application shell
+  navigateToEditBlogPost(blogpost: string): void {
+    void this.router.navigateByUrl(`/admin/blogposts/${blogpost}`);
   }
 
   // Search for blog posts by query
-  onSearch(query: string) {
-    this.query = query.trim();
-    this.pageNumber = 1;
-    this.loadBlogPosts();
+  onSearch(query: string): void {
+    this.query.set(query.trim());
+    this.pageNumber.set(1);
   }
 
   // Sort the blog post list
-  sort(sortBy: string) {
-    if (this.sortedBy === sortBy) {
-      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+  sort(sortBy: string): void {
+    if (this.sortedBy() === sortBy) {
+      this.sortDirection.update((direction) =>
+        direction === 'asc' ? 'desc' : 'asc',
+      );
     } else {
-      this.sortedBy = sortBy;
-      this.sortDirection = 'asc';
+      this.sortedBy.set(sortBy);
+      this.sortDirection.set('asc');
     }
 
-    this.pageNumber = 1;
-    this.loadBlogPosts();
+    this.pageNumber.set(1);
   }
 
   // Check whether a table column owns the active sort state
   isSortedBy(sortBy: string): boolean {
-    return this.sortedBy === sortBy;
+    return this.sortedBy() === sortBy;
   }
 
   // Expose the active direction for accessible sortable table headers
@@ -110,13 +139,13 @@ export class BlogpostListComponent implements OnInit, OnDestroy {
       return null;
     }
 
-    return this.sortDirection === 'asc' ? 'ascending' : 'descending';
+    return this.sortDirection() === 'asc' ? 'ascending' : 'descending';
   }
 
   // Describe the direction that clicking a sortable header will apply next
   getSortLabel(label: string, sortBy: string): string {
     const nextDirection =
-      this.isSortedBy(sortBy) && this.sortDirection === 'asc'
+      this.isSortedBy(sortBy) && this.sortDirection() === 'asc'
         ? 'descending'
         : 'ascending';
 
@@ -124,62 +153,24 @@ export class BlogpostListComponent implements OnInit, OnDestroy {
   }
 
   // Get a specific page of blog posts
-  getPage(pageNumber: number) {
-    this.pageNumber = pageNumber;
-    this.loadBlogPosts();
+  getPage(pageNumber: number): void {
+    this.pageNumber.set(pageNumber);
   }
 
   // Get the next page of blog posts
-  getNextPage() {
-    if (this.pageNumber + 1 > this.list.length) {
+  getNextPage(): void {
+    if (this.pageNumber() + 1 > this.list().length) {
       return;
     }
-    this.pageNumber += 1;
-    this.loadBlogPosts();
+    this.pageNumber.update((pageNumber) => pageNumber + 1);
   }
 
   // Get the previous page of blog posts
-  getPrevPage() {
-    if (this.pageNumber - 1 < 1) {
+  getPrevPage(): void {
+    if (this.pageNumber() - 1 < 1) {
       return;
     }
-    this.pageNumber -= 1;
-    this.loadBlogPosts();
-  }
-
-  // Apply search, sorting, and pagination to the cached blog post collection
-  private loadBlogPosts(): void {
-    let blogPosts = [...this.allBlogPosts];
-    const normalizedQuery = this.query.toLowerCase();
-
-    if (normalizedQuery) {
-      blogPosts = blogPosts.filter((blogPost) =>
-        blogPost.title.toLowerCase().includes(normalizedQuery),
-      );
-    }
-
-    if (this.sortedBy) {
-      blogPosts.sort((first, second) => {
-        const firstValue = this.getSortValue(first, this.sortedBy);
-        const secondValue = this.getSortValue(second, this.sortedBy);
-        const result =
-          typeof firstValue === 'string' && typeof secondValue === 'string'
-            ? firstValue.localeCompare(secondValue)
-            : Number(firstValue) - Number(secondValue);
-
-        return this.sortDirection === 'asc' ? result : -result;
-      });
-    }
-
-    this.totalCount = blogPosts.length;
-    this.list = new Array(Math.ceil(this.totalCount / this.pageSize));
-
-    if (this.pageNumber > this.list.length && this.list.length > 0) {
-      this.pageNumber = this.list.length;
-    }
-
-    const skip = (this.pageNumber - 1) * this.pageSize;
-    this.blogPost$ = of(blogPosts.slice(skip, skip + this.pageSize));
+    this.pageNumber.update((pageNumber) => pageNumber - 1);
   }
 
   // Normalize text and date fields before comparing the active sort column

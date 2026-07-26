@@ -1,3 +1,4 @@
+@let formatting = activeFormatting();
 <div class="admin-rich-editor">
   <!-- Formatting toolbar for the rich text editor -->
   <div
@@ -10,8 +11,8 @@
       <button
         type="button"
         class="admin-editor-tool"
-        [class.is-active]="activeFormatting.bold"
-        [attr.aria-pressed]="activeFormatting.bold"
+        [class.is-active]="formatting.bold"
+        [attr.aria-pressed]="formatting.bold"
         (mousedown)="onToolbarMouseDown($event)"
         (click)="applyBold()"
         title="Bold"
@@ -21,32 +22,35 @@
       <button
         type="button"
         class="admin-editor-tool"
-        [class.is-active]="activeFormatting.italic"
-        [attr.aria-pressed]="activeFormatting.italic"
+        [class.is-active]="formatting.italic"
+        [attr.aria-pressed]="formatting.italic"
         (mousedown)="onToolbarMouseDown($event)"
         (click)="applyItalic()"
         title="Italic"
       >
         <i class="bi bi-type-italic" aria-hidden="true"></i>
       </button>
-      <div class="admin-editor-dropdown" [class.is-open]="isTextStyleMenuOpen">
+      <div
+        class="admin-editor-dropdown"
+        [class.is-open]="isTextStyleMenuOpen()"
+      >
         <button
           type="button"
           class="admin-editor-select-shell"
-          [class.is-active]="activeFormatting.textStyle !== 'p'"
+          [class.is-active]="formatting.textStyle !== 'p'"
           aria-label="Text size"
           aria-haspopup="listbox"
-          [attr.aria-expanded]="isTextStyleMenuOpen"
+          [attr.aria-expanded]="isTextStyleMenuOpen()"
           (mousedown)="onToolbarMouseDown($event)"
           (click)="toggleTextStyleMenu()"
         >
           <span class="admin-editor-select-label">{{
-            activeTextStyleLabel
+            activeTextStyleLabel()
           }}</span>
           <i class="bi bi-chevron-down" aria-hidden="true"></i>
         </button>
 
-        @if (isTextStyleMenuOpen) {
+        @if (isTextStyleMenuOpen()) {
           <div
             class="admin-editor-select-menu"
             role="listbox"
@@ -57,12 +61,8 @@
                 type="button"
                 class="admin-editor-select-option"
                 role="option"
-                [class.is-selected]="
-                  activeFormatting.textStyle === option.value
-                "
-                [attr.aria-selected]="
-                  activeFormatting.textStyle === option.value
-                "
+                [class.is-selected]="formatting.textStyle === option.value"
+                [attr.aria-selected]="formatting.textStyle === option.value"
                 (mousedown)="onToolbarMouseDown($event)"
                 (click)="selectTextStyle(option.value)"
               >
@@ -79,8 +79,8 @@
       <button
         type="button"
         class="admin-editor-tool"
-        [class.is-active]="activeFormatting.bulletList"
-        [attr.aria-pressed]="activeFormatting.bulletList"
+        [class.is-active]="formatting.bulletList"
+        [attr.aria-pressed]="formatting.bulletList"
         (mousedown)="onToolbarMouseDown($event)"
         (click)="applyBulletList()"
         title="Bullet list"
@@ -90,8 +90,8 @@
       <button
         type="button"
         class="admin-editor-tool"
-        [class.is-active]="activeFormatting.numberedList"
-        [attr.aria-pressed]="activeFormatting.numberedList"
+        [class.is-active]="formatting.numberedList"
+        [attr.aria-pressed]="formatting.numberedList"
         (mousedown)="onToolbarMouseDown($event)"
         (click)="applyNumberedList()"
         title="Numbered list"
@@ -101,8 +101,8 @@
       <button
         type="button"
         class="admin-editor-tool"
-        [class.is-active]="activeFormatting.quote"
-        [attr.aria-pressed]="activeFormatting.quote"
+        [class.is-active]="formatting.quote"
+        [attr.aria-pressed]="formatting.quote"
         (mousedown)="onToolbarMouseDown($event)"
         (click)="applyQuote()"
         title="Quote"
@@ -125,8 +125,8 @@
       <button
         type="button"
         class="admin-editor-tool"
-        [class.is-active]="activeFormatting.link"
-        [attr.aria-pressed]="activeFormatting.link"
+        [class.is-active]="formatting.link"
+        [attr.aria-pressed]="formatting.link"
         (mousedown)="onToolbarMouseDown($event)"
         (click)="applyLink()"
         title="Link"
@@ -136,8 +136,8 @@
       <button
         type="button"
         class="admin-editor-tool"
-        [class.is-active]="activeFormatting.code"
-        [attr.aria-pressed]="activeFormatting.code"
+        [class.is-active]="formatting.code"
+        [attr.aria-pressed]="formatting.code"
         (mousedown)="onToolbarMouseDown($event)"
         (click)="applyCode()"
         title="Code"
@@ -160,13 +160,13 @@
   <div class="admin-rich-editor-body">
     <div
       #visualEditor
-      [id]="editorId"
+      [id]="editorId()"
       class="admin-rich-editor-document scroll scroll--simple"
       contenteditable="true"
       role="textbox"
       aria-multiline="true"
       data-placeholder="Content"
-      [attr.aria-labelledby]="ariaLabelledBy"
+      [attr.aria-labelledby]="ariaLabelledBy()"
       (input)="onEditorInput()"
       (blur)="onEditorBlur()"
       (keydown)="onEditorKeydown($event)"
@@ -177,7 +177,7 @@
 
   <!-- Live writing statistics -->
   <div class="admin-rich-editor-status" aria-live="polite">
-    <span>{{ wordCount }} words</span>
-    <span>{{ characterCount }} characters</span>
+    <span>{{ wordCount() }} words</span>
+    <span>{{ characterCount() }} characters</span>
   </div>
 </div>

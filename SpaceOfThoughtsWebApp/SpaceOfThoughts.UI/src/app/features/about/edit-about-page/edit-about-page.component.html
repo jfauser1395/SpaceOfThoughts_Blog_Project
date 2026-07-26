@@ -13,24 +13,24 @@
     </header>
 
     <!-- Save and load feedback messages -->
-    @if (errorMessage) {
+    @if (errorMessage(); as error) {
       <div class="about-editor-alert about-editor-alert-error">
-        {{ errorMessage }}
+        {{ error }}
       </div>
     }
-    @if (successMessage) {
+    @if (successMessage(); as success) {
       <div class="about-editor-alert about-editor-alert-success">
-        {{ successMessage }}
+        {{ success }}
       </div>
     }
-    @if (isCreatingNewPage) {
+    @if (isCreatingNewPage()) {
       <div class="about-editor-alert about-editor-alert-info">
         No About page has been published yet. Saving this form will publish the
         first one.
       </div>
     }
 
-    @if (model) {
+    @if (model(); as model) {
       <!-- About page editing form with live preview -->
       <form
         class="about-editor-layout"
@@ -310,10 +310,10 @@
             <button
               class="btn btnPrimary"
               type="submit"
-              [disabled]="isSaving || form.invalid"
+              [disabled]="isSaving() || form.invalid"
             >
               <i class="bi bi-save" aria-hidden="true"></i>
-              {{ isSaving ? "Saving..." : "Save about page" }}
+              {{ isSaving() ? 'Saving...' : 'Save about page' }}
             </button>
           </div>
         </section>
@@ -379,7 +379,7 @@
           </div>
         </aside>
       </form>
-    } @else if (!errorMessage) {
+    } @else if (!errorMessage()) {
       <!-- Loading state while the about page request is pending -->
       <div class="about-editor-loading">Loading about page...</div>
     }
@@ -396,5 +396,5 @@
   aria-labelledby="selectModalLabel"
   aria-hidden="true"
 >
-  <app-image-selector imageCategory="AboutPage"></app-image-selector>
+  <app-image-selector imageCategory="AboutPage" />
 </div>

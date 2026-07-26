@@ -1,19 +1,21 @@
 import {
   Component,
   ElementRef,
+  computed,
+  effect,
   HostListener,
   OnDestroy,
   OnInit,
-  ViewChild,
   ChangeDetectionStrategy,
+  inject,
+  signal,
+  viewChild,
 } from '@angular/core';
 import { BlogPostService } from '../../blog-post/services/blog-post.service';
 import { catchError, Observable, of, Subscription, tap } from 'rxjs';
 import { BlogPost } from '../../blog-post/models/blog-post.model';
-import { CommonModule } from '@angular/common';
+import { AsyncPipe, DatePipe } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
-import { AuthService } from '../../auth/services/auth.service';
-import { User } from '../../auth/models/user.model';
 import { CategoryService } from '../../category/services/category.service';
 import { Category } from '../../category/models/category.model';
 import { BlogSummaryPageService } from '../services/blog-summary-page.service';
@@ -21,53 +23,67 @@ import { LoadingOverlayComponent } from '../../../core/loading-overlay/loading-o
 
 @Component({
   selector: 'app-home',
-  imports: [CommonModule, RouterModule, LoadingOverlayComponent],
+  imports: [RouterModule, LoadingOverlayComponent, AsyncPipe, DatePipe],
   templateUrl: './public-blog-summery.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './public-blog-summery.component.css',
 })
 export class PublicBlogSummeryComponent implements OnInit, OnDestroy {
+  private readonly blogPostService = inject(BlogPostService);
+  private readonly categoryService = inject(CategoryService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly blogSummaryPageService = inject(BlogSummaryPageService);
+
   categories$?: Observable<Category[]>; // Observable for the list of categories
-  blogs: BlogPost[] = []; // List of blog posts returned from the API
-  filteredBlogs: BlogPost[] = []; // List of blog posts after category filtering
-  imageLoaded = false; // Flag to indicate if the image is loaded
-  user?: User; // Current user
-  userSubscription$?: Subscription; // Subscription for user data
-  sortedBy: string; // Field to sort the blog posts by
-  sortDirection: string; // Direction of sorting
+  readonly blogs = signal<BlogPost[]>([]); // List of blog posts returned from the API
+  readonly sortedBy = 'publishedDate'; // Field to sort the blog posts by
+  readonly sortDirection = 'desc'; // Direction of sorting
   navBarSearch$?: Subscription; // Subscription for navbar search functionality
   routeSearch$?: Subscription; // Subscription for search query from navigation
   blogsSubscription$?: Subscription; // Subscription for loading blog posts
   blogSummaryPageSubscription$?: Subscription; // Subscription for loading page settings
-  selectedCategoryId = 'all'; // Currently selected category filter
-  categoryResultsAnimationName = 'category-results-enter-a';
-  categoryCardsAnimationName = 'category-cards-enter-a';
-  isLoadingBlogs = true; // Flag to indicate if blog posts are loading
-  isLoadingCategories = true; // Flag for category options required by the filter bar
-  isLoadingPageSettings = true; // Flag for the configurable public blogs background
-  backgroundImageUrl?: string; // Optional configured background; undefined keeps the dark page blank
-  canScrollCategoriesBack = false; // Show the previous-topics arrow only after the row has moved
-  canScrollCategoriesForward = false; // Show the next-topics arrow only while topics remain off-screen
+  readonly selectedCategoryId = signal('all'); // Currently selected category filter
+  readonly categoryResultsAnimationName = signal('category-results-enter-a');
+  readonly categoryCardsAnimationName = signal('category-cards-enter-a');
+  readonly isLoadingBlogs = signal(true); // Flag to indicate if blog posts are loading
+  readonly isLoadingCategories = signal(true); // Flag for category options required by the filter bar
+  readonly isLoadingPageSettings = signal(true); // Flag for the configurable public blogs background
+  readonly backgroundImageUrl = signal<string | undefined>(undefined); // Optional configured background; undefined keeps the dark page blank
+  readonly canScrollCategoriesBack = signal(false); // Show the previous-topics arrow only after the row has moved
+  readonly canScrollCategoriesForward = signal(false); // Show the next-topics arrow only while topics remain off-screen
+
+  // Computed state avoids rebuilding filtered results during unrelated checks
+  readonly filteredBlogs = computed(() => {
+    const visibleBlogs = this.blogs().filter((blog) => blog.isVisible);
+    const selectedCategoryId = this.selectedCategoryId();
+
+    if (selectedCategoryId === 'all') {
+      return visibleBlogs;
+    }
+
+    return visibleBlogs.filter((blog) =>
+      blog.categories.some((category) => category.id === selectedCategoryId),
+    );
+  });
+  readonly isPageLoading = computed(
+    () =>
+      this.isLoadingBlogs() ||
+      this.isLoadingCategories() ||
+      this.isLoadingPageSettings(),
+  );
+
   private blogRetryTimeoutId?: number; // Timer for retrying unavailable blog requests
-  private categoryFilterElement?: HTMLElement;
   private categoryScrollFrameId?: number;
+  private readonly categoryFilterBar =
+    viewChild<ElementRef<HTMLElement>>('categoryFilterBar');
 
-  @ViewChild('categoryFilterBar')
-  set categoryFilterBar(element: ElementRef<HTMLElement> | undefined) {
-    this.categoryFilterElement = element?.nativeElement;
+  // Re-measure category overflow whenever the conditional filter bar appears
+  private readonly categoryFilterLayoutEffect = effect(() => {
+    this.categoryFilterBar();
     this.queueCategoryScrollState();
-  }
+  });
 
-  constructor(
-    private blogPostService: BlogPostService, // Inject BlogPostService for blog post operations
-    private categoryService: CategoryService, // Inject CategoryService for category filter bar
-    private authService: AuthService, // Inject AuthService for authentication
-    private route: ActivatedRoute, // Inject ActivatedRoute for search query params
-    private blogSummaryPageService: BlogSummaryPageService, // Inject BlogSummaryPageService for page settings
-  ) {
-    this.sortedBy = 'publishedDate'; // Default sorting by published date
-    this.sortDirection = 'desc'; // Default sorting direction
-
+  constructor() {
     // Subscribe to search bar input from the nav component
     this.navBarSearch$ = this.blogPostService.navSort.subscribe(
       (query: string) => this.onSearch(query),
@@ -82,25 +98,16 @@ export class PublicBlogSummeryComponent implements OnInit, OnDestroy {
       behavior: 'smooth',
     });
 
-    // Get the current user to validate access rights for blog details and redirect to login page if not authenticated
-    this.userSubscription$ = this.authService.user().subscribe({
-      next: (response) => {
-        this.user = response;
-      },
-    });
-
-    this.user = this.authService.getUser();
-
     // Load category options and include them in the initial page readiness state
     this.categories$ = this.categoryService
       .getAllCategories(undefined, 'name', 'asc')
       .pipe(
-        tap((categories) => {
-          this.isLoadingCategories = false;
+        tap(() => {
+          this.isLoadingCategories.set(false);
         }),
         catchError(() => {
           // Keep the page usable without filters if the category request fails
-          this.isLoadingCategories = false;
+          this.isLoadingCategories.set(false);
           return of([]);
         }),
       );
@@ -110,13 +117,14 @@ export class PublicBlogSummeryComponent implements OnInit, OnDestroy {
       .getBlogSummaryPage()
       .subscribe({
         next: (blogSummaryPage) => {
-          this.backgroundImageUrl =
-            blogSummaryPage.backgroundImageUrl?.trim() || undefined;
-          this.isLoadingPageSettings = false;
+          this.backgroundImageUrl.set(
+            blogSummaryPage.backgroundImageUrl?.trim() || undefined,
+          );
+          this.isLoadingPageSettings.set(false);
         },
         error: () => {
           // Optional settings must not trap the page behind the loading overlay
-          this.isLoadingPageSettings = false;
+          this.isLoadingPageSettings.set(false);
         },
       });
 
@@ -124,15 +132,6 @@ export class PublicBlogSummeryComponent implements OnInit, OnDestroy {
     this.routeSearch$ = this.route.queryParamMap.subscribe((params) => {
       this.onSearch(params.get('query') ?? '');
     });
-  }
-
-  // Wait for every resource needed to present the public blogs page coherently
-  get isPageLoading(): boolean {
-    return (
-      this.isLoadingBlogs ||
-      this.isLoadingCategories ||
-      this.isLoadingPageSettings
-    );
   }
 
   // Keep edge controls synchronized when the available row width changes
@@ -143,7 +142,7 @@ export class PublicBlogSummeryComponent implements OnInit, OnDestroy {
 
   // Move by most of the visible row while preserving enough context between steps
   scrollCategories(direction: 'back' | 'forward'): void {
-    const categoryFilter = this.categoryFilterElement;
+    const categoryFilter = this.categoryFilterBar()?.nativeElement;
 
     if (!categoryFilter) {
       return;
@@ -158,57 +157,58 @@ export class PublicBlogSummeryComponent implements OnInit, OnDestroy {
 
   // Update arrows as native touch, wheel, or button scrolling moves the row
   updateCategoryScrollState(): void {
-    const categoryFilter = this.categoryFilterElement;
+    const categoryFilter = this.categoryFilterBar()?.nativeElement;
 
     if (!categoryFilter) {
-      this.canScrollCategoriesBack = false;
-      this.canScrollCategoriesForward = false;
+      this.canScrollCategoriesBack.set(false);
+      this.canScrollCategoriesForward.set(false);
       return;
     }
 
     const endPosition = categoryFilter.scrollWidth - categoryFilter.clientWidth;
-    this.canScrollCategoriesBack = categoryFilter.scrollLeft > 3;
-    this.canScrollCategoriesForward =
-      endPosition > 3 && categoryFilter.scrollLeft < endPosition - 3;
+    this.canScrollCategoriesBack.set(categoryFilter.scrollLeft > 3);
+    this.canScrollCategoriesForward.set(
+      endPosition > 3 && categoryFilter.scrollLeft < endPosition - 3,
+    );
   }
 
   // Search for blog posts by query
-  onSearch(query: string) {
+  onSearch(query: string): void {
     const searchQuery = query.trim();
-    this.selectedCategoryId = 'all';
+    this.selectedCategoryId.set('all');
     this.loadBlogs(searchQuery || undefined);
   }
 
   // Update the active category and filter the already-loaded posts
   selectCategory(categoryId: string): void {
-    if (this.selectedCategoryId === categoryId) {
+    if (this.selectedCategoryId() === categoryId) {
       return;
     }
 
-    this.selectedCategoryId = categoryId;
-    this.categoryResultsAnimationName =
-      this.categoryResultsAnimationName === 'category-results-enter-a'
+    this.selectedCategoryId.set(categoryId);
+    this.categoryResultsAnimationName.update((animationName) =>
+      animationName === 'category-results-enter-a'
         ? 'category-results-enter-b'
-        : 'category-results-enter-a';
-    this.categoryCardsAnimationName =
-      this.categoryCardsAnimationName === 'category-cards-enter-a'
+        : 'category-results-enter-a',
+    );
+    this.categoryCardsAnimationName.update((animationName) =>
+      animationName === 'category-cards-enter-a'
         ? 'category-cards-enter-b'
-        : 'category-cards-enter-a';
-    this.applyCategoryFilter();
+        : 'category-cards-enter-a',
+    );
   }
 
   // Load visible blog data and keep retrying temporary API failures
   private loadBlogs(query?: string): void {
-    this.isLoadingBlogs = true;
+    this.isLoadingBlogs.set(true);
     this.clearBlogRetry();
     this.blogsSubscription$?.unsubscribe();
     this.blogsSubscription$ = this.blogPostService
       .getAllBlogPosts(query, this.sortedBy, this.sortDirection)
       .subscribe({
         next: (blogs) => {
-          this.isLoadingBlogs = false;
-          this.blogs = blogs;
-          this.applyCategoryFilter();
+          this.blogs.set(blogs);
+          this.isLoadingBlogs.set(false);
         },
         error: () => {
           this.blogRetryTimeoutId = window.setTimeout(() => {
@@ -216,22 +216,6 @@ export class PublicBlogSummeryComponent implements OnInit, OnDestroy {
           }, 2500);
         },
       });
-  }
-
-  // Apply the selected category without requesting the loaded blogs again
-  private applyCategoryFilter(): void {
-    const visibleBlogs = this.blogs.filter((blog) => blog.isVisible);
-
-    if (this.selectedCategoryId === 'all') {
-      this.filteredBlogs = visibleBlogs;
-      return;
-    }
-
-    this.filteredBlogs = visibleBlogs.filter((blog) =>
-      blog.categories.some(
-        (category) => category.id === this.selectedCategoryId,
-      ),
-    );
   }
 
   // Clear a scheduled retry before starting another blog request
@@ -258,7 +242,6 @@ export class PublicBlogSummeryComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.navBarSearch$?.unsubscribe();
     this.routeSearch$?.unsubscribe();
-    this.userSubscription$?.unsubscribe();
     this.blogsSubscription$?.unsubscribe();
     this.blogSummaryPageSubscription$?.unsubscribe();
     if (this.categoryScrollFrameId !== undefined) {

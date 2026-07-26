@@ -14,24 +14,24 @@
 
     <div class="admin-form-body">
       <!-- Save and load feedback messages -->
-      @if (errorMessage) {
+      @if (errorMessage(); as error) {
         <div class="admin-editor-alert admin-editor-alert-error">
-          {{ errorMessage }}
+          {{ error }}
         </div>
       }
-      @if (successMessage) {
+      @if (successMessage(); as success) {
         <div class="admin-editor-alert admin-editor-alert-success">
-          {{ successMessage }}
+          {{ success }}
         </div>
       }
-      @if (isCreatingNewPage) {
+      @if (isCreatingNewPage()) {
         <div class="admin-editor-alert admin-editor-alert-info">
           No blogs page settings have been saved yet. Choose a background when
           you are ready.
         </div>
       }
 
-      @if (model) {
+      @if (model(); as model) {
         <!-- Blogs page settings form with live preview -->
         <form
           class="blog-summary-editor-layout"
@@ -63,7 +63,7 @@
                   class="admin-row-action admin-input-action"
                   data-bs-toggle="modal"
                   data-bs-target="#blogSummaryBackgroundModal"
-                  [disabled]="isRemovingImage || isRemoving"
+                  [disabled]="isRemovingImage() || isRemoving()"
                 >
                   <i class="bi bi-image" aria-hidden="true"></i>
                   <span>Select image</span>
@@ -72,12 +72,12 @@
                   <button
                     type="button"
                     class="admin-danger-action admin-input-action"
-                    [disabled]="isRemovingImage || isRemoving"
+                    [disabled]="isRemovingImage() || isRemoving()"
                     (click)="onRemoveBackgroundImage()"
                   >
                     <i class="bi bi-image-alt" aria-hidden="true"></i>
                     <span>{{
-                      isRemovingImage ? "Removing..." : "Remove picture"
+                      isRemovingImage() ? 'Removing...' : 'Remove picture'
                     }}</span>
                   </button>
                 }
@@ -85,11 +85,11 @@
             </div>
 
             <div class="admin-form-actions blog-summary-editor-actions">
-              @if (!isCreatingNewPage) {
+              @if (!isCreatingNewPage()) {
                 <button
                   class="admin-danger-action blog-summary-remove-button"
                   type="button"
-                  [disabled]="isSaving || isRemoving || isRemovingImage"
+                  [disabled]="isSaving() || isRemoving() || isRemovingImage()"
                   (click)="openRemoveConfirmation()"
                 >
                   <i class="bi bi-trash3" aria-hidden="true"></i>
@@ -100,15 +100,18 @@
                 class="admin-primary-action"
                 type="submit"
                 [disabled]="
-                  isSaving || isRemoving || isRemovingImage || form.invalid
+                  isSaving() ||
+                  isRemoving() ||
+                  isRemovingImage() ||
+                  form.invalid
                 "
               >
                 <i class="bi bi-save" aria-hidden="true"></i>
-                <span>{{ isSaving ? "Saving..." : "Save blogs page" }}</span>
+                <span>{{ isSaving() ? 'Saving...' : 'Save blogs page' }}</span>
               </button>
             </div>
 
-            @if (isRemoveConfirmationOpen) {
+            @if (isRemoveConfirmationOpen()) {
               <!-- Explicit confirmation prevents accidental removal of page settings -->
               <div class="blog-summary-remove-confirmation" role="alert">
                 <strong>Remove the current blogs page settings?</strong>
@@ -121,7 +124,7 @@
                   <button
                     class="admin-row-action"
                     type="button"
-                    [disabled]="isRemoving"
+                    [disabled]="isRemoving()"
                     (click)="closeRemoveConfirmation()"
                   >
                     Cancel
@@ -129,12 +132,12 @@
                   <button
                     class="admin-danger-action"
                     type="button"
-                    [disabled]="isRemoving"
+                    [disabled]="isRemoving()"
                     (click)="onRemoveBlogSummaryPage()"
                   >
                     <i class="bi bi-trash3" aria-hidden="true"></i>
                     <span>{{
-                      isRemoving ? "Removing..." : "Remove blogs page"
+                      isRemoving() ? 'Removing...' : 'Remove blogs page'
                     }}</span>
                   </button>
                 </div>
@@ -178,7 +181,7 @@
             </div>
           </section>
         </form>
-      } @else if (!errorMessage) {
+      } @else if (!errorMessage()) {
         <!-- Loading state while the blogs page request is pending -->
         <div class="admin-empty-state">Loading blogs page...</div>
       }
@@ -196,5 +199,5 @@
   aria-labelledby="selectModalLabel"
   aria-hidden="true"
 >
-  <app-image-selector imageCategory="Blog"></app-image-selector>
+  <app-image-selector imageCategory="Blog" />
 </div>

@@ -3,9 +3,11 @@ import {
   ElementRef,
   OnDestroy,
   OnInit,
-  ViewChild,
   HostListener,
   ChangeDetectionStrategy,
+  inject,
+  signal,
+  viewChild,
 } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../features/auth/services/auth.service';
@@ -16,17 +18,21 @@ import { Subscription } from 'rxjs';
   selector: 'app-navbar',
   imports: [RouterModule],
   templateUrl: './navbar.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './navbar.component.css',
 })
 export class NavbarComponent implements OnInit, OnDestroy {
-  user?: User; // Holds the current user information
-  isSmallScreen = false; // Flag to check if the screen size is small
-  isMediumScreen = false; // Flag to check if the screen size is medium
-  searchExpanded = false; // Flag to check if the search bar is expanded
-  navBarExpanded = false; // Flag to check if the navbar is expanded
-  isPageInteractionLocked = false; // Keeps routed content inert while mobile navigation is moving
-  brandLinkColorReset = false; // Temporarily remove focus color after pointer navigation
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
+
+  // Navbar signals notify the OnPush view about authentication and responsive state
+  readonly user = signal<User | undefined>(undefined); // Holds the current user information
+  readonly isSmallScreen = signal(false); // Flag to check if the screen size is small
+  readonly isMediumScreen = signal(false); // Flag to check if the screen size is medium
+  readonly searchExpanded = signal(false); // Flag to check if the search bar is expanded
+  readonly navBarExpanded = signal(false); // Flag to check if the navbar is expanded
+  readonly isPageInteractionLocked = signal(false); // Keeps routed content inert while mobile navigation is moving
+  readonly brandLinkColorReset = signal(false); // Temporarily remove focus color after pointer navigation
   // Avatar framing limits mirror the values accepted by the profile editor
   private readonly defaultAvatarPosition = '50% 50% 100%';
   private readonly defaultAvatarZoom = 100;
@@ -34,27 +40,22 @@ export class NavbarComponent implements OnInit, OnDestroy {
   private readonly maximumAvatarZoom = 170;
   private userSubscription?: Subscription; // Subscription for user authentication changes
   private pageUnlockTimeoutId?: number;
-  @ViewChild('mobileSearchInput')
-  private mobileSearchInput?: ElementRef<HTMLInputElement>;
-  @ViewChild('mobileSearchToggle')
-  private mobileSearchToggle?: ElementRef<HTMLElement>;
-  @ViewChild('searchInput') searchInput!: ElementRef; // Reference to the search input element
-
-  constructor(
-    private authService: AuthService, // Inject AuthService for authentication
-    private router: Router, // Inject Router for navigation
-  ) {}
+  private readonly mobileSearchInput =
+    viewChild<ElementRef<HTMLInputElement>>('mobileSearchInput');
+  private readonly mobileSearchToggle =
+    viewChild<ElementRef<HTMLElement>>('mobileSearchToggle');
+  readonly searchInput = viewChild.required<ElementRef>('searchInput');
 
   ngOnInit(): void {
     // Subscribe to user authentication changes
     this.userSubscription = this.authService.user().subscribe({
       next: (response) => {
-        this.user = response;
+        this.user.set(response);
       },
     });
 
     // Get the currently authenticated user
-    this.user = this.authService.getUser();
+    this.user.set(this.authService.getUser());
 
     // Check the screen size
     this.checkScreenSize();
@@ -83,15 +84,15 @@ export class NavbarComponent implements OnInit, OnDestroy {
   }
 
   // Check the screen size dynamically
-  @HostListener('window:resize', ['$event'])
-  onResize(event: Event) {
+  @HostListener('window:resize')
+  onResize(): void {
     this.checkScreenSize();
   }
 
   // Close the expanded mobile search after a click outside its controls
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: Event): void {
-    if (!this.isSmallScreen || !this.searchExpanded) {
+    if (!this.isSmallScreen() || !this.searchExpanded()) {
       return;
     }
 
@@ -102,32 +103,33 @@ export class NavbarComponent implements OnInit, OnDestroy {
     }
 
     const clickedInput =
-      this.mobileSearchInput?.nativeElement.contains(clickedElement) ?? false;
+      this.mobileSearchInput()?.nativeElement.contains(clickedElement) ?? false;
     const clickedToggle =
-      this.mobileSearchToggle?.nativeElement.contains(clickedElement) ?? false;
+      this.mobileSearchToggle()?.nativeElement.contains(clickedElement) ??
+      false;
 
     if (!clickedInput && !clickedToggle) {
-      this.searchExpanded = false;
+      this.searchExpanded.set(false);
     }
   }
 
   // Check screen size to set flags for responsive behavior
-  checkScreenSize() {
+  checkScreenSize(): void {
     const width = window.innerWidth;
-    this.isSmallScreen = width < 576;
-    this.isMediumScreen = width < 992;
+    this.isSmallScreen.set(width < 576);
+    this.isMediumScreen.set(width < 992);
 
-    if (!this.isMediumScreen) {
-      this.navBarExpanded = false;
+    if (!this.isMediumScreen()) {
+      this.navBarExpanded.set(false);
       this.unlockPageInteraction();
     }
   }
 
   // Monitor the navbar toggle state
-  navToggled() {
-    this.navBarExpanded = !this.navBarExpanded;
+  navToggled(): void {
+    this.navBarExpanded.update((expanded) => !expanded);
 
-    if (this.navBarExpanded && this.isMediumScreen) {
+    if (this.navBarExpanded() && this.isMediumScreen()) {
       this.lockPageInteraction();
     } else {
       this.unlockPageInteraction(true);
@@ -139,14 +141,14 @@ export class NavbarComponent implements OnInit, OnDestroy {
     this.collapseNavbar();
 
     if (event.detail > 0) {
-      this.brandLinkColorReset = true;
+      this.brandLinkColorReset.set(true);
       (event.currentTarget as HTMLElement | null)?.blur();
     }
   }
 
   // Restore normal brand focus styling after the click transition completes
   resetBrandLinkColor(): void {
-    this.brandLinkColorReset = false;
+    this.brandLinkColorReset.set(false);
   }
 
   // Close Bootstrap navigation through its API with a DOM fallback when unavailable
@@ -155,7 +157,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
     const navbarToggler =
       document.querySelector<HTMLElement>('.navbar-toggler');
     const wasExpanded =
-      this.navBarExpanded ||
+      this.navBarExpanded() ||
       !!navbar?.classList.contains('show') ||
       !!navbar?.classList.contains('collapsing');
 
@@ -173,17 +175,17 @@ export class NavbarComponent implements OnInit, OnDestroy {
 
     navbarToggler?.classList.add('collapsed');
     navbarToggler?.setAttribute('aria-expanded', 'false');
-    this.navBarExpanded = false;
-    this.unlockPageInteraction(wasExpanded && this.isMediumScreen);
+    this.navBarExpanded.set(false);
+    this.unlockPageInteraction(wasExpanded && this.isMediumScreen());
   }
 
   // Toggle the search bar state and handle navbar collapse if necessary
-  toggleSearchBar(query: string) {
-    const wasExpanded = this.searchExpanded;
-    this.searchExpanded = !this.searchExpanded;
+  toggleSearchBar(query: string): void {
+    const wasExpanded = this.searchExpanded();
+    this.searchExpanded.update((expanded) => !expanded);
 
     // If the search bar is expanded, collapse the navbar
-    if (this.navBarExpanded) {
+    if (this.navBarExpanded()) {
       this.collapseNavbar();
     }
 
@@ -193,9 +195,9 @@ export class NavbarComponent implements OnInit, OnDestroy {
   }
 
   // Collapse the search bar and clear the search input
-  collapseSearch(query: string) {
-    this.searchExpanded = false;
-    this.searchInput.nativeElement.value = '';
+  collapseSearch(query: string): void {
+    this.searchExpanded.set(false);
+    this.searchInput().nativeElement.value = '';
     this.submitSearch(query);
   }
 
@@ -244,7 +246,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
 
   // Native inert handles focus and clicks while the body class prevents background scrolling
   private applyPageInteractionLock(locked: boolean): void {
-    this.isPageInteractionLocked = locked;
+    this.isPageInteractionLocked.set(locked);
     document.body.classList.toggle('mobile-navbar-open', locked);
     document.getElementById('main-content')?.toggleAttribute('inert', locked);
   }

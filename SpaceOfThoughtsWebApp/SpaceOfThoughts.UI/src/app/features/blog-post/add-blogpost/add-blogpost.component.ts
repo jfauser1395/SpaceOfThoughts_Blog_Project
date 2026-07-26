@@ -3,16 +3,18 @@ import {
   OnDestroy,
   OnInit,
   ChangeDetectionStrategy,
+  inject,
+  signal,
 } from '@angular/core';
 import { AddBlogPost } from '../models/add-blog-post.model';
 import { FormsModule } from '@angular/forms';
-import { DatePipe } from '@angular/common';
+import { DatePipe, AsyncPipe } from '@angular/common';
 import { BlogPostService } from '../services/blog-post.service';
 import { Router } from '@angular/router';
 import { CategoryService } from '../../category/services/category.service';
 import { Observable, Subscription } from 'rxjs';
 import { Category } from '../../category/models/category.model';
-import { CommonModule } from '@angular/common';
+
 import { ImageSelectorComponent } from '../shared/components/image-selector/image-selector.component';
 import { ImageService } from '../shared/components/services/image.service';
 import { ViewportScroller } from '@angular/common';
@@ -22,41 +24,36 @@ import { MarkdownEditorComponent } from '../shared/components/markdown-editor/ma
   selector: 'app-add-blogpost',
   templateUrl: './add-blogpost.component.html',
   styleUrls: ['./add-blogpost.component.css'],
-  changeDetection: ChangeDetectionStrategy.Eager,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     FormsModule,
     DatePipe,
-    CommonModule,
     ImageSelectorComponent,
     MarkdownEditorComponent,
+    AsyncPipe,
   ],
 })
 export class AddBlogpostComponent implements OnInit, OnDestroy {
-  model: AddBlogPost; // Model for the blog post data
+  private readonly blogpostService = inject(BlogPostService);
+  private readonly categoryService = inject(CategoryService);
+  private readonly imageService = inject(ImageService);
+  private readonly router = inject(Router);
+  private readonly viewportScroller = inject(ViewportScroller);
+
+  readonly model = signal<AddBlogPost>({
+    title: '',
+    shortDescription: '',
+    urlHandle: '',
+    content: '',
+    featuredImageUrl: '',
+    author: '',
+    isVisible: true,
+    publishedDate: new Date(),
+    categories: [],
+  }); // Model for the blog post data
   categories$?: Observable<Category[]>; // Observable for the list of categories
   imageSelectorSubscription?: Subscription; // Subscription for the image selector
-  urlHandleWarning?: string; // Url handle field warning
-
-  constructor(
-    private blogpostService: BlogPostService, // Inject BlogPostService for blog post operations
-    private categoryService: CategoryService, // Inject CategoryService for category operations
-    private imageService: ImageService, // Inject ImageService for image operations
-    private router: Router, // Inject Router for navigation
-    private viewportScroller: ViewportScroller, // Inject viewportScroller for scroll control
-  ) {
-    // Initialize the model with default values
-    this.model = {
-      title: '',
-      shortDescription: '',
-      urlHandle: '',
-      content: '',
-      featuredImageUrl: '',
-      author: '',
-      isVisible: true,
-      publishedDate: new Date(),
-      categories: [],
-    };
-  }
+  readonly urlHandleWarning = signal<string | undefined>(undefined); // Url handle field warning
 
   ngOnInit(): void {
     // Get the list of categories
@@ -66,15 +63,20 @@ export class AddBlogpostComponent implements OnInit, OnDestroy {
     this.imageSelectorSubscription = this.imageService
       .onSelectImage()
       .subscribe({
-        next: (selectedImage) =>
-          (this.model.featuredImageUrl = selectedImage.url),
+        next: (selectedImage) => {
+          this.model.update((model) => ({
+            ...model,
+            featuredImageUrl: selectedImage.url,
+          }));
+        },
       });
   }
 
   // Handle form submission to create a new blog post
   onFormSubmit(): void {
-    if (this.model.urlHandle != '') {
-      this.blogpostService.createBlogPost(this.model).subscribe({
+    const model = this.model();
+    if (model.urlHandle !== '') {
+      this.blogpostService.createBlogPost(model).subscribe({
         next: () => {
           this.router.navigateByUrl('/admin/blogposts').then(() => {
             this.viewportScroller.scrollToPosition([0, 0]); // Redirect and scroll up to blog posts admin page on success
@@ -83,8 +85,9 @@ export class AddBlogpostComponent implements OnInit, OnDestroy {
       });
     } else {
       this.viewportScroller.scrollToPosition([0, 0]); // Scroll up
-      this.urlHandleWarning =
-        '*Please make sure to at lease fill out this field!'; // Warning massage to fill out the urlHandleField
+      this.urlHandleWarning.set(
+        '*Please make sure to at least fill out this field!',
+      ); // Warning message to fill out the urlHandleField
     }
   }
 

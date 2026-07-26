@@ -22,7 +22,7 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/about/about-page/about-page.component').then(
         (component) => component.AboutPageComponent,
-      ), // Route for static about page
+      ), // Route for the public, administrator-editable About page
   },
   {
     path: 'create-account',

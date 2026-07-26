@@ -1,10 +1,14 @@
 <div class="profile-page">
+  @let user = currentUser();
+  @let avatarUrl = avatarImageUrl;
+  @let zoom = avatarZoom();
+
   <div class="container profile-shell">
     <!-- Profile page header -->
     <header class="profile-header">
       <div>
         <h1>Profile</h1>
-        <p>{{ currentUser?.email }}</p>
+        <p>{{ user?.email }}</p>
       </div>
       <div class="profile-header-actions">
         <a class="btn btn-outline-secondary" [routerLink]="['/blogs']">
@@ -21,7 +25,7 @@
       </div>
     </header>
 
-    @if (isLoading) {
+    @if (isLoading()) {
       <!-- Loading state while the profile request is pending -->
       <div class="profile-status">Loading profile...</div>
     } @else {
@@ -35,13 +39,13 @@
             aria-label="Profile picture preview"
             (click)="openProfilePictureEditor()"
           >
-            @if (avatarImageUrl) {
+            @if (avatarUrl) {
               <img
-                [src]="avatarImageUrl"
-                [style.height.%]="avatarZoom"
+                [src]="avatarUrl"
+                [style.height.%]="zoom"
                 [style.object-position]="avatarObjectPosition"
                 [style.transform]="avatarImageTransform"
-                [style.width.%]="avatarZoom"
+                [style.width.%]="zoom"
                 alt="Profile picture preview"
                 draggable="false"
               />
@@ -59,14 +63,17 @@
             Edit picture
           </button>
 
-          @if (imageSuccess) {
-            <div class="profile-alert profile-alert-success">{{ imageSuccess }}</div>
+          @if (imageSuccess(); as success) {
+            <div class="profile-alert profile-alert-success">{{ success }}</div>
           }
         </section>
 
-        @if (isProfilePictureEditorOpen) {
+        @if (isProfilePictureEditorOpen()) {
           <!-- Profile picture editor popup -->
-          <div class="profile-picture-backdrop" (click)="closeProfilePictureEditor()">
+          <div
+            class="profile-picture-backdrop"
+            (click)="closeProfilePictureEditor()"
+          >
             <section
               class="profile-picture-popup"
               role="dialog"
@@ -80,7 +87,7 @@
                   type="button"
                   class="profile-picture-close-button"
                   aria-label="Close profile picture editor"
-                  [disabled]="isUploadingProfileImage"
+                  [disabled]="isUploadingProfileImage()"
                   (click)="closeProfilePictureEditor()"
                 >
                   <i class="bi bi-x-lg" aria-hidden="true"></i>
@@ -90,19 +97,19 @@
               <!-- Draggable avatar crop preview -->
               <div
                 class="avatar-preview"
-                [class.is-draggable]="avatarImageUrl"
-                [class.is-dragging]="isDraggingAvatar"
+                [class.is-draggable]="avatarUrl"
+                [class.is-dragging]="isDraggingAvatar()"
                 title="Drag to position picture"
                 aria-label="Profile picture preview"
                 (pointerdown)="onAvatarPointerDown($event)"
               >
-                @if (avatarImageUrl) {
+                @if (avatarUrl) {
                   <img
-                    [src]="avatarImageUrl"
-                    [style.height.%]="avatarZoom"
+                    [src]="avatarUrl"
+                    [style.height.%]="zoom"
                     [style.object-position]="avatarObjectPosition"
                     [style.transform]="avatarImageTransform"
-                    [style.width.%]="avatarZoom"
+                    [style.width.%]="zoom"
                     alt="Profile picture preview"
                     draggable="false"
                   />
@@ -111,12 +118,12 @@
                 }
               </div>
 
-              @if (avatarImageUrl) {
+              @if (avatarUrl) {
                 <!-- Avatar zoom control shown when an image is available -->
                 <div class="avatar-zoom-control">
                   <label for="profile-picture-zoom">
                     <span>Zoom</span>
-                    <output for="profile-picture-zoom">{{ avatarZoom }}%</output>
+                    <output for="profile-picture-zoom">{{ zoom }}%</output>
                   </label>
                   <input
                     id="profile-picture-zoom"
@@ -124,7 +131,7 @@
                     [min]="minimumAvatarZoom"
                     [max]="maximumAvatarZoom"
                     [step]="avatarZoomStep"
-                    [value]="avatarZoom"
+                    [value]="zoom"
                     (input)="onAvatarZoomChange($event)"
                   />
                 </div>
@@ -132,7 +139,10 @@
 
               <!-- Avatar file picker and save actions -->
               <div class="avatar-controls">
-                <label class="btn btnPrimary avatar-upload-button" for="profile-picture-input">
+                <label
+                  class="btn btnPrimary avatar-upload-button"
+                  for="profile-picture-input"
+                >
                   <i class="bi bi-upload" aria-hidden="true"></i>
                   Choose picture
                 </label>
@@ -146,23 +156,29 @@
                 <button
                   type="button"
                   class="btn btn-outline-secondary"
-                  [disabled]="(!selectedProfileImageFile && !avatarImageUrl) || isUploadingProfileImage"
+                  [disabled]="
+                    (!selectedProfileImageFile() && !avatarUrl) ||
+                    isUploadingProfileImage()
+                  "
                   (click)="onUploadProfileImage()"
                 >
                   <i class="bi bi-check2" aria-hidden="true"></i>
-                  {{ isUploadingProfileImage ? "Saving..." : "Save picture" }}
+                  {{ isUploadingProfileImage() ? 'Saving...' : 'Save picture' }}
                 </button>
               </div>
 
-              @if (imageError) {
-                <div class="profile-alert profile-alert-error">{{ imageError }}</div>
+              @if (imageError(); as error) {
+                <div class="profile-alert profile-alert-error">{{ error }}</div>
               }
             </section>
           </div>
         }
 
         <!-- Profile credentials form -->
-        <section class="credentials-panel" aria-labelledby="credentials-heading">
+        <section
+          class="credentials-panel"
+          aria-labelledby="credentials-heading"
+        >
           <h2 id="credentials-heading">Credentials</h2>
           <form [formGroup]="profileForm" (ngSubmit)="onSaveProfile()">
             <div class="form-field">
@@ -174,9 +190,12 @@
                 formControlName="userName"
                 autocomplete="username"
               />
-              @if (profileForm.controls.userName.hasError("duplicate")) {
+              @if (profileForm.controls.userName.hasError('duplicate')) {
                 <small>Username is already taken.</small>
-              } @else if (profileForm.controls.userName.invalid && profileForm.controls.userName.touched) {
+              } @else if (
+                profileForm.controls.userName.invalid &&
+                profileForm.controls.userName.touched
+              ) {
                 <small>Username is required.</small>
               }
             </div>
@@ -190,9 +209,12 @@
                 formControlName="email"
                 autocomplete="email"
               />
-              @if (profileForm.controls.email.hasError("duplicate")) {
+              @if (profileForm.controls.email.hasError('duplicate')) {
                 <small>Email is already taken.</small>
-              } @else if (profileForm.controls.email.invalid && profileForm.controls.email.touched) {
+              } @else if (
+                profileForm.controls.email.invalid &&
+                profileForm.controls.email.touched
+              ) {
                 <small>Enter a valid email address.</small>
               }
             </div>
@@ -208,7 +230,7 @@
                   autocomplete="current-password"
                 />
                 @if (
-                  profileForm.controls.currentPassword.hasError("required") &&
+                  profileForm.controls.currentPassword.hasError('required') &&
                   profileForm.controls.currentPassword.touched
                 ) {
                   <small>Current password is required.</small>
@@ -235,28 +257,32 @@
                   formControlName="confirmPassword"
                   autocomplete="new-password"
                 />
-                @if (profileForm.controls.confirmPassword.hasError("mismatch")) {
+                @if (
+                  profileForm.controls.confirmPassword.hasError('mismatch')
+                ) {
                   <small>Passwords do not match.</small>
                 }
               </div>
             </div>
 
             <!-- Profile save feedback messages -->
-            @if (profileError) {
-              <div class="profile-alert profile-alert-error">{{ profileError }}</div>
+            @if (profileError(); as error) {
+              <div class="profile-alert profile-alert-error">{{ error }}</div>
             }
-            @if (profileSuccess) {
-              <div class="profile-alert profile-alert-success">{{ profileSuccess }}</div>
+            @if (profileSuccess(); as success) {
+              <div class="profile-alert profile-alert-success">
+                {{ success }}
+              </div>
             }
 
             <div class="profile-actions-footer">
               <button
                 type="submit"
                 class="btn btnPrimary"
-                [disabled]="isSavingProfile || profileForm.invalid"
+                [disabled]="isSavingProfile() || profileForm.invalid"
               >
                 <i class="bi bi-save" aria-hidden="true"></i>
-                {{ isSavingProfile ? "Saving..." : "Save changes" }}
+                {{ isSavingProfile() ? 'Saving...' : 'Save changes' }}
               </button>
             </div>
           </form>
@@ -265,16 +291,19 @@
 
       @if (canDeleteAccount) {
         <!-- Self-service account deletion is intentionally hidden for the protected Admin account -->
-        <section class="delete-account-panel" aria-labelledby="delete-account-heading">
+        <section
+          class="delete-account-panel"
+          aria-labelledby="delete-account-heading"
+        >
           <div class="delete-account-copy">
             <h2 id="delete-account-heading">Delete account</h2>
             <p>
-              Permanently remove your sign-in account and profile picture. This action cannot be
-              undone.
+              Permanently remove your sign-in account and profile picture. This
+              action cannot be undone.
             </p>
           </div>
 
-          @if (!isDeleteAccountConfirmationOpen) {
+          @if (!isDeleteAccountConfirmationOpen()) {
             <button
               type="button"
               class="btn btn-outline-danger"
@@ -287,11 +316,16 @@
             <!-- A second explicit action prevents accidental permanent deletion -->
             <div class="delete-account-confirmation" role="alert">
               <strong>Are you sure you want to delete your account?</strong>
-              <p>You will be signed out immediately after the account is deleted.</p>
+              <p>
+                You will be signed out immediately after the account is deleted.
+              </p>
 
-              @if (deleteAccountError) {
-                <div class="profile-alert profile-alert-error" aria-live="assertive">
-                  {{ deleteAccountError }}
+              @if (deleteAccountError(); as error) {
+                <div
+                  class="profile-alert profile-alert-error"
+                  aria-live="assertive"
+                >
+                  {{ error }}
                 </div>
               }
 
@@ -299,7 +333,7 @@
                 <button
                   type="button"
                   class="btn btn-outline-secondary"
-                  [disabled]="isDeletingAccount"
+                  [disabled]="isDeletingAccount()"
                   (click)="closeDeleteAccountConfirmation()"
                 >
                   Cancel
@@ -307,11 +341,15 @@
                 <button
                   type="button"
                   class="btn btn-danger"
-                  [disabled]="isDeletingAccount"
+                  [disabled]="isDeletingAccount()"
                   (click)="onDeleteAccount()"
                 >
                   <i class="bi bi-trash3" aria-hidden="true"></i>
-                  {{ isDeletingAccount ? "Deleting..." : "Delete account permanently" }}
+                  {{
+                    isDeletingAccount()
+                      ? 'Deleting...'
+                      : 'Delete account permanently'
+                  }}
                 </button>
               </div>
             </div>
