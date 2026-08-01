@@ -43,17 +43,19 @@ README or in tracked configuration files.
 
 For local development, store sensitive values with .NET User Secrets:
 
-```powershell
+```bash
 cd SpaceOfThoughtsWebApp/SpaceOfThoughts.API
-dotnet user-secrets set "ConnectionStrings:SpaceOfThoughtsConnectionString" "Host=localhost;Port=5432;Database=spotdb;Username=postgres;Password=<your PostgreSQL password>"
-dotnet user-secrets set "Jwt:Key" "<your long random development signing key>"
 ```
 
-The development issuer and audience are:
+Configure the local database password, bootstrap password, and a random JWT key
+using the Bash commands in the
+[secrets and rotation runbook](SpaceOfThoughtsWebApp/deployment/SECRETS.md).
+
+The development issuer and audience in `appsettings.json` are:
 
 ```text
 Jwt:Issuer   = https://localhost:7000
-Jwt:Audience = http://localhost:4200
+Jwt:Audience = https://localhost:7000
 ```
 
 .NET User Secrets are intended only for local development. Use environment
@@ -67,7 +69,7 @@ Migration files are intentionally excluded from Git. After cloning the
 repository, create an empty local database and generate fresh migrations for
 both database contexts before starting the API:
 
-```powershell
+```bash
 createdb --host localhost --username postgres spotdb
 cd SpaceOfThoughtsWebApp/SpaceOfThoughts.API
 dotnet tool install --global dotnet-ef --version 10.0.10
@@ -77,14 +79,14 @@ dotnet ef migrations add InitialAuth --context AuthDbContext --output-dir Migrat
 
 If `dotnet-ef` is already installed, update it before generating the migrations:
 
-```powershell
+```bash
 dotnet tool update --global dotnet-ef --version 10.0.10
 ```
 
 The API applies the generated migrations automatically when it starts. To apply
 them manually instead, run:
 
-```powershell
+```bash
 cd SpaceOfThoughtsWebApp/SpaceOfThoughts.API
 dotnet ef database update --context ApplicationDbContext
 dotnet ef database update --context AuthDbContext
@@ -94,7 +96,7 @@ dotnet ef database update --context AuthDbContext
 
 From the repository root:
 
-```powershell
+```bash
 cd SpaceOfThoughtsWebApp/SpaceOfThoughts.API
 dotnet restore
 dotnet run --launch-profile https
@@ -107,7 +109,7 @@ The development API is available at:
 
 If necessary, create and trust a local HTTPS development certificate:
 
-```powershell
+```bash
 dotnet dev-certs https --trust
 ```
 
@@ -115,7 +117,7 @@ dotnet dev-certs https --trust
 
 Open another terminal from the repository root:
 
-```powershell
+```bash
 cd SpaceOfThoughtsWebApp/SpaceOfThoughts.UI
 npm ci
 npm start
@@ -128,14 +130,14 @@ The Angular development server opens `http://localhost:4200`. Requests to
 
 API:
 
-```powershell
+```bash
 cd SpaceOfThoughtsWebApp/SpaceOfThoughts.API
 dotnet build
 ```
 
 Frontend:
 
-```powershell
+```bash
 cd SpaceOfThoughtsWebApp/SpaceOfThoughts.UI
 npm run build
 npm test

@@ -24,9 +24,10 @@ namespace SpaceOfThoughts.API.Data.Initialization
                 // Seed Identity
                 var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
                 var userManager = services.GetRequiredService<UserManager<IdentityUser>>();
+                var configuration = services.GetRequiredService<IConfiguration>();
 
                 await SeedRolesAsync(roleManager);
-                await SeedAdminAsync(userManager);
+                await SeedAdminAsync(userManager, configuration);
             }
             catch (Exception ex)
             {
@@ -56,7 +57,10 @@ namespace SpaceOfThoughts.API.Data.Initialization
         }
 
         // Create or recover the one initial administrator and idempotently restore its roles
-        private static async Task SeedAdminAsync(UserManager<IdentityUser> userManager)
+        private static async Task SeedAdminAsync(
+            UserManager<IdentityUser> userManager,
+            IConfiguration configuration
+        )
         {
             var initialAdmins = await userManager.GetUsersInRoleAsync(
                 IdentitySeedConstants.InitialAdminRole
@@ -75,13 +79,22 @@ namespace SpaceOfThoughts.API.Data.Initialization
 
             if (adminUser == null)
             {
+                var initialPassword = configuration["BootstrapAdmin:InitialPassword"];
+                if (string.IsNullOrWhiteSpace(initialPassword))
+                {
+                    throw new InvalidOperationException(
+                        "Bootstrap administrator configuration 'BootstrapAdmin:InitialPassword' "
+                            + "is required when creating the initial administrator."
+                    );
+                }
+
                 adminUser = new IdentityUser
                 {
                     UserName = IdentitySeedConstants.AdminUserName,
                     Email = IdentitySeedConstants.AdminEmail,
                     EmailConfirmed = true
                 };
-                var createResult = await userManager.CreateAsync(adminUser, "Admin@123");
+                var createResult = await userManager.CreateAsync(adminUser, initialPassword);
                 ThrowIfFailed(createResult, "create the initial administrator");
             }
 

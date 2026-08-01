@@ -29,13 +29,13 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
             // Retrieve JWT configuration values from app settings
             var jwtKey =
                 configuration["Jwt:Key"]
-                ?? throw new InvalidOperationException("JWT Key is missing");
+                ?? throw new InvalidOperationException("JWT key is missing.");
             var jwtIssuer =
                 configuration["Jwt:Issuer"]
-                ?? throw new InvalidOperationException("JWT Issuer is missing");
+                ?? throw new InvalidOperationException("JWT issuer is missing.");
             var jwtAudience =
                 configuration["Jwt:Audience"]
-                ?? throw new InvalidOperationException("JWT Audience is missing");
+                ?? throw new InvalidOperationException("JWT audience is missing.");
 
             // Create Claims
             var claims = new List<Claim>();

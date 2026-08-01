@@ -46,6 +46,13 @@ builder.Services.Configure<GzipCompressionProviderOptions>(options =>
 
 // Inject DbContext service to the builder and pass the connection string
 var connectionString = builder.Configuration.GetConnectionString("SpaceOfThoughtsConnectionString");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException(
+        "Connection string 'SpaceOfThoughtsConnectionString' is missing."
+    );
+}
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
    options.UseNpgsql(connectionString)
 );
@@ -72,8 +79,40 @@ builder
     .AddEntityFrameworkStores<AuthDbContext>()
     .AddDefaultTokenProviders();
 
-//// Configure Data Protection to persist keys
-//builder.Services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(@"/var/mykeys")); // Update this path accordingly, consider additional security measures for the keys
+// Persist Identity token-protection keys across production restarts.
+var dataProtection = builder.Services
+    .AddDataProtection()
+    .SetApplicationName("SpaceOfThoughts");
+var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
+
+if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+{
+    if (builder.Environment.IsProduction() && !Path.IsPathRooted(dataProtectionKeysPath))
+    {
+        throw new InvalidOperationException(
+            "Data Protection key storage path 'DataProtection:KeysPath' must be absolute in production."
+        );
+    }
+
+    var dataProtectionKeysDirectory = new DirectoryInfo(
+        Path.GetFullPath(dataProtectionKeysPath)
+    );
+
+    if (builder.Environment.IsProduction() && !dataProtectionKeysDirectory.Exists)
+    {
+        throw new InvalidOperationException(
+            $"Data Protection key storage directory '{dataProtectionKeysDirectory.FullName}' does not exist."
+        );
+    }
+
+    dataProtection.PersistKeysToFileSystem(dataProtectionKeysDirectory);
+}
+else if (builder.Environment.IsProduction())
+{
+    throw new InvalidOperationException(
+        "Data Protection key storage path 'DataProtection:KeysPath' is required in production."
+    );
+}
 
 // Password requirements
 builder.Services.Configure<IdentityOptions>(options =>
@@ -97,14 +136,21 @@ builder
         var jwtIssuer = builder.Configuration["Jwt:Issuer"];
         var jwtAudience = builder.Configuration["Jwt:Audience"];
 
-        // Check for possible null values
         if (
-            string.IsNullOrEmpty(jwtKey)
-            || string.IsNullOrEmpty(jwtIssuer)
-            || string.IsNullOrEmpty(jwtAudience)
+            string.IsNullOrWhiteSpace(jwtKey)
+            || string.IsNullOrWhiteSpace(jwtIssuer)
+            || string.IsNullOrWhiteSpace(jwtAudience)
         )
         {
-            throw new InvalidOperationException("JWT configuration values are missing");
+            throw new InvalidOperationException("JWT configuration values are missing.");
+        }
+
+        var jwtKeyBytes = System.Text.Encoding.UTF8.GetBytes(jwtKey);
+        if (jwtKeyBytes.Length < 32)
+        {
+            throw new InvalidOperationException(
+                "JWT signing key must contain at least 32 bytes."
+            );
         }
 
         options.TokenValidationParameters = new TokenValidationParameters
@@ -116,9 +162,7 @@ builder
             ValidateIssuerSigningKey = true, // Validate the signing key
             ValidIssuer = jwtIssuer, // Set the valid issuer
             ValidAudience = jwtAudience, // Set the valid audience
-            IssuerSigningKey = new SymmetricSecurityKey(
-                System.Text.Encoding.UTF8.GetBytes(jwtKey) // Set the signing key
-            )
+            IssuerSigningKey = new SymmetricSecurityKey(jwtKeyBytes)
         };
 
         // Read JWTs only from the browser's HttpOnly authorization cookie.
@@ -189,11 +233,11 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 app.UseCors("AllowSpecificOrigins");
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// if (app.Environment.IsDevelopment())
+// {
+//     app.UseSwagger();
+//     app.UseSwaggerUI();
+// }
 
 // HTTPS redirection will not be used because the API will run locally
 //app.UseHttpsRedirection();
