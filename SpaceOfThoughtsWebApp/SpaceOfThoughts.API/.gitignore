@@ -376,6 +376,5 @@ Images/**/*
 !Images/Public/ProfilePictures/.gitkeep
 !Images/Private/
 !Images/Private/.gitkeep
-appsettings.json
 Migrations/
 **/Migrations/
