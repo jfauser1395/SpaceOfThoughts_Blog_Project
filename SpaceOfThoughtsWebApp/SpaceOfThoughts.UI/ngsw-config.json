@@ -1,5 +1,9 @@
 {
   "$schema": "./node_modules/@angular/service-worker/config/schema.json",
+  "appData": {
+    "name": "SpaceOfThoughts",
+    "version": "1.0.0"
+  },
   "index": "/index.html",
   "assetGroups": [
     {
@@ -10,8 +14,12 @@
           "/favicon.svg",
           "/index.html",
           "/manifest.webmanifest",
-          "/*.css",
-          "/*.js"
+          "/icons/apple-touch-icon-180x180.png",
+          "/icons/icon-192x192-any.png",
+          "/icons/icon-512x512-any.png",
+          "/icons/icon-512x512-maskable.png",
+          "/*.css$",
+          "/*.js$"
         ]
       }
     },
@@ -21,9 +29,19 @@
       "updateMode": "prefetch",
       "resources": {
         "files": [
-          "/**/*.(svg|cur|jpg|jpeg|png|apng|webp|avif|gif|otf|ttf|woff|woff2)"
+          "/**/*.(svg|cur|jpg|jpeg|png|apng|webp|avif|gif|otf|ttf|woff|woff2)$"
         ]
       }
     }
+  ],
+  "navigationUrls": [
+    "/**",
+    "!/**/*.*",
+    "!/**/*__*",
+    "!/**/*__*/**",
+    "!/api",
+    "!/api/**",
+    "!/Images",
+    "!/Images/**"
   ]
 }

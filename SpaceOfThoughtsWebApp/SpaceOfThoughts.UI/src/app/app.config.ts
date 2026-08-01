@@ -60,7 +60,8 @@ export const appConfig: ApplicationConfig = {
     provideAppInitializer(() => inject(ThemeService).initialize()),
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(), // Enable service worker only in production mode
-      registrationStrategy: 'registerWhenStable:30000', // Register service worker after 30 seconds of stability
+      registrationStrategy: 'registerWhenStable:30000', // Register when stable, with a 30-second fallback
+      updateViaCache: 'none', // Always revalidate the worker script when checking for a release
     }),
   ],
 };

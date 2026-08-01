@@ -3,6 +3,17 @@
   <app-navbar />
 </header>
 
+<!-- Offline status indicator -->
+@if (!isOnline()) {
+  <aside class="offline-status" role="status" aria-live="polite">
+    <i class="bi bi-wifi-off" aria-hidden="true"></i>
+    <span>
+      <strong>You are offline.</strong>
+      Live content and account actions will resume when your connection returns.
+    </span>
+  </aside>
+}
+
 <!-- Angular replaces routed content inside the native browser view transition -->
 <main id="main-content">
   <router-outlet />
@@ -33,15 +44,15 @@
           <span>
             {{
               isUpdateRecoveryRequired()
-                ? 'Application recovery'
-                : 'Application update'
+                ? "Application recovery"
+                : "Application update"
             }}
           </span>
           <h2 id="app-update-dialog-heading">
             {{
               isUpdateRecoveryRequired()
-                ? 'A reload is required'
-                : 'A new version is ready'
+                ? "A reload is required"
+                : "A new version is ready"
             }}
           </h2>
         </div>
@@ -62,6 +73,9 @@
           @if (isUpdateRecoveryRequired()) {
             The cached application can no longer continue safely. Reload to
             restore a complete version.
+          } @else if (availableVersion(); as version) {
+            Version {{ version }} is downloaded and ready. Reload the
+            application to start using it.
           } @else {
             Reload the application to start using the newest version.
           }
@@ -110,7 +124,7 @@
     <div class="update-ready-banner-copy">
       <strong>
         {{
-          isUpdateRecoveryRequired() ? 'Reload required' : 'New version ready'
+          isUpdateRecoveryRequired() ? "Reload required" : "New version ready"
         }}
       </strong>
       <span>Save unfinished work before updating.</span>

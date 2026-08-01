@@ -1,3 +1,31 @@
+/* Connectivity status stays in the document flow so it never covers navigation. */
+.offline-status {
+  align-items: center;
+  background: color-mix(
+    in srgb,
+    var(--color-surface) 92%,
+    var(--color-primary)
+  );
+  border-block: 1px solid var(--color-border);
+  color: var(--color-text);
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  padding: 10px 18px;
+  text-align: center;
+}
+
+.offline-status i {
+  color: var(--color-primary);
+  flex: 0 0 auto;
+  font-size: 18px;
+}
+
+.offline-status strong {
+  color: var(--color-heading);
+  margin-right: 3px;
+}
+
 /* Full-screen layer for the application update prompt */
 .update-dialog-backdrop {
   align-items: center;
@@ -40,8 +68,7 @@
 .update-dialog-icon {
   align-items: center;
   background: color-mix(in srgb, var(--color-primary) 16%, transparent);
-  border: 1px solid
-    color-mix(in srgb, var(--color-primary) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 40%, transparent);
   border-radius: 50%;
   color: var(--color-primary);
   display: inline-flex;
@@ -75,8 +102,7 @@
 .update-dialog-close-button {
   align-items: center;
   background: color-mix(in srgb, var(--color-primary) 10%, transparent);
-  border: 1px solid
-    color-mix(in srgb, var(--color-primary) 34%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 34%, transparent);
   border-radius: 50%;
   color: var(--color-primary);
   cursor: pointer;
@@ -173,8 +199,7 @@
 .update-ready-banner-icon {
   align-items: center;
   background: color-mix(in srgb, var(--color-primary) 16%, transparent);
-  border: 1px solid
-    color-mix(in srgb, var(--color-primary) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 40%, transparent);
   border-radius: 50%;
   color: var(--color-primary);
   display: inline-flex;
