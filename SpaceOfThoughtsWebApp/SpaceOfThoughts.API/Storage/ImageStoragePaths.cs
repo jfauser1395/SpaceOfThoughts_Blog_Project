@@ -14,9 +14,31 @@ namespace SpaceOfThoughts.API.Storage
         public const string PublicRequestPath = "/Images";
         public const string ProfilePicturesDirectoryName = "ProfilePictures";
 
-        private const string ImagesDirectoryName = "Images";
-        private const string PublicDirectoryName = "Public";
-        private const string PrivateDirectoryName = "Private";
+    private const string ImagesDirectoryName = "Images";
+    private const string PublicDirectoryName = "Public";
+    private const string PrivateDirectoryName = "Private";
+
+    private static string ResolveImagesRoot(string contentRootPath)
+    {
+        var configuredRoot = Environment.GetEnvironmentVariable("ImageStorage__RootPath");
+        if (string.IsNullOrWhiteSpace(configuredRoot))
+        {
+            return Path.Combine(contentRootPath, ImagesDirectoryName);
+        }
+
+        if (configuredRoot.Contains('\r') || configuredRoot.Contains('\n'))
+        {
+            throw new InvalidOperationException(
+                "ImageStorage__RootPath must not contain carriage-return or newline characters.");
+        }
+
+        if (!Path.IsPathFullyQualified(configuredRoot))
+        {
+            throw new InvalidOperationException("ImageStorage__RootPath must be an absolute path.");
+        }
+
+        return Path.GetFullPath(configuredRoot);
+    }
 
         // Create every managed image directory when the API starts
         public static void EnsureDirectories(string contentRootPath)
@@ -41,7 +63,7 @@ namespace SpaceOfThoughts.API.Storage
         // Return the public root that may be exposed by ASP.NET Core or Nginx
         public static string GetPublicRoot(string contentRootPath)
         {
-            return Path.Combine(contentRootPath, ImagesDirectoryName, PublicDirectoryName);
+        return Path.Combine(ResolveImagesRoot(contentRootPath), PublicDirectoryName);
         }
 
         // Return the public directory assigned to one editor or page type
@@ -68,7 +90,7 @@ namespace SpaceOfThoughts.API.Storage
         // Return the directory that must only be accessed through authorized endpoints
         public static string GetPrivateDirectory(string contentRootPath)
         {
-            return Path.Combine(contentRootPath, ImagesDirectoryName, PrivateDirectoryName);
+        return Path.Combine(ResolveImagesRoot(contentRootPath), PrivateDirectoryName);
         }
 
         // Accept only the known public categories supplied by the admin image selector
@@ -275,7 +297,7 @@ namespace SpaceOfThoughts.API.Storage
         // Move legacy files without overwriting any file already present in the new layout
         private static void MigrateLegacyFiles(string contentRootPath)
         {
-            var imagesRoot = Path.Combine(contentRootPath, ImagesDirectoryName);
+        var imagesRoot = ResolveImagesRoot(contentRootPath);
             var blogDirectory = GetPublicDirectory(
                 contentRootPath,
                 PublicImageCategory.Blog

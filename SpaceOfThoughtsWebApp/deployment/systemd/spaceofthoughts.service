@@ -1,0 +1,38 @@
+[Unit]
+Description=SpaceOfThoughts ASP.NET Core API
+Wants=network-online.target postgresql.service
+After=network-online.target postgresql.service
+StartLimitIntervalSec=120
+StartLimitBurst=6
+
+[Service]
+Type=exec
+User=spaceofthoughts
+Group=www-data
+WorkingDirectory=/opt/spaceofthoughts/current/api
+EnvironmentFile=/etc/spaceofthoughts/api.env
+ExecStartPre=/usr/bin/test -x /opt/spaceofthoughts/current/api/SpaceOfThoughts.API
+ExecStart=/opt/spaceofthoughts/current/api/SpaceOfThoughts.API
+
+# A crash, unavailable dependency, or failed boot start is retried. An explicit
+# systemctl stop remains stopped, while both direct and spotctl restarts reuse api.env.
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=30
+KillSignal=SIGINT
+
+# The API needs write access only to uploaded images and persistent Identity keys.
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/spaceofthoughts/images
+ReadWritePaths=/var/lib/spaceofthoughts/data-protection-keys
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

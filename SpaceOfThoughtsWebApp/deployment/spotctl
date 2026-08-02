@@ -1,0 +1,1511 @@
+#!/usr/bin/env bash
+# SpaceOfThoughts production setup and service administration for systemd Linux hosts.
+#
+# Security and recovery model:
+# - systemd reads a root-only environment file, then starts the API unprivileged;
+# - the administrator password reaches the one-shot API command only through stdin;
+# - spotctl creates the PostgreSQL role/database, while the API applies tracked EF migrations;
+# - immutable releases contain a self-contained API and its matching Angular UI;
+# - interactive deployments take a backup, while boot/crash recovery reuses saved state unattended.
+
+# Stop on failed commands, unset variables, or failed pipeline elements. Start with
+# private file permissions; individual public directories are loosened explicitly.
+set -Eeuo pipefail
+umask 077
+
+# These control paths are intentionally fixed so secret and unit locations cannot
+# be redirected by values loaded from the optional operator configuration.
+readonly PROGRAM_NAME="spotctl"
+readonly CONFIG_DIR="/etc/spaceofthoughts"
+readonly ENV_FILE="$CONFIG_DIR/api.env"
+readonly OPERATOR_CONFIG="$CONFIG_DIR/spotctl.conf"
+readonly LOCK_FILE="/run/lock/spaceofthoughts.lock"
+readonly UNIT_DIRECTORY="/etc/systemd/system"
+readonly INSTALLED_COMMAND="/usr/local/sbin/spotctl"
+readonly MANIFEST_NAME="release-manifest.json"
+
+# Defaults match deployment/systemd/spaceofthoughts.service. A root-owned,
+# non-group/world-writable /etc/spaceofthoughts/spotctl.conf may override them
+# before the first setup. When paths or service identities are overridden,
+# setup renders the matching values into the installed systemd unit.
+readonly DEFAULT_SERVICE_NAME="spaceofthoughts.service"
+readonly DEFAULT_SERVICE_USER="spaceofthoughts"
+# Nginx runs as www-data and needs group-read access only to images/Public.
+readonly DEFAULT_SERVICE_GROUP="www-data"
+readonly DEFAULT_INSTALL_ROOT="/opt/spaceofthoughts"
+readonly DEFAULT_RELEASES_DIR="$DEFAULT_INSTALL_ROOT/releases"
+readonly DEFAULT_CURRENT_LINK="$DEFAULT_INSTALL_ROOT/current"
+readonly DEFAULT_APP_DIR="$DEFAULT_CURRENT_LINK/api"
+readonly DEFAULT_API_EXECUTABLE="$DEFAULT_APP_DIR/SpaceOfThoughts.API"
+readonly DEFAULT_STATE_DIR="/var/lib/spaceofthoughts"
+readonly DEFAULT_DATA_PROTECTION_DIR="$DEFAULT_STATE_DIR/data-protection-keys"
+readonly DEFAULT_IMAGE_DIR="$DEFAULT_STATE_DIR/images"
+readonly DEFAULT_DB_NAME="spotdb"
+readonly DEFAULT_DB_ROLE="spaceofthoughts"
+readonly DEFAULT_DB_HOST="127.0.0.1"
+readonly DEFAULT_DB_PORT="5432"
+readonly DEFAULT_JWT_ISSUER="https://spaceofthoughts.com"
+readonly DEFAULT_JWT_AUDIENCE="https://spaceofthoughts.com"
+readonly DEFAULT_API_URL="http://127.0.0.1:5000"
+readonly DEFAULT_HEALTH_URL="$DEFAULT_API_URL/health"
+
+SERVICE_NAME="$DEFAULT_SERVICE_NAME"
+SERVICE_USER="$DEFAULT_SERVICE_USER"
+SERVICE_GROUP="$DEFAULT_SERVICE_GROUP"
+INSTALL_ROOT="$DEFAULT_INSTALL_ROOT"
+RELEASES_DIR="$DEFAULT_RELEASES_DIR"
+CURRENT_LINK="$DEFAULT_CURRENT_LINK"
+APP_DIR="$DEFAULT_APP_DIR"
+API_EXECUTABLE="$DEFAULT_API_EXECUTABLE"
+STATE_DIR="$DEFAULT_STATE_DIR"
+DATA_PROTECTION_DIR="$DEFAULT_DATA_PROTECTION_DIR"
+IMAGE_DIR="$DEFAULT_IMAGE_DIR"
+DB_NAME="$DEFAULT_DB_NAME"
+DB_ROLE="$DEFAULT_DB_ROLE"
+DB_HOST="$DEFAULT_DB_HOST"
+DB_PORT="$DEFAULT_DB_PORT"
+JWT_ISSUER="$DEFAULT_JWT_ISSUER"
+JWT_AUDIENCE="$DEFAULT_JWT_AUDIENCE"
+API_URL="$DEFAULT_API_URL"
+HEALTH_URL="$DEFAULT_HEALTH_URL"
+UNIT_TARGET="$UNIT_DIRECTORY/$SERVICE_NAME"
+RELEASE_WORK_DIRECTORY=''
+
+# When invoked from the repository, UNIT_SOURCE is available for installation.
+# The installed /usr/local/sbin copy can reuse an already-installed unit later.
+SCRIPT_PATH="$(readlink -f -- "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(dirname -- "$SCRIPT_PATH")"
+UNIT_SOURCE="$SCRIPT_DIR/systemd/spaceofthoughts.service"
+
+cleanup_release_work_directory() {
+    [[ -n "$RELEASE_WORK_DIRECTORY" ]] || return 0
+    case "$RELEASE_WORK_DIRECTORY" in
+        "$RELEASES_DIR"/.incoming.*)
+            if [[ -d "$RELEASE_WORK_DIRECTORY" && ! -L "$RELEASE_WORK_DIRECTORY" ]]; then
+                rm -rf -- "$RELEASE_WORK_DIRECTORY"
+            fi
+            ;;
+    esac
+}
+trap cleanup_release_work_directory EXIT
+
+# ----- Common output, validation, and configuration helpers -----
+
+log() {
+    printf '%s: %s\n' "$PROGRAM_NAME" "$*"
+}
+
+warn() {
+    printf '%s: WARNING: %s\n' "$PROGRAM_NAME" "$*" >&2
+}
+
+die() {
+    printf '%s: ERROR: %s\n' "$PROGRAM_NAME" "$*" >&2
+    exit 1
+}
+
+usage() {
+    cat <<'EOF'
+Usage: sudo spotctl COMMAND [ARGUMENT]
+
+Commands:
+  setup RELEASE       Install the first release and configure database, secrets, and admin
+  deploy RELEASE      Install and activate a new combined API/UI release archive
+  releases            List installed releases and identify the active release
+  rollback RELEASE_ID Switch to an older application release (never reverses the database)
+  restart             Choose existing configuration or perform a full reconfiguration
+  reconfigure         Rotate generated secrets and update the sole InitialAdmin
+  status              Show the systemd service status and active release
+  logs                Show the latest service journal entries
+  doctor              Validate release, files, database, service, and local health
+EOF
+}
+
+require_root() {
+    (( EUID == 0 )) || die "run this command with sudo"
+}
+
+require_command() {
+    command -v "$1" >/dev/null 2>&1 || die "required command is missing: $1"
+}
+
+require_interactive_terminal() {
+    [[ -t 0 && -t 1 ]] || die "this command requires an interactive terminal"
+}
+
+validate_no_control_characters() {
+    # Environment-file records and unit settings are line-oriented; CR/LF are
+    # the control characters that could create an extra directive or assignment.
+    local value="$1"
+    [[ "$value" != *$'\n'* && "$value" != *$'\r'* ]] || return 1
+}
+
+load_operator_config() {
+    [[ -e "$OPERATOR_CONFIG" ]] || return 0
+    [[ -f "$OPERATOR_CONFIG" && ! -L "$OPERATOR_CONFIG" ]] ||
+        die "$OPERATOR_CONFIG must be a regular file"
+
+    local owner mode
+    owner="$(stat -c '%u' "$OPERATOR_CONFIG")"
+    mode="$(stat -c '%a' "$OPERATOR_CONFIG")"
+    [[ "$owner" == "0" ]] || die "$OPERATOR_CONFIG must be owned by root"
+    (( (8#$mode & 8#022) == 0 )) ||
+        die "$OPERATOR_CONFIG must not be writable by group or others"
+
+    # This file is trusted root configuration and therefore uses Bash assignment syntax.
+    # shellcheck disable=SC1090
+    source "$OPERATOR_CONFIG"
+
+    # Follow an overridden parent path only while its dependent path still has
+    # the original default; an explicit dependent override always wins.
+    if [[ "$INSTALL_ROOT" != "$DEFAULT_INSTALL_ROOT" && "$RELEASES_DIR" == "$DEFAULT_RELEASES_DIR" ]]; then
+        RELEASES_DIR="$INSTALL_ROOT/releases"
+    fi
+    if [[ "$INSTALL_ROOT" != "$DEFAULT_INSTALL_ROOT" && "$CURRENT_LINK" == "$DEFAULT_CURRENT_LINK" ]]; then
+        CURRENT_LINK="$INSTALL_ROOT/current"
+    fi
+    if [[ "$CURRENT_LINK" != "$DEFAULT_CURRENT_LINK" && "$APP_DIR" == "$DEFAULT_APP_DIR" ]]; then
+        APP_DIR="$CURRENT_LINK/api"
+    fi
+    if [[ "$APP_DIR" != "$DEFAULT_APP_DIR" && "$API_EXECUTABLE" == "$DEFAULT_API_EXECUTABLE" ]]; then
+        API_EXECUTABLE="$APP_DIR/SpaceOfThoughts.API"
+    fi
+    if [[ "$STATE_DIR" != "$DEFAULT_STATE_DIR" && "$DATA_PROTECTION_DIR" == "$DEFAULT_DATA_PROTECTION_DIR" ]]; then
+        DATA_PROTECTION_DIR="$STATE_DIR/data-protection-keys"
+    fi
+    if [[ "$STATE_DIR" != "$DEFAULT_STATE_DIR" && "$IMAGE_DIR" == "$DEFAULT_IMAGE_DIR" ]]; then
+        IMAGE_DIR="$STATE_DIR/images"
+    fi
+    if [[ "$API_URL" != "$DEFAULT_API_URL" && "$HEALTH_URL" == "$DEFAULT_HEALTH_URL" ]]; then
+        HEALTH_URL="$API_URL/health"
+    fi
+}
+
+# Strict formats make later SQL identifiers, sed replacements, and unit settings
+# safe to render without evaluating arbitrary operator-supplied text.
+validate_settings() {
+    [[ "$SERVICE_NAME" =~ ^[A-Za-z0-9_.@-]+\.service$ ]] ||
+        die "SERVICE_NAME is invalid"
+    [[ "$SERVICE_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || die "SERVICE_USER is invalid"
+    [[ "$SERVICE_GROUP" =~ ^[a-z_][a-z0-9_-]*$ ]] || die "SERVICE_GROUP is invalid"
+    [[ "$DB_NAME" =~ ^[a-z_][a-z0-9_]{0,62}$ ]] || die "DB_NAME is invalid"
+    [[ "$DB_ROLE" =~ ^[a-z_][a-z0-9_]{0,62}$ ]] || die "DB_ROLE is invalid"
+    [[ "$DB_PORT" =~ ^[0-9]{1,5}$ ]] || die "DB_PORT is invalid"
+    (( 10#$DB_PORT >= 1 && 10#$DB_PORT <= 65535 )) || die "DB_PORT is invalid"
+    [[ "$DB_HOST" == "127.0.0.1" ]] || die "DB_HOST must remain 127.0.0.1 for local PostgreSQL"
+
+    local path
+    for path in \
+        "$INSTALL_ROOT" \
+        "$RELEASES_DIR" \
+        "$CURRENT_LINK" \
+        "$APP_DIR" \
+        "$API_EXECUTABLE" \
+        "$STATE_DIR" \
+        "$DATA_PROTECTION_DIR" \
+        "$IMAGE_DIR"; do
+        [[ "$path" == /* && "$path" != *[[:space:]]* ]] ||
+            die "deployment paths must be absolute and contain no whitespace: $path"
+        validate_no_control_characters "$path" || die "deployment path contains a control character"
+    done
+    [[ "$RELEASES_DIR" == "$INSTALL_ROOT"/* ]] || die "RELEASES_DIR must be below INSTALL_ROOT"
+    [[ "$CURRENT_LINK" == "$INSTALL_ROOT"/* ]] || die "CURRENT_LINK must be below INSTALL_ROOT"
+    [[ "$APP_DIR" == "$CURRENT_LINK/api" ]] || die "APP_DIR must be CURRENT_LINK followed by /api"
+    [[ "$API_EXECUTABLE" == "$APP_DIR/SpaceOfThoughts.API" ]] ||
+        die "API_EXECUTABLE must point to SpaceOfThoughts.API below APP_DIR"
+
+    validate_no_control_characters "$DB_HOST" || die "DB_HOST contains a control character"
+    validate_no_control_characters "$JWT_ISSUER" || die "JWT_ISSUER contains a control character"
+    validate_no_control_characters "$JWT_AUDIENCE" || die "JWT_AUDIENCE contains a control character"
+    [[ "$JWT_ISSUER" =~ ^https://[^[:space:]]+$ ]] || die "JWT_ISSUER must be an HTTPS URL"
+    [[ "$JWT_AUDIENCE" =~ ^https://[^[:space:]]+$ ]] || die "JWT_AUDIENCE must be an HTTPS URL"
+    [[ "$API_URL" =~ ^http://127\.0\.0\.1:[0-9]{1,5}$ ]] ||
+        die "API_URL must bind to an explicit localhost TCP port"
+    local api_port="${API_URL##*:}"
+    (( 10#$api_port >= 1 && 10#$api_port <= 65535 )) || die "API_URL port is invalid"
+    [[ "$HEALTH_URL" == "$API_URL/health" ]] ||
+        die "HEALTH_URL must be API_URL followed by /health"
+
+    UNIT_TARGET="$UNIT_DIRECTORY/$SERVICE_NAME"
+}
+
+# File descriptor 9 stays open for the lifetime of spotctl, so concurrent setup,
+# restart, and rotation commands cannot interleave their writes or backups.
+acquire_lock() {
+    require_command flock
+    install -d --owner=root --group=root --mode=0755 "$(dirname -- "$LOCK_FILE")"
+    exec 9>"$LOCK_FILE"
+    flock -n 9 || die "another spotctl operation is already running"
+}
+
+# The API account deliberately cannot read api.env. PID 1 reads it as root and
+# injects the values into the child process after privileges are dropped.
+ensure_config_directory() {
+    install -d --owner=root --group=root --mode=0700 "$CONFIG_DIR"
+    chown root:root "$CONFIG_DIR"
+    chmod 0700 "$CONFIG_DIR"
+    local actual
+    actual="$(stat -c '%u:%g:%a' "$CONFIG_DIR")"
+    [[ "$actual" == "0:0:700" ]] || die "configuration directory security check failed"
+}
+
+# The shared www-data group permits Nginx to read public images; it does not grant
+# access to private images, Data Protection keys, configuration, or backups.
+ensure_service_identity() {
+    if ! getent group "$SERVICE_GROUP" >/dev/null; then
+        groupadd --system "$SERVICE_GROUP"
+    fi
+
+    if ! id "$SERVICE_USER" >/dev/null 2>&1; then
+        useradd \
+            --system \
+            --gid "$SERVICE_GROUP" \
+            --home-dir "$STATE_DIR" \
+            --shell /usr/sbin/nologin \
+            "$SERVICE_USER"
+    fi
+}
+
+# Root owns the state parent and backups so a compromised API process cannot
+# replace recovery data. The service owns only its key and image write locations.
+ensure_state_directories() {
+    # Releases are immutable. Everything the API may write is kept under STATE_DIR
+    # so switching CURRENT_LINK cannot hide or overwrite user data.
+    install -d --owner=root --group=root --mode=0755 "$INSTALL_ROOT"
+    install -d --owner=root --group=root --mode=0755 "$RELEASES_DIR"
+    install -d --owner=root --group=root --mode=0755 "$STATE_DIR"
+    install -d \
+        --owner="$SERVICE_USER" \
+        --group="$SERVICE_GROUP" \
+        --mode=0700 \
+        "$DATA_PROTECTION_DIR"
+    install -d \
+        --owner="$SERVICE_USER" \
+        --group="$SERVICE_GROUP" \
+        --mode=0750 \
+        "$IMAGE_DIR"
+    install -d \
+        --owner="$SERVICE_USER" \
+        --group="$SERVICE_GROUP" \
+        --mode=0750 \
+        "$IMAGE_DIR/Public" \
+        "$IMAGE_DIR/Public/Blog" \
+        "$IMAGE_DIR/Public/CoverPage" \
+        "$IMAGE_DIR/Public/AboutPage" \
+        "$IMAGE_DIR/Public/ProfilePictures"
+    install -d \
+        --owner="$SERVICE_USER" \
+        --group="$SERVICE_GROUP" \
+        --mode=0700 \
+        "$IMAGE_DIR/Private"
+    install -d --owner=root --group=root --mode=0700 "$STATE_DIR/backups"
+
+    # install creates missing paths; these explicit repairs also correct ownership
+    # or mode drift on directories that survived an upgrade or interrupted run.
+    chown root:root "$STATE_DIR"
+    chmod 0755 "$STATE_DIR"
+    chown "$SERVICE_USER:$SERVICE_GROUP" \
+        "$DATA_PROTECTION_DIR" \
+        "$IMAGE_DIR" \
+        "$IMAGE_DIR/Public" \
+        "$IMAGE_DIR/Public/Blog" \
+        "$IMAGE_DIR/Public/CoverPage" \
+        "$IMAGE_DIR/Public/AboutPage" \
+        "$IMAGE_DIR/Public/ProfilePictures" \
+        "$IMAGE_DIR/Private"
+    chmod 0700 "$DATA_PROTECTION_DIR"
+    chmod 0750 \
+        "$IMAGE_DIR" \
+        "$IMAGE_DIR/Public" \
+        "$IMAGE_DIR/Public/Blog" \
+        "$IMAGE_DIR/Public/CoverPage" \
+        "$IMAGE_DIR/Public/AboutPage" \
+        "$IMAGE_DIR/Public/ProfilePictures"
+    chmod 0700 "$IMAGE_DIR/Private"
+    chown root:root "$STATE_DIR/backups"
+    chmod 0700 "$STATE_DIR/backups"
+}
+
+# Escape only sed replacement metacharacters; validate_settings has already
+# rejected multiline and whitespace-bearing deployment paths.
+escape_sed_replacement() {
+    local value="$1"
+    value="${value//\\/\\\\}"
+    value="${value//&/\\&}"
+    value="${value//|/\\|}"
+    printf '%s' "$value"
+}
+
+# Render through a temporary file and install it in one step so systemd never sees
+# a partially-written unit. Missing UNIT_SOURCE is valid for the installed copy.
+install_service_unit() {
+    if [[ ! -f "$UNIT_SOURCE" ]]; then
+        [[ -f "$UNIT_TARGET" ]] ||
+            die "systemd unit template is missing: $UNIT_SOURCE"
+        return 0
+    fi
+
+    (
+        local temporary_unit
+        temporary_unit="$(mktemp "$CONFIG_DIR/.spaceofthoughts.service.XXXXXX")"
+        trap 'rm -f -- "$temporary_unit"' EXIT
+
+        sed \
+            -e "s|^User=.*$|User=$(escape_sed_replacement "$SERVICE_USER")|" \
+            -e "s|^Group=.*$|Group=$(escape_sed_replacement "$SERVICE_GROUP")|" \
+            -e "s|^WorkingDirectory=.*$|WorkingDirectory=$(escape_sed_replacement "$APP_DIR")|" \
+            -e "s|^EnvironmentFile=.*$|EnvironmentFile=$(escape_sed_replacement "$ENV_FILE")|" \
+            -e "s|^ExecStartPre=.*$|ExecStartPre=/usr/bin/test -x $(escape_sed_replacement "$API_EXECUTABLE")|" \
+            -e "s|^ExecStart=.*$|ExecStart=$(escape_sed_replacement "$API_EXECUTABLE")|" \
+            -e "s|^ReadWritePaths=$DEFAULT_IMAGE_DIR$|ReadWritePaths=$(escape_sed_replacement "$IMAGE_DIR")|" \
+            -e "s|^ReadWritePaths=$DEFAULT_DATA_PROTECTION_DIR$|ReadWritePaths=$(escape_sed_replacement "$DATA_PROTECTION_DIR")|" \
+            "$UNIT_SOURCE" >"$temporary_unit"
+
+        install --owner=root --group=root --mode=0644 "$temporary_unit" "$UNIT_TARGET"
+    )
+    systemctl daemon-reload
+}
+
+# Repository copies may be non-executable; install records a root-owned 0755
+# command while leaving the source checkout untouched.
+install_spotctl_command() {
+    [[ "$SCRIPT_PATH" == "$INSTALLED_COMMAND" ]] && return 0
+    install --owner=root --group=root --mode=0755 "$SCRIPT_PATH" "$INSTALLED_COMMAND"
+}
+
+# ----- Interactive administrator input and generated runtime configuration -----
+
+# Match ASP.NET Identity's allowed username characters while keeping values safe
+# for the systemd environment file and the provisioning command line.
+validate_username() {
+    local value="$1"
+    (( ${#value} >= 3 && ${#value} <= 64 )) || return 1
+    [[ "$value" =~ ^[A-Za-z0-9._@+-]+$ ]]
+}
+
+validate_email() {
+    local value="$1"
+    (( ${#value} <= 254 )) || return 1
+    [[ "$value" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,63}$ ]]
+}
+
+# This is deliberately stricter than the API's minimum password policy so the
+# unattended bootstrap cannot create an unnecessarily weak privileged account.
+validate_password() {
+    local value="$1"
+    (( ${#value} >= 12 && ${#value} <= 128 )) || return 1
+    [[ "$value" =~ [^[:alnum:]] ]] || return 1
+
+    local -A unique_characters=()
+    local index
+    for (( index = 0; index < ${#value}; index++ )); do
+        unique_characters["${value:index:1}"]=1
+    done
+    (( ${#unique_characters[@]} >= 3 ))
+}
+
+# Username and email are visible metadata, but confirming them avoids persisting
+# a typo that would otherwise be reconciled into the protected account at startup.
+prompt_visible_twice() {
+    local result_variable="$1"
+    local label="$2"
+    local validator="$3"
+    local value confirmation
+
+    while true; do
+        IFS= read -r -p "$label: " value
+        IFS= read -r -p "Confirm $label: " confirmation
+        if [[ "$value" != "$confirmation" ]]; then
+            warn "$label values do not match; try again"
+            continue
+        fi
+        if ! "$validator" "$value"; then
+            warn "$label is not valid; try again"
+            continue
+        fi
+        printf -v "$result_variable" '%s' "$value"
+        return 0
+    done
+}
+
+# Hidden input is held only in shell variables until it is piped to provisioning;
+# it is never rendered into api.env, a process argument, or a backup file.
+prompt_password_twice() {
+    local result_variable="$1"
+    local value confirmation
+
+    while true; do
+        IFS= read -r -s -p "Administrator password: " value
+        printf '\n'
+        IFS= read -r -s -p "Confirm administrator password: " confirmation
+        printf '\n'
+        if [[ "$value" != "$confirmation" ]]; then
+            warn "passwords do not match; try again"
+            continue
+        fi
+        if ! validate_password "$value"; then
+            warn "password must be 12-128 characters, contain at least three unique characters, and include a non-alphanumeric character"
+            continue
+        fi
+        printf -v "$result_variable" '%s' "$value"
+        return 0
+    done
+}
+
+collect_admin_credentials() {
+    local username_variable="$1"
+    local email_variable="$2"
+    local password_variable="$3"
+    local collected_username collected_email collected_password
+
+    prompt_visible_twice collected_username "Administrator username" validate_username
+    prompt_visible_twice collected_email "Administrator email" validate_email
+    prompt_password_twice collected_password
+
+    printf -v "$username_variable" '%s' "$collected_username"
+    printf -v "$email_variable" '%s' "$collected_email"
+    printf -v "$password_variable" '%s' "$collected_password"
+    unset collected_password
+}
+
+# Database and JWT credentials are independent random secrets. Neither is derived
+# from the administrator password, so rotating one credential does not expose another.
+generate_database_password() {
+    openssl rand -hex 32
+}
+
+generate_jwt_key() {
+    openssl rand -base64 48 | tr -d '\r\n'
+}
+
+# systemd EnvironmentFile supports quoted values but is not a general shell script.
+# Escape the two characters that can terminate or alter a double-quoted value.
+quote_environment_value() {
+    local value="$1"
+    validate_no_control_characters "$value" || die "refusing to write a multiline environment value"
+    value="${value//\\/\\\\}"
+    value="${value//\"/\\\"}"
+    printf '"%s"' "$value"
+}
+
+# Double underscores are converted by ASP.NET Core into configuration section
+# separators. Notice that only administrator username/email are persisted here.
+render_environment() {
+    local admin_username="$1"
+    local admin_email="$2"
+    local database_password="$3"
+    local jwt_key="$4"
+    local connection_string
+    connection_string="Host=$DB_HOST;Port=$DB_PORT;Database=$DB_NAME;Username=$DB_ROLE;Password=$database_password"
+
+    printf '# Generated and managed by spotctl. Do not edit while the service is running.\n'
+    printf 'ASPNETCORE_ENVIRONMENT=Production\n'
+    printf 'ASPNETCORE_URLS=%s\n' "$(quote_environment_value "$API_URL")"
+    printf 'ConnectionStrings__SpaceOfThoughtsConnectionString=%s\n' \
+        "$(quote_environment_value "$connection_string")"
+    printf 'Jwt__Issuer=%s\n' "$(quote_environment_value "$JWT_ISSUER")"
+    printf 'Jwt__Audience=%s\n' "$(quote_environment_value "$JWT_AUDIENCE")"
+    printf 'Jwt__Key=%s\n' "$(quote_environment_value "$jwt_key")"
+    printf 'DataProtection__KeysPath=%s\n' "$(quote_environment_value "$DATA_PROTECTION_DIR")"
+    printf 'BootstrapAdmin__UserName=%s\n' "$(quote_environment_value "$admin_username")"
+    printf 'BootstrapAdmin__Email=%s\n' "$(quote_environment_value "$admin_email")"
+}
+
+# Build the complete 0600 file beside its destination, then rename it atomically.
+# Readers therefore observe either the old complete configuration or the new one.
+write_environment_file_base() {
+    local admin_username="$1"
+    local admin_email="$2"
+    local database_password="$3"
+    local jwt_key="$4"
+    ensure_config_directory
+    (
+        local temporary_file
+        temporary_file="$(mktemp "$CONFIG_DIR/.api.env.XXXXXX")" || exit 1
+        trap 'rm -f -- "$temporary_file"' EXIT
+        render_environment "$admin_username" "$admin_email" "$database_password" "$jwt_key" >"$temporary_file" || exit 1
+        chown root:root "$temporary_file" || exit 1
+        chmod 0600 "$temporary_file" || exit 1
+        mv -fT -- "$temporary_file" "$ENV_FILE" || exit 1
+    ) || return 1
+
+    local actual
+    actual="$(stat -c '%u:%g:%a' "$ENV_FILE")" || return 1
+    if [[ "$actual" != "0:0:600" ]]; then
+        warn "environment file security check failed"
+        return 1
+    fi
+}
+
+# Rollback uses the same same-directory rename rule as a forward update; copying
+# directly over api.env could expose a truncated file after a crash.
+restore_environment_file() {
+    local backup_file="$1"
+    (
+        local temporary_file
+        temporary_file="$(mktemp "$CONFIG_DIR/.api.env.restore.XXXXXX")"
+        trap 'rm -f -- "$temporary_file"' EXIT
+        install --owner=root --group=root --mode=0600 "$backup_file" "$temporary_file"
+        mv -fT -- "$temporary_file" "$ENV_FILE"
+    )
+}
+
+# Reconfiguration needs the old generated password to restore the coupled
+# PostgreSQL-role/api.env state if a later provisioning step fails.
+extract_database_password() {
+    local file="$1"
+    local line
+    line="$(grep -m1 '^ConnectionStrings__SpaceOfThoughtsConnectionString=' "$file")" ||
+        die "the existing environment file has no connection string"
+    if [[ "$line" =~ Password=([0-9a-f]{64})(\;|\") ]]; then
+        printf '%s' "${BASH_REMATCH[1]}"
+        return 0
+    fi
+    die "the existing database password is not in spotctl's generated format"
+}
+
+# ----- Local PostgreSQL container and EF-managed schema -----
+
+# Administrative queries use local peer authentication as the postgres OS user;
+# the application role password is not needed for host-level database management.
+postgres_scalar() {
+    local query="$1"
+    runuser -u postgres -- psql \
+        --no-psqlrc \
+        --tuples-only \
+        --no-align \
+        --quiet \
+        --port="$DB_PORT" \
+        --dbname=postgres \
+        --command="$query"
+}
+
+# Try to bring up the distribution's PostgreSQL service, then prove local
+# administrative access before making any role or database changes.
+ensure_postgresql() {
+    if ! runuser -u postgres -- psql --no-psqlrc --quiet --port="$DB_PORT" --dbname=postgres --command='SELECT 1' \
+        >/dev/null 2>&1; then
+        systemctl start postgresql.service >/dev/null 2>&1 || true
+    fi
+    runuser -u postgres -- psql --no-psqlrc --quiet --port="$DB_PORT" --dbname=postgres --command='SELECT 1' \
+        >/dev/null 2>&1 || die "local PostgreSQL is not available through the postgres system account"
+}
+
+# The fixed 64-character hex format is both high entropy and safe to interpolate
+# into the narrowly validated SQL below. psql receives the SQL through stdin.
+set_database_role_password() {
+    local database_password="$1"
+    [[ "$database_password" =~ ^[0-9a-f]{64}$ ]] ||
+        die "generated PostgreSQL password has an unexpected format"
+
+    local exists sql
+    exists="$(postgres_scalar "SELECT 1 FROM pg_roles WHERE rolname = '$DB_ROLE'")"
+    if [[ "$exists" == "1" ]]; then
+        sql="ALTER ROLE \"$DB_ROLE\" WITH LOGIN PASSWORD '$database_password';"
+    else
+        sql="CREATE ROLE \"$DB_ROLE\" WITH LOGIN PASSWORD '$database_password';"
+    fi
+
+    # The secret is passed through standard input, never as a process argument.
+    printf '%s\n' "$sql" | runuser -u postgres -- psql \
+        --no-psqlrc \
+        --quiet \
+        --set=ON_ERROR_STOP=1 \
+        --port="$DB_PORT" \
+        --dbname=postgres >/dev/null
+}
+
+# PostgreSQL creates the database container and ownership boundary. The API's
+# one-shot command later creates/updates tables by applying tracked EF migrations.
+# Only first setup may adopt an existing database, and only while it is empty.
+ensure_database() {
+    local allow_empty_adoption="${1:-false}"
+    local exists owner table_count
+    exists="$(postgres_scalar "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'")"
+    if [[ "$exists" != "1" ]]; then
+        runuser -u postgres -- createdb --port="$DB_PORT" --owner="$DB_ROLE" --encoding=UTF8 "$DB_NAME"
+        return 0
+    fi
+
+    if [[ "$allow_empty_adoption" == "true" ]]; then
+        # Repeat the emptiness check after credential generation as race defense;
+        # preflight_setup_database already checked before the role password changed.
+        table_count="$(database_user_table_count)"
+        [[ "$table_count" =~ ^[0-9]+$ ]] || die "unable to inspect existing database '$DB_NAME'"
+        (( table_count == 0 )) ||
+            die "existing database '$DB_NAME' is not empty; setup refuses to adopt an unmanaged database"
+    fi
+
+    owner="$(postgres_scalar "SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname = '$DB_NAME'")"
+    if [[ "$owner" != "$DB_ROLE" ]]; then
+        if [[ "$allow_empty_adoption" != "true" ]]; then
+            die "existing database '$DB_NAME' is owned by '$owner', not '$DB_ROLE'"
+        fi
+        printf 'ALTER DATABASE "%s" OWNER TO "%s";\n' "$DB_NAME" "$DB_ROLE" |
+            runuser -u postgres -- psql \
+                --no-psqlrc \
+                --quiet \
+                --set=ON_ERROR_STOP=1 \
+                --port="$DB_PORT" \
+                --dbname=postgres >/dev/null
+    fi
+}
+
+database_exists() {
+    [[ "$(postgres_scalar "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'")" == "1" ]]
+}
+
+database_user_table_count() {
+    runuser -u postgres -- psql \
+        --no-psqlrc \
+        --tuples-only \
+        --no-align \
+        --quiet \
+        --port="$DB_PORT" \
+        --dbname="$DB_NAME" \
+        --command="SELECT count(*) FROM pg_catalog.pg_tables WHERE schemaname NOT IN ('pg_catalog', 'information_schema');"
+}
+
+# Run before prompting or mutating the application role so an unmanaged nonempty
+# database is refused without changing credentials that another service may use.
+preflight_setup_database() {
+    database_exists || return 0
+
+    local table_count
+    table_count="$(database_user_table_count)"
+    [[ "$table_count" =~ ^[0-9]+$ ]] || die "unable to inspect existing database '$DB_NAME'"
+    (( table_count == 0 )) ||
+        die "existing database '$DB_NAME' is not empty; setup refuses to change credentials or adopt it"
+}
+
+# The recovery point contains api.env and a custom-format PostgreSQL dump. Uploaded
+# images and Data Protection keys require their own external backup/retention plan.
+# The dump is written under a temporary name and published only after pg_dump succeeds.
+create_reconfiguration_backup() {
+    local result_env_variable="$1"
+    local result_db_variable="$2"
+    local backup_dir="$STATE_DIR/backups"
+    local stamp env_backup db_backup db_temporary
+
+    stamp="$(date -u '+%Y%m%dT%H%M%SZ')-$$"
+    env_backup="$backup_dir/api.env.$stamp"
+    db_backup="$backup_dir/$DB_NAME.$stamp.dump"
+    db_temporary="$db_backup.tmp"
+
+    if ! install --owner=root --group=root --mode=0600 "$ENV_FILE" "$env_backup"; then
+        warn "environment backup failed"
+        return 1
+    fi
+    if ! runuser -u postgres -- pg_dump --port="$DB_PORT" --format=custom --dbname="$DB_NAME" >"$db_temporary"; then
+        rm -f -- "$db_temporary"
+        rm -f -- "$env_backup"
+        warn "PostgreSQL backup failed"
+        return 1
+    fi
+    if ! chown root:root "$db_temporary" ||
+        ! chmod 0600 "$db_temporary" ||
+        ! mv -f -- "$db_temporary" "$db_backup"; then
+        rm -f -- "$db_temporary" "$env_backup"
+        warn "could not protect or publish the PostgreSQL backup"
+        return 1
+    fi
+
+    printf -v "$result_env_variable" '%s' "$env_backup"
+    printf -v "$result_db_variable" '%s' "$db_backup"
+}
+
+run_admin_provisioning() {
+    local admin_username="$1"
+    local admin_email="$2"
+    local admin_password="$3"
+    local transient_unit="spaceofthoughts-provision-$$"
+
+    # systemd reads the protected environment file as root, then launches the API
+    # as the service user. The one-shot command applies both tracked EF migration
+    # sets and transactionally reconciles the sole InitialAdmin before exiting.
+    # The administrator password crosses this boundary only through stdin.
+    printf '%s\n' "$admin_password" | systemd-run \
+        --quiet \
+        --wait \
+        --pipe \
+        --collect \
+        --unit="$transient_unit" \
+        --uid="$SERVICE_USER" \
+        --gid="$SERVICE_GROUP" \
+        --working-directory="$APP_DIR" \
+        --property="EnvironmentFile=$ENV_FILE" \
+        --property="UMask=0077" \
+        --property="NoNewPrivileges=yes" \
+        "$API_EXECUTABLE" \
+        --spotctl-provision-admin \
+        --username "$admin_username" \
+        --email "$admin_email"
+}
+
+wait_for_health() {
+    # Kestrel does not listen until startup migrations and admin reconciliation
+    # complete. A successful /health therefore proves startup completed, but this
+    # endpoint is intentionally not a continuous deep database-health probe.
+    local timeout_seconds="${1:-60}"
+    local deadline=$(( SECONDS + timeout_seconds ))
+
+    while (( SECONDS < deadline )); do
+        if curl --silent --show-error --fail --max-time 3 "$HEALTH_URL" >/dev/null 2>&1; then
+            return 0
+        fi
+        if systemctl is-failed --quiet "$SERVICE_NAME"; then
+            break
+        fi
+        sleep 2
+    done
+    return 1
+}
+
+# Print recent journal context on failure so an operator can diagnose the service
+# without making spotctl dump any environment values.
+start_and_verify_service() {
+    systemctl start "$SERVICE_NAME"
+    if ! wait_for_health 60; then
+        journalctl --unit="$SERVICE_NAME" --lines=30 --no-pager >&2 || true
+        die "the API did not become healthy at $HEALTH_URL"
+    fi
+}
+
+# This routine is idempotent: reruns repair permissions, refresh the unit/template,
+# and update the installed spotctl command without rotating credentials by itself.
+prepare_host() {
+    require_command install
+    require_command openssl
+    require_command psql
+    require_command createdb
+    require_command runuser
+    require_command systemctl
+    require_command systemd-run
+    require_command curl
+    require_command sed
+
+    ensure_config_directory
+    ensure_service_identity
+    runuser -u "$SERVICE_USER" -g "$SERVICE_GROUP" -- test -x "$API_EXECUTABLE" ||
+        die "self-contained API is not executable by $SERVICE_USER: $API_EXECUTABLE"
+    ensure_state_directories
+    validate_persistent_image_tree
+    migrate_legacy_images
+    ensure_state_directories
+    install_service_unit
+    install_spotctl_command
+}
+
+# ----- Immutable combined API/UI release handling -----
+
+host_runtime_identifier() {
+    case "$(uname -m)" in
+        aarch64|arm64) printf '%s' 'linux-arm64' ;;
+        x86_64|amd64) printf '%s' 'linux-x64' ;;
+        *) die "unsupported server architecture: $(uname -m)" ;;
+    esac
+}
+
+require_release_tools() {
+    require_command tar
+    require_command gzip
+    require_command jq
+    require_command sha256sum
+    require_command find
+}
+
+verify_release_checksum() {
+    local archive="$1"
+    local checksum_file="${archive}.sha256"
+    [[ -f "$checksum_file" && ! -L "$checksum_file" ]] ||
+        die "release checksum is missing or unsafe: $checksum_file"
+
+    local expected unused actual
+    read -r expected unused <"$checksum_file" || die "cannot read release checksum"
+    [[ "$expected" =~ ^[[:xdigit:]]{64}$ ]] || die "release checksum has an invalid format"
+    actual="$(sha256sum -- "$archive")"
+    actual="${actual%% *}"
+    [[ "${actual,,}" == "${expected,,}" ]] || die "release checksum does not match"
+}
+
+validate_release_archive_paths() {
+    local archive="$1"
+    local entry component
+    local -a components
+
+    # The builder creates simple POSIX paths. Reject traversal, absolute paths,
+    # Windows separators, links, and special entries before root extracts anything.
+    while IFS= read -r entry; do
+        entry="${entry#./}"
+        [[ -z "$entry" ]] && continue
+        [[ "$entry" != /* && "$entry" != *\\* ]] || die "unsafe path in release archive"
+        IFS='/' read -r -a components <<<"$entry"
+        for component in "${components[@]}"; do
+            [[ "$component" != '..' ]] || die "parent traversal in release archive"
+        done
+    done < <(tar -tzf "$archive")
+
+    if tar -tvzf "$archive" | grep -E '^[lhbcps]' >/dev/null; then
+        die "release archives may contain only regular files and directories"
+    fi
+}
+
+release_directory_is_valid() {
+    local release_directory="$1"
+    [[ -d "$release_directory" && ! -L "$release_directory" ]] || return 1
+    [[ -f "$release_directory/$MANIFEST_NAME" && ! -L "$release_directory/$MANIFEST_NAME" ]] || return 1
+    [[ -f "$release_directory/api/SpaceOfThoughts.API" && ! -L "$release_directory/api/SpaceOfThoughts.API" ]] || return 1
+    [[ -f "$release_directory/ui/browser/index.html" && ! -L "$release_directory/ui/browser/index.html" ]] || return 1
+}
+
+install_release_archive() {
+    local source_archive="$1"
+    local result_variable="$2"
+    [[ -f "$source_archive" && ! -L "$source_archive" ]] ||
+        die "release archive is missing or unsafe: $source_archive"
+    source_archive="$(readlink -f -- "$source_archive")"
+    [[ -f "${source_archive}.sha256" && ! -L "${source_archive}.sha256" ]] ||
+        die "release checksum is missing or unsafe: ${source_archive}.sha256"
+
+    require_release_tools
+    install -d --owner=root --group=root --mode=0755 "$INSTALL_ROOT" "$RELEASES_DIR"
+
+    # Copy both caller-owned inputs into a root-only work directory before checking
+    # them. Validation and extraction then consume the same immutable bytes.
+    local work_directory archive staging_directory
+    work_directory="$(mktemp -d "$RELEASES_DIR/.incoming.XXXXXX")"
+    RELEASE_WORK_DIRECTORY="$work_directory"
+    archive="$work_directory/release.tar.gz"
+    install --owner=root --group=root --mode=0600 "$source_archive" "$archive"
+    install --owner=root --group=root --mode=0600 \
+        "${source_archive}.sha256" "${archive}.sha256"
+
+    verify_release_checksum "$archive"
+    validate_release_archive_paths "$archive"
+    staging_directory="$work_directory/contents"
+    install -d --owner=root --group=root --mode=0700 "$staging_directory"
+    tar --extract --gzip --file="$archive" --directory="$staging_directory" --no-same-owner --no-same-permissions
+
+    local manifest="$staging_directory/$MANIFEST_NAME"
+    [[ -f "$manifest" && ! -L "$manifest" ]] || die "release manifest is missing"
+
+    local schema release_id rid api_path ui_path
+    schema="$(jq -er '.schemaVersion' "$manifest")" || die "release manifest schema is missing"
+    release_id="$(jq -er '.releaseId | select(type == "string")' "$manifest")" || die "release ID is missing"
+    rid="$(jq -er '.rid | select(type == "string")' "$manifest")" || die "release RID is missing"
+    api_path="$(jq -er '.apiExecutable | select(type == "string")' "$manifest")" || die "API path is missing"
+    ui_path="$(jq -er '.uiRoot | select(type == "string")' "$manifest")" || die "UI path is missing"
+
+    [[ "$schema" == '1' ]] || die "unsupported release manifest schema: $schema"
+    [[ "$release_id" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] || die "release ID is invalid"
+    [[ "$rid" == "$(host_runtime_identifier)" ]] ||
+        die "release targets $rid but this server requires $(host_runtime_identifier)"
+    [[ "$api_path" == 'api/SpaceOfThoughts.API' ]] || die "unexpected API path in manifest"
+    [[ "$ui_path" == 'ui/browser' ]] || die "unexpected UI path in manifest"
+    release_directory_is_valid "$staging_directory" || die "release contents are incomplete"
+
+    local destination="$RELEASES_DIR/$release_id"
+    [[ ! -e "$destination" && ! -L "$destination" ]] || die "release is already installed: $release_id"
+
+    chown -R root:root "$staging_directory"
+    find "$staging_directory" -type d -exec chmod 0755 {} +
+    find "$staging_directory" -type f -exec chmod 0644 {} +
+    chmod 0755 "$staging_directory/api/SpaceOfThoughts.API"
+    mv -- "$staging_directory" "$destination"
+    rm -f -- "$archive" "${archive}.sha256"
+    rmdir -- "$work_directory"
+    RELEASE_WORK_DIRECTORY=''
+    printf -v "$result_variable" '%s' "$release_id"
+}
+
+active_release_id() {
+    [[ -L "$CURRENT_LINK" ]] || return 1
+    local resolved
+    resolved="$(readlink -f -- "$CURRENT_LINK")" || return 1
+    [[ "$resolved" == "$RELEASES_DIR"/* ]] || return 1
+    release_directory_is_valid "$resolved" || return 1
+    [[ -x "$resolved/api/SpaceOfThoughts.API" ]] || return 1
+    basename -- "$resolved"
+}
+
+activate_release() {
+    local release_id="$1"
+    [[ "$release_id" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] || die "release ID is invalid"
+    local release_directory="$RELEASES_DIR/$release_id"
+    release_directory_is_valid "$release_directory" || die "installed release is incomplete: $release_id"
+    [[ -x "$release_directory/api/SpaceOfThoughts.API" ]] || die "release API is not executable: $release_id"
+
+    local temporary_link="$INSTALL_ROOT/.current.$$"
+    [[ ! -e "$temporary_link" && ! -L "$temporary_link" ]] || die "temporary release link already exists"
+    ln -s "releases/$release_id" "$temporary_link"
+    mv -Tf -- "$temporary_link" "$CURRENT_LINK"
+}
+
+restore_previous_service_before_migrations() {
+    local previous_release="$1"
+    local unit_backup="$2"
+
+    if [[ "$previous_release" == 'legacy-framework-dependent-installation' ]]; then
+        [[ -L "$CURRENT_LINK" ]] && rm -f -- "$CURRENT_LINK"
+    else
+        activate_release "$previous_release"
+    fi
+
+    if [[ -f "$unit_backup" ]]; then
+        install --owner=root --group=root --mode=0644 "$unit_backup" "$UNIT_TARGET"
+        systemctl daemon-reload
+    fi
+    systemctl reset-failed "$SERVICE_NAME" >/dev/null 2>&1 || true
+    if ! systemctl start "$SERVICE_NAME"; then
+        warn "the previous service could not be restarted automatically"
+        return 1
+    fi
+}
+
+migrate_legacy_images() {
+    local legacy_directory unsafe_entry
+    local -a populated_legacy_directories=()
+    for legacy_directory in \
+        /var/www/DotNet/net10.0/Images \
+        /var/www/DotNet/net8.0/Images; do
+        [[ -d "$legacy_directory" && ! -L "$legacy_directory" ]] || continue
+        find "$legacy_directory" -type f -print -quit | grep -q . || continue
+        populated_legacy_directories+=("$legacy_directory")
+    done
+
+    (( ${#populated_legacy_directories[@]} > 0 )) || return 0
+    (( ${#populated_legacy_directories[@]} == 1 )) ||
+        die "both legacy image roots contain data; merge them manually before deployment"
+    legacy_directory="${populated_legacy_directories[0]}"
+
+    unsafe_entry="$(find "$legacy_directory" ! -type f ! -type d -print -quit)"
+    [[ -z "$unsafe_entry" ]] || die "legacy image storage contains a link or special file: $unsafe_entry"
+    unsafe_entry="$(find "$IMAGE_DIR" ! -type f ! -type d -print -quit)"
+    [[ -z "$unsafe_entry" ]] || die "persistent image storage contains a link or special file: $unsafe_entry"
+    if find "$IMAGE_DIR" -type f -print -quit | grep -q .; then
+        die "both legacy and persistent image directories contain files; merge them manually"
+    fi
+
+    cp -a -- "$legacy_directory/." "$IMAGE_DIR/"
+    chown -R "$SERVICE_USER:$SERVICE_GROUP" "$IMAGE_DIR"
+    find "$IMAGE_DIR" -type d -exec chmod 0750 {} +
+    find "$IMAGE_DIR/Public" -type f -exec chmod 0640 {} +
+    find "$IMAGE_DIR/Private" -type f -exec chmod 0600 {} +
+    chmod 0700 "$IMAGE_DIR/Private"
+    log "copied legacy images into persistent storage; retained the original directory"
+}
+
+validate_persistent_image_tree() {
+    local unsafe_entry
+    unsafe_entry="$(find "$IMAGE_DIR" ! -type f ! -type d -print -quit)"
+    [[ -z "$unsafe_entry" ]] ||
+        die "persistent image storage contains a link or special file: $unsafe_entry"
+}
+
+# Add deployment-owned persistent-storage configuration without putting it in the
+# secret-generation routine. The second atomic install keeps older configuration
+# writer logic intact while releases move their writable data outside /opt.
+write_environment_file() {
+    write_environment_file_base "$@"
+
+    ensure_image_storage_environment
+}
+
+ensure_image_storage_environment() {
+    [[ -f "$ENV_FILE" && ! -L "$ENV_FILE" ]] || die "environment file is missing or unsafe"
+
+    local assignment_count
+    assignment_count="$(grep -c '^ImageStorage__RootPath=' "$ENV_FILE" || true)"
+    if [[ "$assignment_count" == '1' ]]; then
+        grep -qxF "ImageStorage__RootPath=$IMAGE_DIR" "$ENV_FILE" ||
+            die "ImageStorage__RootPath in $ENV_FILE does not match IMAGE_DIR"
+        return 0
+    fi
+    [[ "$assignment_count" == '0' ]] || die "ImageStorage__RootPath occurs more than once in $ENV_FILE"
+
+    local temporary_environment
+    temporary_environment="$(mktemp "$CONFIG_DIR/.api.env.storage.XXXXXX")"
+    cp -- "$ENV_FILE" "$temporary_environment"
+    printf 'ImageStorage__RootPath=%s\n' "$IMAGE_DIR" >>"$temporary_environment"
+    install --owner=root --group=root --mode=0600 "$temporary_environment" "$ENV_FILE"
+    rm -f -- "$temporary_environment"
+}
+
+# ----- User-facing setup, deployment, rotation, restart, and diagnostic commands -----
+
+command_setup() {
+    local release_archive="${1:-}"
+    [[ -n "$release_archive" ]] || die "setup requires a combined release archive"
+    require_interactive_terminal
+    acquire_lock
+    [[ ! -e "$ENV_FILE" ]] ||
+        die "configuration already exists; use 'spotctl deploy', 'spotctl restart', or 'spotctl reconfigure'"
+
+    local release_id
+    install_release_archive "$release_archive" release_id
+    activate_release "$release_id"
+    log "installed initial application release: $release_id"
+
+    prepare_host
+    ensure_postgresql
+    preflight_setup_database
+
+    # Collect human credentials only after the host and unmanaged-database checks
+    # pass; generated machine credentials remain unrelated to the admin password.
+    local admin_username admin_email admin_password database_password jwt_key
+    collect_admin_credentials admin_username admin_email admin_password
+    database_password="$(generate_database_password)"
+    jwt_key="$(generate_jwt_key)"
+
+    set_database_role_password "$database_password"
+    ensure_database true
+    # The file and database-role password now agree before the API connects.
+    write_environment_file "$admin_username" "$admin_email" "$database_password" "$jwt_key"
+
+    # Provisioning runs before enabling the long-lived service. On failure the
+    # matching role password and environment are retained for diagnosis/retry.
+    systemctl stop "$SERVICE_NAME" >/dev/null 2>&1 || true
+    if ! run_admin_provisioning "$admin_username" "$admin_email" "$admin_password"; then
+        unset admin_password database_password jwt_key
+        die "database migration or administrator provisioning failed; configuration was retained for diagnosis"
+    fi
+    unset admin_password database_password jwt_key
+
+    # Enable reboot recovery. Runtime retry is intentionally bounded by the
+    # systemd unit's StartLimit settings so a permanent fault cannot loop forever.
+    systemctl enable "$SERVICE_NAME" >/dev/null
+    start_and_verify_service
+    log "setup complete; the service will recover automatically after failures and reboots"
+}
+
+command_deploy() {
+    local release_archive="${1:-}"
+    [[ -n "$release_archive" ]] || die "deploy requires a combined release archive"
+    acquire_lock
+    [[ -f "$ENV_FILE" ]] || die "configuration is missing; run 'spotctl setup RELEASE'"
+    ensure_image_storage_environment
+
+    # Validate and install the immutable release while the old version remains live.
+    local release_id previous_release
+    install_release_archive "$release_archive" release_id
+    previous_release="$(active_release_id || true)"
+    [[ -n "$previous_release" ]] || previous_release='legacy-framework-dependent-installation'
+    log "staged release $release_id; active release is $previous_release"
+
+    ensure_postgresql
+    database_exists || die "database '$DB_NAME' does not exist"
+    require_command pg_dump
+    ensure_state_directories
+    [[ -f "$UNIT_TARGET" && ! -L "$UNIT_TARGET" ]] || die "installed systemd unit is missing or unsafe"
+
+    # Stop before pg_dump so the protected recovery set represents the exact state
+    # immediately before migrations from the new release are allowed to run.
+    systemctl stop "$SERVICE_NAME"
+    local env_backup db_backup unit_backup
+    if ! create_reconfiguration_backup env_backup db_backup; then
+        systemctl start "$SERVICE_NAME" >/dev/null 2>&1 || true
+        die "pre-deployment backup failed; the previous service was left selected"
+    fi
+    unit_backup="$STATE_DIR/backups/$SERVICE_NAME.$(date -u '+%Y%m%dT%H%M%SZ')-$$.unit"
+    if ! install --owner=root --group=root --mode=0600 "$UNIT_TARGET" "$unit_backup"; then
+        systemctl start "$SERVICE_NAME" >/dev/null 2>&1 || true
+        die "systemd unit backup failed; the previous service was left selected"
+    fi
+    log "protected pre-deployment backups created: $env_backup and $db_backup"
+
+    # No new process has started yet. Any activation/host-preparation failure can
+    # therefore restore the previous files without guessing about database state.
+    if ! (activate_release "$release_id" && prepare_host); then
+        (restore_previous_service_before_migrations "$previous_release" "$unit_backup") || true
+        die "release activation failed before migrations; the previous service was restored where possible"
+    fi
+    systemctl reset-failed "$SERVICE_NAME" >/dev/null 2>&1 || true
+    if ! systemctl start "$SERVICE_NAME"; then
+        journalctl --unit="$SERVICE_NAME" --lines=50 --no-pager >&2 || true
+        warn "release $release_id remains selected because migrations may have started"
+        warn "previous release: $previous_release"
+        warn "recovery backups: $env_backup, $db_backup, and $unit_backup"
+        die "systemd could not start the deployed release"
+    fi
+    if ! wait_for_health 60; then
+        journalctl --unit="$SERVICE_NAME" --lines=50 --no-pager >&2 || true
+        warn "release $release_id remains selected for diagnosis"
+        warn "previous release: $previous_release"
+        warn "recovery backups: $env_backup, $db_backup, and $unit_backup"
+        die "deployment failed because the API did not become healthy at $HEALTH_URL"
+    fi
+
+    log "deployment complete: $release_id"
+    log "previous release retained: $previous_release"
+}
+
+command_releases() {
+    local active=''
+    active="$(active_release_id || true)"
+    printf 'Installed releases under %s:\n' "$RELEASES_DIR"
+
+    local release_directory release_id marker
+    local found=false
+    for release_directory in "$RELEASES_DIR"/*; do
+        [[ -d "$release_directory" && ! -L "$release_directory" ]] || continue
+        release_id="$(basename -- "$release_directory")"
+        release_directory_is_valid "$release_directory" || continue
+        marker=' '
+        [[ "$release_id" == "$active" ]] && marker='*'
+        printf '%s %s\n' "$marker" "$release_id"
+        found=true
+    done
+    if [[ "$found" != true ]]; then
+        printf '  (none)\n'
+    fi
+    if [[ -n "$active" ]]; then
+        printf '* active\n'
+    fi
+}
+
+command_rollback() {
+    local release_id="${1:-}"
+    [[ -n "$release_id" ]] || die "rollback requires a release ID"
+    [[ "$release_id" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] || die "release ID is invalid"
+    require_interactive_terminal
+    acquire_lock
+    [[ -f "$ENV_FILE" ]] || die "configuration is missing; run 'spotctl setup RELEASE'"
+    ensure_image_storage_environment
+    release_directory_is_valid "$RELEASES_DIR/$release_id" || die "release is not installed: $release_id"
+
+    local previous_release
+    previous_release="$(active_release_id || true)"
+    [[ "$previous_release" != "$release_id" ]] || die "release is already active: $release_id"
+
+    warn "rollback switches application files only; it never reverses EF migrations"
+    local answer
+    read -r -p "Activate release '$release_id'? [y/N]: " answer
+    case "${answer,,}" in
+        y|yes) ;;
+        *) die "rollback cancelled" ;;
+    esac
+
+    ensure_postgresql
+    database_exists || die "database '$DB_NAME' does not exist"
+    require_command pg_dump
+    ensure_state_directories
+    [[ -f "$UNIT_TARGET" && ! -L "$UNIT_TARGET" ]] || die "installed systemd unit is missing or unsafe"
+    systemctl stop "$SERVICE_NAME"
+
+    local env_backup db_backup unit_backup
+    if ! create_reconfiguration_backup env_backup db_backup; then
+        systemctl start "$SERVICE_NAME" >/dev/null 2>&1 || true
+        die "pre-rollback backup failed; the current release remains selected"
+    fi
+    unit_backup="$STATE_DIR/backups/$SERVICE_NAME.$(date -u '+%Y%m%dT%H%M%SZ')-$$.unit"
+    if ! install --owner=root --group=root --mode=0600 "$UNIT_TARGET" "$unit_backup"; then
+        systemctl start "$SERVICE_NAME" >/dev/null 2>&1 || true
+        die "systemd unit backup failed; the current release remains selected"
+    fi
+    if ! (activate_release "$release_id" && prepare_host); then
+        (restore_previous_service_before_migrations "$previous_release" "$unit_backup") || true
+        die "rollback activation failed before startup; the previous release was restored where possible"
+    fi
+    systemctl reset-failed "$SERVICE_NAME" >/dev/null 2>&1 || true
+    if ! systemctl start "$SERVICE_NAME"; then
+        journalctl --unit="$SERVICE_NAME" --lines=50 --no-pager >&2 || true
+        warn "rollback target $release_id remains selected because startup may have touched the database"
+        warn "recovery backups: $env_backup, $db_backup, and $unit_backup"
+        die "systemd could not start the rollback target"
+    fi
+    if ! wait_for_health 60; then
+        journalctl --unit="$SERVICE_NAME" --lines=50 --no-pager >&2 || true
+        warn "pre-rollback release: ${previous_release:-unknown}"
+        warn "recovery backups: $env_backup, $db_backup, and $unit_backup"
+        die "rollback target did not become healthy"
+    fi
+
+    log "application release switched from ${previous_release:-unknown} to $release_id"
+    log "database schema was not reversed; protected backups: $env_backup, $db_backup, and $unit_backup"
+}
+
+perform_reconfiguration() {
+    [[ -f "$ENV_FILE" ]] || die "configuration is missing; run 'spotctl setup'"
+    prepare_host
+    ensure_postgresql
+    database_exists || die "database '$DB_NAME' does not exist"
+    require_command pg_dump
+
+    local admin_username admin_email admin_password
+    local database_password jwt_key old_database_password
+    local env_backup db_backup
+    collect_admin_credentials admin_username admin_email admin_password
+    database_password="$(generate_database_password)"
+    jwt_key="$(generate_jwt_key)"
+    old_database_password="$(extract_database_password "$ENV_FILE")"
+
+    # Snapshot the last known-good environment and database before changing either
+    # side of the connection-string pair. The database dump is retained for manual
+    # disaster recovery; spotctl does not automatically overwrite live data with it.
+    systemctl stop "$SERVICE_NAME"
+    create_reconfiguration_backup env_backup db_backup
+    log "protected recovery backups created"
+
+    # Rotate the database role first, then atomically publish the environment that
+    # contains it. Each failure path restores the previous pair and restarts the API.
+    if ! set_database_role_password "$database_password"; then
+        systemctl start "$SERVICE_NAME" >/dev/null 2>&1 || true
+        die "unable to rotate the PostgreSQL role password; previous configuration remains active"
+    fi
+    if ! write_environment_file "$admin_username" "$admin_email" "$database_password" "$jwt_key"; then
+        set_database_role_password "$old_database_password" || true
+        restore_environment_file "$env_backup"
+        systemctl start "$SERVICE_NAME" >/dev/null 2>&1 || true
+        die "unable to replace the environment file; previous configuration was restored"
+    fi
+
+    if ! run_admin_provisioning "$admin_username" "$admin_email" "$admin_password"; then
+        warn "provisioning failed; restoring the previous environment and PostgreSQL password"
+        set_database_role_password "$old_database_password" || true
+        restore_environment_file "$env_backup"
+        unset admin_password database_password jwt_key old_database_password
+        systemctl start "$SERVICE_NAME" >/dev/null 2>&1 || true
+        die "reconfiguration failed; database backup retained at $db_backup"
+    fi
+    unset admin_password database_password jwt_key old_database_password
+
+    # At this point provisioning committed the same InitialAdmin identity with its
+    # new credentials. A later health failure intentionally leaves the new state and
+    # protected backups in place instead of guessing that a database restore is safe.
+    start_and_verify_service
+    log "reconfiguration complete; existing JWT sessions are invalid and users must log in again"
+    log "protected recovery backups: $env_backup and $db_backup"
+}
+
+command_reconfigure() {
+    require_interactive_terminal
+    acquire_lock
+    perform_reconfiguration
+}
+
+command_restart() {
+    require_interactive_terminal
+    acquire_lock
+    [[ -f "$ENV_FILE" ]] || die "configuration is missing; run 'spotctl setup'"
+    ensure_image_storage_environment
+
+    local answer
+    read -r -p "Continue with the existing configuration? [Y/n]: " answer
+    case "${answer,,}" in
+        ""|y|yes)
+            # Normal API startup applies any pending tracked migrations, so the
+            # supported restart takes a recovery snapshot even without rotation.
+            # A direct systemctl restart deliberately bypasses this prompt/backup.
+            prepare_host
+            ensure_postgresql
+            database_exists || die "database '$DB_NAME' does not exist"
+            require_command pg_dump
+            local env_backup db_backup
+            create_reconfiguration_backup env_backup db_backup
+            log "protected pre-migration backups created: $env_backup and $db_backup"
+            if ! systemctl restart "$SERVICE_NAME"; then
+                journalctl --unit="$SERVICE_NAME" --lines=30 --no-pager >&2 || true
+                die "systemd could not restart the API"
+            fi
+            if ! wait_for_health 60; then
+                journalctl --unit="$SERVICE_NAME" --lines=30 --no-pager >&2 || true
+                die "the API did not become healthy at $HEALTH_URL"
+            fi
+            log "service restarted with the existing configuration"
+            ;;
+        n|no)
+            perform_reconfiguration
+            ;;
+        *)
+            die "answer must be yes or no"
+            ;;
+    esac
+}
+
+# Doctor predicates report only structure and basic availability. They never print
+# secret values and do not replace an authenticated end-to-end login/database test.
+doctor_check() {
+    local description="$1"
+    shift
+    if "$@"; then
+        printf '[OK]   %s\n' "$description"
+    else
+        printf '[FAIL] %s\n' "$description"
+        DOCTOR_FAILURES=$(( DOCTOR_FAILURES + 1 ))
+    fi
+}
+
+directory_security_is_valid() {
+    [[ -d "$CONFIG_DIR" && "$(stat -c '%u:%g:%a' "$CONFIG_DIR")" == "0:0:700" ]]
+}
+
+environment_security_is_valid() {
+    [[ -f "$ENV_FILE" && ! -L "$ENV_FILE" && "$(stat -c '%u:%g:%a' "$ENV_FILE")" == "0:0:600" ]]
+}
+
+environment_has_required_keys() {
+    local key
+    for key in \
+        ASPNETCORE_ENVIRONMENT \
+        ASPNETCORE_URLS \
+        ConnectionStrings__SpaceOfThoughtsConnectionString \
+        Jwt__Issuer \
+        Jwt__Audience \
+        Jwt__Key \
+        DataProtection__KeysPath \
+        ImageStorage__RootPath \
+        BootstrapAdmin__UserName \
+        BootstrapAdmin__Email; do
+        grep -q "^${key}=" "$ENV_FILE" || return 1
+    done
+    ! grep -q '^BootstrapAdmin__InitialPassword=' "$ENV_FILE"
+}
+
+state_security_is_valid() {
+    local expected_uid expected_gid
+    expected_uid="$(id -u "$SERVICE_USER")" || return 1
+    expected_gid="$(getent group "$SERVICE_GROUP" | cut -d: -f3)" || return 1
+    [[ -d "$DATA_PROTECTION_DIR" ]] || return 1
+    [[ "$(stat -c '%u:%g:%a' "$DATA_PROTECTION_DIR")" == "$expected_uid:$expected_gid:700" ]]
+}
+
+state_root_security_is_valid() {
+    [[ -d "$STATE_DIR" && "$(stat -c '%u:%g:%a' "$STATE_DIR")" == "0:0:755" ]] || return 1
+    [[ -d "$STATE_DIR/backups" && "$(stat -c '%u:%g:%a' "$STATE_DIR/backups")" == "0:0:700" ]]
+}
+
+api_executable_is_service_executable() {
+    runuser -u "$SERVICE_USER" -g "$SERVICE_GROUP" -- test -x "$API_EXECUTABLE"
+}
+
+active_release_is_valid() {
+    active_release_id >/dev/null
+}
+
+active_release_permissions_are_valid() {
+    local resolved
+    resolved="$(readlink -f -- "$CURRENT_LINK")" || return 1
+    [[ "$(stat -c '%u:%g:%a' "$INSTALL_ROOT")" == '0:0:755' ]] || return 1
+    [[ "$(stat -c '%u:%g:%a' "$RELEASES_DIR")" == '0:0:755' ]] || return 1
+    [[ "$(stat -c '%u:%g' "$CURRENT_LINK")" == '0:0' ]] || return 1
+    [[ -z "$(find "$resolved" ! -user root -print -quit)" ]] || return 1
+    [[ -z "$(find "$resolved" -perm /022 -print -quit)" ]]
+}
+
+image_state_security_is_valid() {
+    local expected_uid expected_gid
+    expected_uid="$(id -u "$SERVICE_USER")" || return 1
+    expected_gid="$(getent group "$SERVICE_GROUP" | cut -d: -f3)" || return 1
+    [[ -d "$IMAGE_DIR/Public" && -d "$IMAGE_DIR/Private" ]] || return 1
+    [[ "$(stat -c '%u:%g:%a' "$IMAGE_DIR/Public")" == "$expected_uid:$expected_gid:750" ]] || return 1
+    [[ "$(stat -c '%u:%g:%a' "$IMAGE_DIR/Private")" == "$expected_uid:$expected_gid:700" ]]
+}
+
+service_identity_exists() {
+    id "$SERVICE_USER" >/dev/null 2>&1 && getent group "$SERVICE_GROUP" >/dev/null
+}
+
+postgres_role_and_database_exist() {
+    runuser -u postgres -- psql \
+        --no-psqlrc \
+        --quiet \
+        --port="$DB_PORT" \
+        --dbname=postgres \
+        --command='SELECT 1' >/dev/null 2>&1 || return 1
+    [[ "$(postgres_scalar "SELECT 1 FROM pg_roles WHERE rolname = '$DB_ROLE'")" == "1" ]] || return 1
+    database_exists
+}
+
+command_doctor() {
+    # Continue after individual failures so one run gives the operator a complete
+    # repair checklist instead of stopping at the first broken prerequisite.
+    DOCTOR_FAILURES=0
+    doctor_check "configuration directory is root:root 0700" directory_security_is_valid
+    doctor_check "environment file is root:root 0600" environment_security_is_valid
+    if environment_security_is_valid; then
+        doctor_check "environment contains required keys and no administrator password" environment_has_required_keys
+    fi
+    doctor_check "systemd unit is installed" test -f "$UNIT_TARGET"
+    doctor_check "current release link resolves inside the trusted release root" active_release_is_valid
+    if active_release_is_valid; then
+        doctor_check "active release is root-owned and immutable" active_release_permissions_are_valid
+    fi
+    doctor_check "service is enabled for boot" systemctl is-enabled --quiet "$SERVICE_NAME"
+    doctor_check "service account and group exist" service_identity_exists
+    doctor_check "state and backup roots cannot be replaced by the service" state_root_security_is_valid
+    if service_identity_exists; then
+        doctor_check "self-contained API is executable by the service account" api_executable_is_service_executable
+        doctor_check "Data Protection directory ownership and mode are correct" state_security_is_valid
+        doctor_check "persistent image directory ownership and modes are correct" image_state_security_is_valid
+    fi
+    doctor_check "PostgreSQL role and database exist" postgres_role_and_database_exist
+    doctor_check "systemd service is active" systemctl is-active --quiet "$SERVICE_NAME"
+    doctor_check "local API health endpoint responds" curl --silent --fail --max-time 3 "$HEALTH_URL" --output /dev/null
+
+    if (( DOCTOR_FAILURES > 0 )); then
+        die "$DOCTOR_FAILURES health check(s) failed"
+    fi
+    log "all checks passed; secret values were not displayed"
+}
+
+main() {
+    require_root
+    (( BASH_VERSINFO[0] >= 4 )) || die "Bash 4 or newer is required"
+    # Do not trust sudo's inherited PATH when resolving privileged utilities.
+    export PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+
+    # Create the protected parent before reading trusted root configuration, then
+    # validate every effective setting before dispatching any command.
+    ensure_config_directory
+    load_operator_config
+    validate_settings
+
+    local command="${1:-}"
+
+    case "$command" in
+        setup)
+            [[ $# -eq 2 ]] || { usage >&2; exit 2; }
+            command_setup "$2"
+            ;;
+        deploy)
+            [[ $# -eq 2 ]] || { usage >&2; exit 2; }
+            command_deploy "$2"
+            ;;
+        releases)
+            [[ $# -eq 1 ]] || { usage >&2; exit 2; }
+            command_releases
+            ;;
+        rollback)
+            [[ $# -eq 2 ]] || { usage >&2; exit 2; }
+            command_rollback "$2"
+            ;;
+        restart)
+            [[ $# -eq 1 ]] || { usage >&2; exit 2; }
+            command_restart
+            ;;
+        reconfigure)
+            [[ $# -eq 1 ]] || { usage >&2; exit 2; }
+            command_reconfigure
+            ;;
+        status)
+            [[ $# -eq 1 ]] || { usage >&2; exit 2; }
+            log "active release: $(active_release_id || printf '%s' unknown)"
+            systemctl --no-pager --full status "$SERVICE_NAME"
+            ;;
+        logs)
+            [[ $# -eq 1 ]] || { usage >&2; exit 2; }
+            journalctl --unit="$SERVICE_NAME" --lines=100 --no-pager
+            ;;
+        doctor)
+            [[ $# -eq 1 ]] || { usage >&2; exit 2; }
+            command_doctor
+            ;;
+        -h|--help|help)
+            [[ $# -eq 1 ]] || { usage >&2; exit 2; }
+            usage
+            ;;
+        *) usage >&2; exit 2 ;;
+    esac
+}
+
+main "$@"

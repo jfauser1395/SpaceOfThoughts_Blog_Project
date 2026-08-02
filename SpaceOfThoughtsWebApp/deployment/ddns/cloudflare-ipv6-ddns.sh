@@ -2,7 +2,7 @@
 ## This updater intentionally requires Bash; it is not compatible with bin/sh.
 
 #######################################################
-## REQUIRED SETUP BEFORE ENABLING THE CRON JOB
+## REQUIRED SETUP BEFORE ENABLING THE SYSTEMD TIMER
 #######################################################
 # [REQUIRED SECRET]
 # CF_API_TOKEN
@@ -38,9 +38,9 @@ umask 077
 #                        permission for this zone. Inject it as an environment
 #                        secret; never paste the real token into this file.
 # @CF_ZONE_ID          - The 32-character Zone ID shown on the Cloudflare
-#                        domain Overview page. This identifier is not secret.
+#                        domain Overview page. This identifier is not secret,
+#                        but is host configuration and has no built-in default.
 # -------------------------------------------------- #
-: "${CF_ZONE_ID:=073e4b02b8322dca71ec127add56d9db}"
 
 #############  DNS RECORD CONFIGURATION  #############
 # @CF_RECORD_NAME      - Fully qualified name of the one existing AAAA record
@@ -51,21 +51,17 @@ umask 077
 # @CF_PROXIED          - false publishes the server's IPv6 address directly.
 #                        Set true only when Cloudflare should proxy the website.
 # -------------------------------------------------- #
-: "${CF_RECORD_NAME:=spaceofthoughts.com}"
 : "${CF_TTL:=300}"
 : "${CF_PROXIED:=false}"
 
 ###############  IPV6 HOST CONFIGURATION  ############
 # @IPV6_SUFFIX         - Stable host portion of the web server's global IPv6
-#                        address. For example, 44c9 matches an address ending
-#                        in :44c9. Use a longer suffix if it is not unique.
+#                        address. For example, cafe:babe matches an address
+#                        ending in :cafe:babe. Use a longer suffix if needed.
 # @IPV6_INTERFACE      - Ethernet interface used by the web server. This
 #                        Raspberry Pi uses eth0, so only that interface is
 #                        searched for the stable global IPv6 address.
 # -------------------------------------------------- #
-: "${IPV6_SUFFIX:=44c9}"
-: "${IPV6_INTERFACE:=eth0}"
-
 ###############  INTERNAL CONSTANTS  #################
 # These values define the log name and Cloudflare API endpoint. They normally
 # do not need to be changed when moving the script to another Linux server.
@@ -77,14 +73,10 @@ readonly API_ROOT="https://api.cloudflare.com/client/v4"
 ################################################
 ## Logging and error handling
 ################################################
-# Prefer the system log for cron operation. The stderr fallback keeps messages
-# visible on minimal installations where the logger command is unavailable.
+# systemd records standard error in the journal. Keeping logging on standard
+# error also makes manual validation visible without requiring logger(1).
 log() {
-    if command -v logger >/dev/null 2>&1; then
-        logger -t "$PROGRAM_NAME" -- "$*"
-    else
-        printf '%s: %s\n' "$PROGRAM_NAME" "$*" >&2
-    fi
+    printf '%s: %s\n' "$PROGRAM_NAME" "$*" >&2
 }
 
 die() {
@@ -114,12 +106,18 @@ done
 
 # CF_API_TOKEN intentionally has no default because it must come from the
 # destination's secret manager or protected runtime environment.
-for setting in CF_API_TOKEN CF_ZONE_ID CF_RECORD_NAME IPV6_SUFFIX; do
+for setting in CF_API_TOKEN CF_ZONE_ID CF_RECORD_NAME IPV6_INTERFACE IPV6_SUFFIX; do
     [[ -n "${!setting:-}" ]] || die "required setting is empty: $setting"
 done
 
+# Keep the token in a non-exported shell variable so ip, jq, and curl do not
+# inherit it in their process environments. curl receives it only through its
+# standard-input configuration below.
+readonly cf_api_token="$CF_API_TOKEN"
+unset CF_API_TOKEN
+
 # Reject malformed values rather than sending an unsafe or ambiguous request.
-[[ "$CF_API_TOKEN" =~ ^[A-Za-z0-9._-]+$ ]] ||
+[[ "$cf_api_token" =~ ^[A-Za-z0-9._-]+$ ]] ||
     die "CF_API_TOKEN contains unexpected characters"
 [[ "$CF_ZONE_ID" =~ ^[A-Fa-f0-9]{32}$ ]] ||
     die "CF_ZONE_ID must be a 32-character identifier"
@@ -137,11 +135,11 @@ CF_TTL=$((10#$CF_TTL))
     die "CF_TTL must be 1 or between 60 and 86400"
 [[ "$CF_PROXIED" == "true" || "$CF_PROXIED" == "false" ]] ||
     die "CF_PROXIED must be true or false"
+[[ "$CF_PROXIED" == "false" || "$CF_TTL" == "1" ]] ||
+    die "CF_TTL must be 1 (Automatic) when CF_PROXIED is true"
 
-if [[ -n "$IPV6_INTERFACE" ]]; then
-    ip link show dev "$IPV6_INTERFACE" >/dev/null 2>&1 ||
-        die "IPv6 interface does not exist: $IPV6_INTERFACE"
-fi
+ip link show dev "$IPV6_INTERFACE" >/dev/null 2>&1 ||
+    die "IPv6 interface does not exist: $IPV6_INTERFACE"
 
 
 ################################################
@@ -157,8 +155,7 @@ suffix="${suffix%:}"
 # Ask Linux for primary global addresses only. Temporary privacy addresses and
 # addresses that are deprecated, tentative, or failed duplicate detection are
 # excluded because they must never be published as the web server endpoint.
-ip_command=(ip -6 -o addr show)
-[[ -n "$IPV6_INTERFACE" ]] && ip_command+=(dev "$IPV6_INTERFACE")
+ip_command=(ip -6 -o addr show dev "$IPV6_INTERFACE")
 ip_command+=(scope global primary -deprecated -tentative -dadfailed)
 
 address_output=$("${ip_command[@]}") ||
@@ -196,9 +193,11 @@ current_ip="${matching_addresses[0]}"
 # Short timeouts and bounded retries prevent a scheduled run from hanging
 # indefinitely during a network or Cloudflare service problem.
 curl_common=(
+    --disable
     --silent
     --show-error
     --fail
+    --proto "=https"
     --connect-timeout 10
     --max-time 30
     --retry 2
@@ -211,7 +210,7 @@ curl_common=(
 # Pass the token through curl's configuration input. This keeps the secret out
 # of curl's process command line and prevents it from being written to logs.
 cloudflare_curl() {
-    printf 'header = "Authorization: Bearer %s"\n' "$CF_API_TOKEN" |
+    printf 'header = "Authorization: Bearer %s"\n' "$cf_api_token" |
         curl "${curl_common[@]}" --config - "$@"
 }
 
@@ -244,6 +243,12 @@ record_id=$(jq -er '.result[0].id' <<<"$record_json") ||
     die "Cloudflare response did not include a record identifier"
 old_ip=$(jq -er '.result[0].content' <<<"$record_json") ||
     die "Cloudflare response did not include the current AAAA address"
+jq -e '(.result[0].ttl | type == "number") and
+       (.result[0].proxied | type == "boolean")' \
+    >/dev/null <<<"$record_json" ||
+    die "Cloudflare response included invalid TTL or proxy settings"
+old_ttl=$(jq -r '.result[0].ttl' <<<"$record_json")
+old_proxied=$(jq -r '.result[0].proxied' <<<"$record_json")
 
 [[ "$record_id" =~ ^[A-Fa-f0-9]{32}$ ]] ||
     die "Cloudflare returned an invalid record identifier"
@@ -255,9 +260,12 @@ old_ip=$(jq -er '.result[0].content' <<<"$record_json") ||
 ## Compare the local and published IPv6 addresses
 ################################################
 # Cloudflare and Linux both return canonical IPv6 notation, allowing a direct
-# comparison and avoiding unnecessary API writes when nothing changed.
-if [[ "$current_ip" == "$old_ip" ]]; then
-    log "AAAA record is already current: $CF_RECORD_NAME"
+# comparison. Enforce TTL and proxy configuration as well as the address so an
+# operator change does not have to wait for the next IPv6 prefix change.
+if [[ "$current_ip" == "$old_ip" &&
+      "$CF_TTL" == "$old_ttl" &&
+      "$CF_PROXIED" == "$old_proxied" ]]; then
+    log "AAAA record and settings are already current: $CF_RECORD_NAME"
     exit 0
 fi
 
@@ -296,7 +304,15 @@ jq -e '.success == true' >/dev/null <<<"$update_json" ||
     die "Cloudflare rejected the record update"
 updated_ip=$(jq -er '.result.content' <<<"$update_json") ||
     die "Cloudflare update response did not include the AAAA address"
+jq -e '(.result.ttl | type == "number") and
+       (.result.proxied | type == "boolean")' \
+    >/dev/null <<<"$update_json" ||
+    die "Cloudflare update response included invalid TTL or proxy settings"
+updated_ttl=$(jq -r '.result.ttl' <<<"$update_json")
+updated_proxied=$(jq -r '.result.proxied' <<<"$update_json")
 [[ "$updated_ip" == "$current_ip" ]] ||
     die "Cloudflare update response did not match the requested IPv6 address"
+[[ "$updated_ttl" == "$CF_TTL" && "$updated_proxied" == "$CF_PROXIED" ]] ||
+    die "Cloudflare update response did not match the requested record settings"
 
 log "updated AAAA record: $CF_RECORD_NAME"

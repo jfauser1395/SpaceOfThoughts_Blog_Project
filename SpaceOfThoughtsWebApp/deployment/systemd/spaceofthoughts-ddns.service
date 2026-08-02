@@ -1,0 +1,33 @@
+[Unit]
+Description=SpaceOfThoughts Cloudflare IPv6 DDNS update
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/spaceofthoughts/ddns.env
+ExecStartPre=/usr/bin/test -x /usr/local/libexec/spaceofthoughts/cloudflare-ipv6-ddns.sh
+ExecStart=/usr/local/libexec/spaceofthoughts/cloudflare-ipv6-ddns.sh
+TimeoutStartSec=120
+
+# The updater needs outbound HTTPS, DNS resolution, and read-only network
+# inspection. It needs no stable identity, capabilities, or writable paths.
+DynamicUser=true
+UMask=0077
+NoNewPrivileges=true
+PrivateDevices=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+CapabilityBoundingSet=
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native

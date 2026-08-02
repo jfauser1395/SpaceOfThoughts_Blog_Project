@@ -376,5 +376,3 @@ Images/**/*
 !Images/Public/ProfilePictures/.gitkeep
 !Images/Private/
 !Images/Private/.gitkeep
-Migrations/
-**/Migrations/

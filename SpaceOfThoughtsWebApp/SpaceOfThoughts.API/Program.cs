@@ -16,11 +16,13 @@ using System.IO.Compression;
 using System.Threading.RateLimiting;
 
 
-var builder = WebApplication.CreateBuilder(args);
+var spotctlProvisionCommand = SpotctlProvisionCommand.Parse(args, out var applicationArgs);
+var builder = WebApplication.CreateBuilder(applicationArgs);
 
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddHealthChecks();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -223,6 +225,25 @@ builder.Services.AddCors(options =>
 });
 var app = builder.Build();
 
+if (spotctlProvisionCommand is not null)
+{
+    var password = await Console.In.ReadLineAsync();
+    if (password is null)
+    {
+        throw new InvalidOperationException(
+            "The spotctl administrator password must be supplied as one line on standard input."
+        );
+    }
+
+    await DbInitializer.MigrateAndProvisionAdminAsync(
+        app,
+        spotctlProvisionCommand.UserName,
+        spotctlProvisionCommand.Email,
+        password
+    );
+    return;
+}
+
 // Resolve reverse proxy (Nginx) scheme mismatches so native URLs generate as HTTPS.
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
@@ -273,6 +294,7 @@ app.Use(
 );
 
 app.MapControllers();
+app.MapHealthChecks("/health");
 
 app.UseResponseCompression(); // Enable response compression
 

@@ -1,0 +1,12 @@
+[Unit]
+Description=Run the SpaceOfThoughts IPv6 DDNS updater
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=5min
+RandomizedDelaySec=30s
+AccuracySec=15s
+Unit=spaceofthoughts-ddns.service
+
+[Install]
+WantedBy=timers.target
