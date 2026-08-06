@@ -170,6 +170,15 @@ while IFS= read -r address_line; do
     address="${address%/*}"
     address="${address,,}"
 
+    # Linux reports a Unique Local Address (fc00::/7) as scope global, but a ULA
+    # is not routable on the public internet and must never become a public AAAA
+    # record. A router that advertises both a ULA and a real global prefix
+    # derives the same SLAAC interface identifier for each, so the two addresses
+    # differ only in their prefix and no host suffix can distinguish them.
+    if [[ "$address" == f[cd]* ]]; then
+        continue
+    fi
+
     if [[ "$address" == "$suffix" || "$address" == *":$suffix" ]]; then
         matching_addresses+=("$address")
     fi
