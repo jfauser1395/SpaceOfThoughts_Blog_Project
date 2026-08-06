@@ -685,33 +685,37 @@ create_reconfiguration_backup() {
     local result_env_variable="$1"
     local result_db_variable="$2"
     local backup_dir="$STATE_DIR/backups"
-    local stamp env_backup db_backup db_temporary
+    # These names must not collide with the caller's out-parameter variables.
+    # Bash locals are dynamically scoped, so locals named `env_backup` or
+    # `db_backup` here would shadow the caller's variables of the same name and
+    # leave them unset, which `set -u` then turns into a fatal error.
+    local stamp created_env_backup created_db_backup db_temporary
 
     stamp="$(date -u '+%Y%m%dT%H%M%SZ')-$$"
-    env_backup="$backup_dir/api.env.$stamp"
-    db_backup="$backup_dir/$DB_NAME.$stamp.dump"
-    db_temporary="$db_backup.tmp"
+    created_env_backup="$backup_dir/api.env.$stamp"
+    created_db_backup="$backup_dir/$DB_NAME.$stamp.dump"
+    db_temporary="$created_db_backup.tmp"
 
-    if ! install --owner=root --group=root --mode=0600 "$ENV_FILE" "$env_backup"; then
+    if ! install --owner=root --group=root --mode=0600 "$ENV_FILE" "$created_env_backup"; then
         warn "environment backup failed"
         return 1
     fi
     if ! runuser -u postgres -- pg_dump --port="$DB_PORT" --format=custom --dbname="$DB_NAME" >"$db_temporary"; then
         rm -f -- "$db_temporary"
-        rm -f -- "$env_backup"
+        rm -f -- "$created_env_backup"
         warn "PostgreSQL backup failed"
         return 1
     fi
     if ! chown root:root "$db_temporary" ||
         ! chmod 0600 "$db_temporary" ||
-        ! mv -f -- "$db_temporary" "$db_backup"; then
-        rm -f -- "$db_temporary" "$env_backup"
+        ! mv -f -- "$db_temporary" "$created_db_backup"; then
+        rm -f -- "$db_temporary" "$created_env_backup"
         warn "could not protect or publish the PostgreSQL backup"
         return 1
     fi
 
-    printf -v "$result_env_variable" '%s' "$env_backup"
-    printf -v "$result_db_variable" '%s' "$db_backup"
+    printf -v "$result_env_variable" '%s' "$created_env_backup"
+    printf -v "$result_db_variable" '%s' "$created_db_backup"
 }
 
 run_admin_provisioning() {
@@ -889,23 +893,26 @@ install_release_archive() {
     local manifest="$staging_directory/$MANIFEST_NAME"
     [[ -f "$manifest" && ! -L "$manifest" ]] || die "release manifest is missing"
 
-    local schema release_id rid api_path ui_path
+    # This name must not collide with the caller's out-parameter variable. Bash
+    # locals are dynamically scoped, so a local named `release_id` here would
+    # shadow a caller variable of the same name and swallow the returned value.
+    local schema manifest_release_id rid api_path ui_path
     schema="$(jq -er '.schemaVersion' "$manifest")" || die "release manifest schema is missing"
-    release_id="$(jq -er '.releaseId | select(type == "string")' "$manifest")" || die "release ID is missing"
+    manifest_release_id="$(jq -er '.releaseId | select(type == "string")' "$manifest")" || die "release ID is missing"
     rid="$(jq -er '.rid | select(type == "string")' "$manifest")" || die "release RID is missing"
     api_path="$(jq -er '.apiExecutable | select(type == "string")' "$manifest")" || die "API path is missing"
     ui_path="$(jq -er '.uiRoot | select(type == "string")' "$manifest")" || die "UI path is missing"
 
     [[ "$schema" == '1' ]] || die "unsupported release manifest schema: $schema"
-    [[ "$release_id" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] || die "release ID is invalid"
+    [[ "$manifest_release_id" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] || die "release ID is invalid"
     [[ "$rid" == "$(host_runtime_identifier)" ]] ||
         die "release targets $rid but this server requires $(host_runtime_identifier)"
     [[ "$api_path" == 'api/SpaceOfThoughts.API' ]] || die "unexpected API path in manifest"
     [[ "$ui_path" == 'ui/browser' ]] || die "unexpected UI path in manifest"
     release_directory_is_valid "$staging_directory" || die "release contents are incomplete"
 
-    local destination="$RELEASES_DIR/$release_id"
-    [[ ! -e "$destination" && ! -L "$destination" ]] || die "release is already installed: $release_id"
+    local destination="$RELEASES_DIR/$manifest_release_id"
+    [[ ! -e "$destination" && ! -L "$destination" ]] || die "release is already installed: $manifest_release_id"
 
     chown -R root:root "$staging_directory"
     find "$staging_directory" -type d -exec chmod 0755 {} +
@@ -915,7 +922,7 @@ install_release_archive() {
     rm -f -- "$archive" "${archive}.sha256"
     rmdir -- "$work_directory"
     RELEASE_WORK_DIRECTORY=''
-    printf -v "$result_variable" '%s' "$release_id"
+    printf -v "$result_variable" '%s' "$manifest_release_id"
 }
 
 active_release_id() {
