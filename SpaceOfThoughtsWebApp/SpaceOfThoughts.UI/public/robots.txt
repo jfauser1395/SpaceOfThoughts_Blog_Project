@@ -1,0 +1,20 @@
+# Crawl policy for SpaceOfThoughts.
+# Angular copies this file from public/ to the root of the browser build, so
+# Nginx serves it directly instead of falling back to index.html.
+
+User-agent: *
+Allow: /
+
+# Guarded areas require a session and hold nothing a crawler can index.
+Disallow: /admin/
+Disallow: /profile
+
+# Account entry points are not useful search results.
+Disallow: /login
+Disallow: /create-account
+
+# The API returns JSON for the application, not pages for readers.
+Disallow: /api/
+
+# Nginx already rejects this path; state it so crawlers never request it.
+Disallow: /Images/Private/
