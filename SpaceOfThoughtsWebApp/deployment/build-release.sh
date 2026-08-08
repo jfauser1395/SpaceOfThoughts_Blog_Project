@@ -150,6 +150,25 @@ else
 fi
 [[ -s "$UI_OUTPUT/index.html" ]] || die "Angular release index is missing or empty."
 
+# The update prompt reports appData.version from the service-worker manifest, and
+# the checked-in value is only a placeholder. Stamp the release id into the built
+# manifest rather than into the repository: editing a tracked file here would
+# leave the build clone dirty, which appends `-dirty` to every later release id.
+# appData carries no integrity guarantee of its own; the manifest hashes assets.
+readonly UI_SERVICE_WORKER_MANIFEST="$UI_OUTPUT/ngsw.json"
+if [[ -f "$UI_SERVICE_WORKER_MANIFEST" ]]; then
+    info "Stamping release $RELEASE_ID into the service worker manifest"
+    node -e '
+const fs = require("fs");
+const [manifestPath, version] = process.argv.slice(1);
+const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+manifest.appData = { ...manifest.appData, version };
+fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+' "$UI_SERVICE_WORKER_MANIFEST" "$RELEASE_ID"
+else
+    die "The Angular build produced no ngsw.json; the service worker is not configured."
+fi
+
 info "Publishing the self-contained API for $RID"
 dotnet publish "$API_PROJECT" \
     --configuration Release \

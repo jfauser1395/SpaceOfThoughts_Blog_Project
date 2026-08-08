@@ -2,7 +2,7 @@
   "$schema": "./node_modules/@angular/service-worker/config/schema.json",
   "appData": {
     "name": "SpaceOfThoughts",
-    "version": "1.0.0"
+    "version": "0.0.0-dev"
   },
   "index": "/index.html",
   "assetGroups": [

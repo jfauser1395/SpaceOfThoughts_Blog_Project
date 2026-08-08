@@ -84,27 +84,6 @@
               </div>
             </div>
 
-            @if (model.backgroundImageUrl) {
-              <!-- Shaped like the reader's viewport and carrying the same
-                   overlay the public page lays over its background, so this is
-                   what the blogs page will actually look like -->
-              <div class="admin-form-field">
-                <span class="admin-form-section-title">Framing</span>
-                <app-image-framing-editor
-                  class="blog-summary-framing"
-                  [style.--framing-frame-aspect]="previewAspectRatio()"
-                  [src]="model.backgroundImageUrl"
-                  [framing]="model.backgroundImagePosition"
-                  alt="Blogs page background framing"
-                  zoomLabel="Background zoom"
-                  (framingChange)="onBackgroundImageFramingChange($event)"
-                >
-                  <span class="blog-summary-framing-overlay" aria-hidden="true">
-                  </span>
-                </app-image-framing-editor>
-              </div>
-            }
-
             <div class="admin-form-actions blog-summary-editor-actions">
               @if (!isCreatingNewPage()) {
                 <button
@@ -177,29 +156,32 @@
             >
               Preview
             </h2>
-            <div
+            <!-- The preview is the framing control: drag and zoom it here and
+                 the crop it shows is the crop readers get. It is shaped like the
+                 viewport because a background is cropped purely by the shape of
+                 the screen it fills. -->
+            <app-image-framing-editor
               class="blog-summary-editor-preview-stage"
-              [style.background-image]="
-                previewBackgroundImageUrl
-                  ? 'url(' + previewBackgroundImageUrl + ')'
-                  : 'none'
-              "
+              [style.--framing-frame-aspect]="previewAspectRatio()"
+              [src]="previewBackgroundImageUrl"
+              [framing]="model.backgroundImagePosition"
+              alt="Blogs page background"
+              zoomLabel="Background zoom"
+              (framingChange)="onBackgroundImageFramingChange($event)"
             >
-              <article class="blog-summary-editor-preview-card">
-                <span class="blog-summary-editor-preview-image"></span>
-                <span class="blog-summary-editor-preview-body">
-                  <span class="blog-summary-editor-preview-meta">
-                    <span>Selected posts</span>
-                    <span>Preview</span>
+              <span
+                class="blog-summary-editor-preview-overlay"
+                aria-hidden="true"
+              ></span>
+              <span class="blog-summary-editor-preview-content">
+                <article class="blog-summary-editor-preview-card">
+                  <span class="blog-summary-editor-preview-image"></span>
+                  <span class="blog-summary-editor-preview-body">
+                    <strong>Blog card</strong>
                   </span>
-                  <strong>Blog summary cards</strong>
-                  <span>
-                    The blogs page uses this background behind the translucent
-                    card grid.
-                  </span>
-                </span>
-              </article>
-            </div>
+                </article>
+              </span>
+            </app-image-framing-editor>
           </section>
         </form>
       } @else if (!errorMessage()) {

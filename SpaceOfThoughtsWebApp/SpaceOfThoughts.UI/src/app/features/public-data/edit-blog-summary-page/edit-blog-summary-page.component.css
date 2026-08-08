@@ -75,23 +75,33 @@
   padding: 18px;
 }
 
+/* The stage is the framing editor itself. Its shape comes from the live
+   viewport as an inline custom property, because a background is cropped purely
+   by the shape of the screen it fills; app-image-framing-editor owns the picture,
+   the clipping and the zoom slider below it. */
 .blog-summary-editor-preview-stage {
-  background-color: var(--media-background);
-  background-position: center;
-  background-size: cover;
-  border-radius: 8px;
-  min-height: 360px;
-  overflow: hidden;
-  padding: 32px;
-  position: relative;
+  --framing-frame-height: auto;
+
+  display: block;
 }
 
-.blog-summary-editor-preview-stage::before {
+/* Everything below is laid over the picture inside the editor's frame, so the
+   preview shows the page rather than a bare photograph. */
+.blog-summary-editor-preview-overlay {
   background:
     linear-gradient(90deg, var(--media-overlay-strong), var(--media-overlay)),
     linear-gradient(0deg, var(--media-overlay), transparent);
-  content: "";
   inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.blog-summary-editor-preview-content {
+  align-items: flex-end;
+  display: flex;
+  inset: 0;
+  padding: 16px;
+  pointer-events: none;
   position: absolute;
 }
 
@@ -103,8 +113,9 @@
   box-shadow: 0 22px 58px var(--media-shadow);
   color: var(--media-text);
   display: grid;
-  grid-template-rows: 140px 1fr;
-  max-width: 280px;
+  grid-template-rows: 52% 1fr;
+  height: 76%;
+  max-width: 42%;
   overflow: hidden;
   position: relative;
   z-index: 1;
@@ -123,26 +134,11 @@
   padding: 14px;
 }
 
-.blog-summary-editor-preview-meta {
-  color: var(--media-accent);
-  display: flex;
-  font-size: 10px;
-  font-weight: 700;
-  justify-content: space-between;
-  text-transform: uppercase;
-}
-
 .blog-summary-editor-preview-body strong {
   color: var(--media-text);
   font-family: NavFont, serif;
-  font-size: 24px;
+  font-size: 15px;
   line-height: 1.05;
-}
-
-.blog-summary-editor-preview-body span:last-child {
-  color: var(--media-text-muted);
-  font-size: 13px;
-  line-height: 1.45;
 }
 
 /* Responsive blogs summary editor layout */
@@ -176,26 +172,3 @@
   }
 }
 
-/* The framing preview is shaped from the live viewport, so only the width is
-   set here; the aspect ratio arrives as an inline custom property. */
-.blog-summary-framing {
-  display: block;
-  margin-top: 10px;
-  max-width: 560px;
-}
-
-/* Mirrors the gradient .blog-summary-page lays over its background, so the
-   preview is not brighter than the page it is previewing. */
-.blog-summary-framing-overlay {
-  background:
-    linear-gradient(
-      90deg,
-      var(--media-overlay-strong),
-      var(--media-overlay) 54%,
-      transparent
-    ),
-    linear-gradient(0deg, var(--media-overlay), transparent);
-  inset: 0;
-  pointer-events: none;
-  position: absolute;
-}
