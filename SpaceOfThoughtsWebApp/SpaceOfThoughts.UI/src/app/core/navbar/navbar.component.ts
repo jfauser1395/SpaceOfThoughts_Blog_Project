@@ -40,6 +40,11 @@ export class NavbarComponent implements OnInit, OnDestroy {
   private readonly maximumAvatarZoom = 170;
   private userSubscription?: Subscription; // Subscription for user authentication changes
   private pageUnlockTimeoutId?: number;
+  // Matches the 0.7s width/transform transition on .searchIconAnimation. Focus
+  // is withheld until the bar has finished extending so the on-screen keyboard
+  // cannot open over a control that is still moving.
+  private readonly searchExpandDurationMs = 700;
+  private searchFocusTimeoutId?: number;
   private readonly mobileSearchInput =
     viewChild<ElementRef<HTMLInputElement>>('mobileSearchInput');
   private readonly mobileSearchToggle =
@@ -110,7 +115,37 @@ export class NavbarComponent implements OnInit, OnDestroy {
 
     if (!clickedInput && !clickedToggle) {
       this.searchExpanded.set(false);
+      this.dismissMobileSearchKeyboard();
     }
+  }
+
+  // Focus the field only once the bar has finished extending, so the keyboard
+  // never opens over a half-open control.
+  private focusMobileSearchWhenExtended(): void {
+    this.cancelMobileSearchFocus();
+    this.searchFocusTimeoutId = window.setTimeout(() => {
+      this.searchFocusTimeoutId = undefined;
+
+      // The bar may have been closed again while this was pending
+      if (this.searchExpanded()) {
+        this.mobileSearchInput()?.nativeElement.focus();
+      }
+    }, this.searchExpandDurationMs);
+  }
+
+  // Drop any pending focus and release the field so the keyboard closes with the bar
+  private dismissMobileSearchKeyboard(): void {
+    this.cancelMobileSearchFocus();
+    this.mobileSearchInput()?.nativeElement.blur();
+  }
+
+  private cancelMobileSearchFocus(): void {
+    if (this.searchFocusTimeoutId === undefined) {
+      return;
+    }
+
+    window.clearTimeout(this.searchFocusTimeoutId);
+    this.searchFocusTimeoutId = undefined;
   }
 
   // Check screen size to set flags for responsive behavior
@@ -192,12 +227,19 @@ export class NavbarComponent implements OnInit, OnDestroy {
     if (wasExpanded && query.trim()) {
       this.submitSearch(query);
     }
+
+    if (this.searchExpanded()) {
+      this.focusMobileSearchWhenExtended();
+    } else {
+      this.dismissMobileSearchKeyboard();
+    }
   }
 
   // Collapse the search bar and clear the search input
   collapseSearch(query: string): void {
     this.searchExpanded.set(false);
     this.searchInput().nativeElement.value = '';
+    this.dismissMobileSearchKeyboard();
     this.submitSearch(query);
   }
 
@@ -214,6 +256,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.userSubscription?.unsubscribe();
     this.unlockPageInteraction();
+    this.cancelMobileSearchFocus();
   }
 
   // Prevent pointer, keyboard, and scroll interaction with routed content under mobile navigation

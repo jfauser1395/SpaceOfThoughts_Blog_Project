@@ -1,4 +1,4 @@
-namespace SpaceOfThoughts.API.Models.Domain
+﻿namespace SpaceOfThoughts.API.Models.Domain
 {
     // BlogSummaryPage represents display settings for the public blogs summary page
     public class BlogSummaryPage
@@ -8,6 +8,9 @@ namespace SpaceOfThoughts.API.Models.Domain
 
         // Optional background image URL for the blogs summary page
         public string? BackgroundImageUrl { get; set; }
+
+        // Saved "x% y% zoom%" framing applied to the background picture
+        public string? BackgroundImagePosition { get; set; }
 
         // Date and time when the blogs summary page was last updated
         public DateTime UpdatedAt { get; set; }

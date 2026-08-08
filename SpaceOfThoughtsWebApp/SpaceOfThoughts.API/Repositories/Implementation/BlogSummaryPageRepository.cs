@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SpaceOfThoughts.API.Data;
 using SpaceOfThoughts.API.Models.Domain;
 using SpaceOfThoughts.API.Repositories.Interface;
@@ -40,6 +40,7 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
             {
                 // Copy editable fields onto the tracked entity before saving
                 existingBlogSummaryPage.BackgroundImageUrl = blogSummaryPage.BackgroundImageUrl;
+                existingBlogSummaryPage.BackgroundImagePosition = blogSummaryPage.BackgroundImagePosition;
                 existingBlogSummaryPage.UpdatedAt = blogSummaryPage.UpdatedAt;
                 blogSummaryPage = existingBlogSummaryPage;
             }
@@ -76,6 +77,8 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
             }
 
             existingBlogSummaryPage.BackgroundImageUrl = null;
+            // Framing only means something alongside a picture
+            existingBlogSummaryPage.BackgroundImagePosition = null;
             existingBlogSummaryPage.UpdatedAt = DateTime.UtcNow;
             await dbContext.SaveChangesAsync();
             return existingBlogSummaryPage;

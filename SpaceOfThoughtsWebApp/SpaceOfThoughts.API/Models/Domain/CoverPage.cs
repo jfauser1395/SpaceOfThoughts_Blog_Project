@@ -18,6 +18,10 @@ namespace SpaceOfThoughts.API.Models.Domain
         // Optional background image URL for the cover page
         public string? BackgroundImageUrl { get; set; }
 
+        // Saved "x% y% zoom%" framing applied to the cover background image.
+        // Null keeps the historical centred, unzoomed rendering.
+        public string? BackgroundImagePosition { get; set; }
+
         // Strength of the translucent gradient placed over the cover background
         public int BackgroundOverlayStrength { get; set; }
 

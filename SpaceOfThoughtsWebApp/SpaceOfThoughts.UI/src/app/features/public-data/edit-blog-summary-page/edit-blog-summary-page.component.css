@@ -175,3 +175,27 @@
     width: 100%;
   }
 }
+
+/* The framing preview is shaped from the live viewport, so only the width is
+   set here; the aspect ratio arrives as an inline custom property. */
+.blog-summary-framing {
+  display: block;
+  margin-top: 10px;
+  max-width: 560px;
+}
+
+/* Mirrors the gradient .blog-summary-page lays over its background, so the
+   preview is not brighter than the page it is previewing. */
+.blog-summary-framing-overlay {
+  background:
+    linear-gradient(
+      90deg,
+      var(--media-overlay-strong),
+      var(--media-overlay) 54%,
+      transparent
+    ),
+    linear-gradient(0deg, var(--media-overlay), transparent);
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}

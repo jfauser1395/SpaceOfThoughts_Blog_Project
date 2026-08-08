@@ -18,6 +18,9 @@ namespace SpaceOfThoughts.API.Models.DTOs
         // Optional background image URL for the cover page
         public string? BackgroundImageUrl { get; set; }
 
+        // Saved "x% y% zoom%" framing applied to the cover background image
+        public string? BackgroundImagePosition { get; set; }
+
         // Strength of the translucent gradient placed over the cover background
         public int BackgroundOverlayStrength { get; set; }
 

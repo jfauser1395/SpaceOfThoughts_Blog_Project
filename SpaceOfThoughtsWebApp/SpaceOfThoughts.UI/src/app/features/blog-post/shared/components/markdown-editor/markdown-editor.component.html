@@ -144,6 +144,30 @@
       >
         <i class="bi bi-code-slash" aria-hidden="true"></i>
       </button>
+
+      <!-- Picture, and the border it is inserted with -->
+      <button
+        type="button"
+        class="admin-editor-tool"
+        [attr.data-bs-toggle]="pickerModalId() ? 'modal' : null"
+        [attr.data-bs-target]="pickerModalId() ? '#' + pickerModalId() : null"
+        (mousedown)="onToolbarMouseDown($event)"
+        (click)="requestImage()"
+        title="Picture"
+      >
+        <i class="bi bi-image" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        class="admin-editor-tool"
+        [class.is-active]="borderNextImage()"
+        [attr.aria-pressed]="borderNextImage()"
+        (mousedown)="onToolbarMouseDown($event)"
+        (click)="toggleImageBorder()"
+        title="Border new pictures"
+      >
+        <i class="bi bi-bounding-box" aria-hidden="true"></i>
+      </button>
       <button
         type="button"
         class="admin-editor-tool"

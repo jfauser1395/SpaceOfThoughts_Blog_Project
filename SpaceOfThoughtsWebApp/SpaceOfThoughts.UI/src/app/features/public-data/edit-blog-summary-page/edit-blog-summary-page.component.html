@@ -84,6 +84,27 @@
               </div>
             </div>
 
+            @if (model.backgroundImageUrl) {
+              <!-- Shaped like the reader's viewport and carrying the same
+                   overlay the public page lays over its background, so this is
+                   what the blogs page will actually look like -->
+              <div class="admin-form-field">
+                <span class="admin-form-section-title">Framing</span>
+                <app-image-framing-editor
+                  class="blog-summary-framing"
+                  [style.--framing-frame-aspect]="previewAspectRatio()"
+                  [src]="model.backgroundImageUrl"
+                  [framing]="model.backgroundImagePosition"
+                  alt="Blogs page background framing"
+                  zoomLabel="Background zoom"
+                  (framingChange)="onBackgroundImageFramingChange($event)"
+                >
+                  <span class="blog-summary-framing-overlay" aria-hidden="true">
+                  </span>
+                </app-image-framing-editor>
+              </div>
+            }
+
             <div class="admin-form-actions blog-summary-editor-actions">
               @if (!isCreatingNewPage()) {
                 <button

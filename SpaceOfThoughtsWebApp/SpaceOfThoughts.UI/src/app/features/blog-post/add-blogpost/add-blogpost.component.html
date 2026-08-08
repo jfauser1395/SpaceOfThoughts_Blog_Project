@@ -64,6 +64,7 @@
                 name="selectImageButton"
                 data-bs-toggle="modal"
                 data-bs-target="#selectModal"
+                (click)="imageTarget.set('featured')"
               >
                 <i class="bi bi-image" aria-hidden="true"></i>
                 Select Picture
@@ -71,10 +72,85 @@
             </div>
 
             @if (blog.featuredImageUrl !== '') {
-              <div class="admin-form-media-preview">
-                <img
-                  [src]="blog.featuredImageUrl"
-                  alt="Selected featured image"
+              <!-- Two published shapes, framed independently: the card crops to
+                   fill its tile, the article banner contains the picture inside
+                   a 16/9 frame. Each editor uses the fit its surface uses. -->
+              <div class="blog-featured-framing-grid">
+                <div class="blog-featured-framing-item">
+                  <span class="blog-featured-framing-label">Article page</span>
+                  <app-image-framing-editor
+                    class="blog-featured-framing blog-featured-framing-banner"
+                    fit="contain"
+                    [src]="blog.featuredImageUrl"
+                    [framing]="blog.featuredImageBannerPosition"
+                    alt="Article page banner framing"
+                    zoomLabel="Banner zoom"
+                    (framingChange)="blog.featuredImageBannerPosition = $event"
+                  />
+                </div>
+
+                <div class="blog-featured-framing-item">
+                  <span class="blog-featured-framing-label">Blog card</span>
+                  <app-image-framing-editor
+                    class="blog-featured-framing blog-featured-framing-card"
+                    [src]="blog.featuredImageUrl"
+                    [framing]="blog.featuredImageCardPosition"
+                    alt="Blog card framing"
+                    zoomLabel="Card zoom"
+                    (framingChange)="blog.featuredImageCardPosition = $event"
+                  />
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- Optional background picture shown behind the article page -->
+          <div class="admin-form-field is-full">
+            <label for="backgroundImageUrl">Background Image Url</label>
+            <div class="admin-input-group">
+              <input
+                type="text"
+                id="backgroundImageUrl"
+                name="backgroundImageUrl"
+                class="form-control"
+                [(ngModel)]="blog.backgroundImageUrl"
+              />
+              <button
+                type="button"
+                class="admin-primary-action admin-input-action"
+                name="selectBackgroundImageButton"
+                data-bs-toggle="modal"
+                data-bs-target="#selectModal"
+                (click)="imageTarget.set('background')"
+              >
+                <i class="bi bi-image" aria-hidden="true"></i>
+                Select Picture
+              </button>
+              @if (blog.backgroundImageUrl) {
+                <button
+                  type="button"
+                  class="admin-danger-action admin-input-action"
+                  (click)="onRemoveBackgroundImage()"
+                >
+                  <i class="bi bi-image-alt" aria-hidden="true"></i>
+                  Remove picture
+                </button>
+              }
+            </div>
+
+            @if (blog.backgroundImageUrl) {
+              <!-- Shaped like the reader's viewport, because a background is
+                   cropped purely by the shape of the screen it fills -->
+              <div class="blog-featured-framing-item blog-background-framing-item">
+                <span class="blog-featured-framing-label">Article background</span>
+                <app-image-framing-editor
+                  class="blog-featured-framing"
+                  [style.--framing-frame-aspect]="previewAspectRatio()"
+                  [src]="blog.backgroundImageUrl"
+                  [framing]="blog.backgroundImagePosition"
+                  alt="Article background framing"
+                  zoomLabel="Background zoom"
+                  (framingChange)="blog.backgroundImagePosition = $event"
                 />
               </div>
             }
@@ -93,7 +169,9 @@
               <app-markdown-editor
                 editorId="content"
                 ariaLabelledBy="contentLabel"
+                pickerModalId="selectModal"
                 [(content)]="blog.content"
+                (imagePickerRequested)="imageTarget.set('content')"
               />
             </section>
           </div>

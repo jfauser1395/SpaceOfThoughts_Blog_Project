@@ -1,4 +1,4 @@
-namespace SpaceOfThoughts.API.Models.DTOs
+﻿namespace SpaceOfThoughts.API.Models.DTOs
 {
     // DTO representing settings for the public blogs summary page
     public class BlogSummaryPageDto
@@ -8,6 +8,9 @@ namespace SpaceOfThoughts.API.Models.DTOs
 
         // Optional background image URL for the blogs summary page
         public string? BackgroundImageUrl { get; set; }
+
+        // Saved "x% y% zoom%" framing applied to the background picture
+        public string? BackgroundImagePosition { get; set; }
 
         // Date and time when the blogs summary page was last updated
         public DateTime UpdatedAt { get; set; }

@@ -16,6 +16,10 @@
       [style.background-image]="
         backgroundImage ? 'url(' + backgroundImage + ')' : 'none'
       "
+      [style.background-position]="backgroundImageObjectPosition()"
+      [style.height.%]="backgroundImageZoom()"
+      [style.transform]="backgroundImageTransform()"
+      [style.width.%]="backgroundImageZoom()"
       aria-hidden="true"
     ></div>
     <!-- Use the shared public loader while cover content and the hero image initialize -->
@@ -85,12 +89,12 @@
               [routerLink]="['/blog', blog.urlHandle]"
               [attr.aria-label]="'Read blog ' + blog.title"
             >
-              <span class="cover-blog-image">
-                <img
-                  [src]="blog.featuredImageUrl || 'assets/loadIcon.svg'"
-                  [alt]="blog.title"
-                />
-              </span>
+              <app-framed-image
+                class="cover-blog-image"
+                [src]="blog.featuredImageUrl || 'assets/loadIcon.svg'"
+                [alt]="blog.title"
+                [framing]="blog.featuredImageCardPosition"
+              />
               <span class="cover-blog-card-body">
                 <span class="cover-blog-meta">
                   <span>{{ blog.publishedDate | date: 'MMM d, yyyy' }}</span>

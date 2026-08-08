@@ -67,14 +67,25 @@
 }
 
 /* Cover preview image card */
+/* aspect-ratio is bound inline from the live viewport so this frame crops the
+   picture exactly the way the full-screen public cover hero will. */
 .cover-editor-preview-image {
   align-items: end;
-  aspect-ratio: 4 / 5;
   background-color: var(--media-background);
   border-radius: 8px;
   display: flex;
   overflow: hidden;
   position: relative;
+  touch-action: none;
+  user-select: none;
+}
+
+.cover-editor-preview-image.is-draggable {
+  cursor: grab;
+}
+
+.cover-editor-preview-image.is-dragging {
+  cursor: grabbing;
 }
 
 .cover-editor-preview-image::before {
@@ -106,21 +117,70 @@
     linear-gradient(0deg, rgba(0, 0, 0, 0.58), transparent);
 }
 
+/* Pinned to the frame's centre and sized to the chosen zoom, so the inline
+   transform only centres the layer and pans the overflow the zoom created. */
 .cover-editor-preview-background {
   background-position: center;
   background-size: cover;
-  inset: 0;
+  height: 100%;
+  inset: auto;
+  left: 50%;
   position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  transition: transform 0.14s ease;
+  width: 100%;
 }
 
+.cover-editor-preview-image.is-dragging .cover-editor-preview-background {
+  transition: none;
+}
+
+/* The copy is a preview of the published text, not a target: letting pointer
+   events through keeps the whole frame draggable. */
 .cover-editor-preview-copy {
   color: var(--media-text);
   filter: none;
   mix-blend-mode: normal;
   opacity: 1;
   padding: 22px;
+  pointer-events: none;
   position: relative;
   z-index: 2;
+}
+
+/* Framing hint and its inline reset action */
+/* The slider keeps its own column so the Fit/Closer scale stays aligned under
+   it rather than under the button beside it. */
+.cover-editor-framing-row {
+  align-items: start;
+  display: flex;
+  gap: 10px;
+}
+
+.cover-editor-framing-track {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The base look comes from the global .admin-icon-button style, so this matches
+   the framing reset in the blog post editors. */
+.cover-editor-framing-reset {
+  flex: 0 0 auto;
+}
+
+.cover-editor-framing-reset:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* :hover still fires on a disabled button, so the global hover colours have to
+   be held back here. */
+.cover-editor-framing-reset:disabled:hover,
+.cover-editor-framing-reset:disabled:focus {
+  background: var(--color-surface-muted);
+  border-color: var(--color-border);
+  color: var(--color-heading);
 }
 
 :host-context([data-theme="light"]) .cover-editor-preview-copy {

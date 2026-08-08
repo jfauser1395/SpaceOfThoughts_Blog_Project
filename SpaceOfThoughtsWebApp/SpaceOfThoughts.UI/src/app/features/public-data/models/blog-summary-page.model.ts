@@ -5,6 +5,8 @@ export interface BlogSummaryPage {
 
   // Optional background image URL for the blogs summary page
   backgroundImageUrl?: string | null;
+  // Saved "x% y% zoom%" framing applied to the background picture
+  backgroundImagePosition?: string | null;
 
   // Date and time when the blogs summary page was last updated
   updatedAt: string;

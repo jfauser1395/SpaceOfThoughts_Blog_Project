@@ -1,8 +1,9 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SpaceOfThoughts.API.Models.Domain;
 using SpaceOfThoughts.API.Models.DTOs;
 using SpaceOfThoughts.API.Repositories.Interface;
+using SpaceOfThoughts.API.Validation;
 
 namespace SpaceOfThoughts.API.Controllers
 {
@@ -39,11 +40,22 @@ namespace SpaceOfThoughts.API.Controllers
             [FromBody] UpdateBlogSummaryPageRequestDto request
         )
         {
+            // Reject a framing string the blogs page editor could not have produced
+            var framingFailure = ImageFramingValidator.Validate(request.BackgroundImagePosition);
+            if (framingFailure is not null)
+            {
+                ModelState.AddModelError(nameof(request.BackgroundImagePosition), framingFailure);
+                return BadRequest(ModelState);
+            }
+
             var blogSummaryPage = new BlogSummaryPage
             {
                 BackgroundImageUrl = string.IsNullOrWhiteSpace(request.BackgroundImageUrl)
                     ? null
                     : request.BackgroundImageUrl.Trim(),
+                BackgroundImagePosition = string.IsNullOrWhiteSpace(request.BackgroundImagePosition)
+                    ? null
+                    : request.BackgroundImagePosition.Trim(),
                 UpdatedAt = DateTime.UtcNow
             };
 
@@ -87,6 +99,7 @@ namespace SpaceOfThoughts.API.Controllers
             {
                 Id = blogSummaryPage.Id,
                 BackgroundImageUrl = blogSummaryPage.BackgroundImageUrl,
+                BackgroundImagePosition = blogSummaryPage.BackgroundImagePosition,
                 UpdatedAt = blogSummaryPage.UpdatedAt
             };
         }

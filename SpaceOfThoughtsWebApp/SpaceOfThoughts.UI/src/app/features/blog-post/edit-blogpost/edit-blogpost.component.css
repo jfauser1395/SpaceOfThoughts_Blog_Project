@@ -1,0 +1,60 @@
+/* The two framing editors sit side by side, each shaped like the frame it
+   feeds: the article banner stretches with the form column, the card keeps the
+   width a real card has on /blogs. The custom properties reach inside
+   app-image-framing-editor, which a plain selector could not do across style
+   encapsulation. */
+.blog-featured-framing-grid {
+  align-items: start;
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  margin-top: 10px;
+}
+
+.blog-featured-framing-item {
+  min-width: 0;
+}
+
+.blog-featured-framing-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  margin-bottom: 6px;
+  opacity: 0.8;
+  text-transform: uppercase;
+}
+
+.blog-featured-framing {
+  display: block;
+}
+
+/* Mirrors the 16/9 banner of the article page, black behind the picture so the
+   letterboxing shows here exactly as it will once published */
+.blog-featured-framing-banner {
+  --framing-frame-aspect: 16 / 9;
+  --framing-frame-height: auto;
+  --media-background: #000;
+}
+
+/* Mirrors the 250px image row of .blog-summary-card */
+.blog-featured-framing-card {
+  --framing-frame-height: 250px;
+}
+
+@media (max-width: 900px) {
+  .blog-featured-framing-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .blog-featured-framing-card {
+    max-width: 320px;
+  }
+}
+
+/* The background preview is shaped from the live viewport, so only its width is
+   set here; the aspect ratio arrives as an inline custom property. */
+.blog-background-framing-item {
+  margin-top: 10px;
+  max-width: 560px;
+}

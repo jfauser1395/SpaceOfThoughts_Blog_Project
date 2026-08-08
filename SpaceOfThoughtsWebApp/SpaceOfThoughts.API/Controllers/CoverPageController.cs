@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using SpaceOfThoughts.API.Models.Domain;
 using SpaceOfThoughts.API.Models.DTOs;
 using SpaceOfThoughts.API.Repositories.Interface;
+using SpaceOfThoughts.API.Validation;
 
 namespace SpaceOfThoughts.API.Controllers
 {
@@ -53,6 +54,9 @@ namespace SpaceOfThoughts.API.Controllers
                 BackgroundImageUrl = string.IsNullOrWhiteSpace(request.BackgroundImageUrl)
                     ? null
                     : request.BackgroundImageUrl.Trim(),
+                BackgroundImagePosition = string.IsNullOrWhiteSpace(request.BackgroundImagePosition)
+                    ? null
+                    : request.BackgroundImagePosition.Trim(),
                 BackgroundOverlayStrength = request.BackgroundOverlayStrength,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -100,6 +104,7 @@ namespace SpaceOfThoughts.API.Controllers
                 WelcomeTitle = coverPage.WelcomeTitle,
                 Introduction = coverPage.Introduction,
                 BackgroundImageUrl = coverPage.BackgroundImageUrl,
+                BackgroundImagePosition = coverPage.BackgroundImagePosition,
                 BackgroundOverlayStrength = coverPage.BackgroundOverlayStrength,
                 UpdatedAt = coverPage.UpdatedAt
             };
@@ -128,6 +133,22 @@ namespace SpaceOfThoughts.API.Controllers
                 ModelState.AddModelError(
                     nameof(request.BackgroundOverlayStrength),
                     "Background overlay strength must be between 0 and 100 percent."
+                );
+            }
+
+            ValidateBackgroundImagePosition(request.BackgroundImagePosition);
+        }
+
+        // Reject a framing string the editor could not have produced. An absent value
+        // is valid and restores the centred, unzoomed rendering.
+        private void ValidateBackgroundImagePosition(string? position)
+        {
+            var failure = ImageFramingValidator.Validate(position);
+            if (failure is not null)
+            {
+                ModelState.AddModelError(
+                    nameof(UpdateCoverPageRequestDto.BackgroundImagePosition),
+                    failure
                 );
             }
         }

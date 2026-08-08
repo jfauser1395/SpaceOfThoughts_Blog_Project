@@ -43,6 +43,7 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
                 existingCoverPage.WelcomeTitle = coverPage.WelcomeTitle;
                 existingCoverPage.Introduction = coverPage.Introduction;
                 existingCoverPage.BackgroundImageUrl = coverPage.BackgroundImageUrl;
+                existingCoverPage.BackgroundImagePosition = coverPage.BackgroundImagePosition;
                 existingCoverPage.BackgroundOverlayStrength = coverPage.BackgroundOverlayStrength;
                 existingCoverPage.UpdatedAt = coverPage.UpdatedAt;
                 coverPage = existingCoverPage;
@@ -80,6 +81,9 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
             }
 
             existingCoverPage.BackgroundImageUrl = null;
+            // Framing describes a picture that no longer exists, so clear it together
+            // with the image rather than applying it to whichever picture comes next.
+            existingCoverPage.BackgroundImagePosition = null;
             existingCoverPage.UpdatedAt = DateTime.UtcNow;
             await dbContext.SaveChangesAsync();
             return existingCoverPage;

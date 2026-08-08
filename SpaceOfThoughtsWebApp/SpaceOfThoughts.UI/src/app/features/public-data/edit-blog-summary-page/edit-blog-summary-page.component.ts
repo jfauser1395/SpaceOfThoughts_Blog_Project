@@ -4,6 +4,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  HostListener,
   OnInit,
   inject,
   signal,
@@ -16,10 +17,16 @@ import { ImageSelectorComponent } from '../../blog-post/shared/components/image-
 import { ImageService } from '../../blog-post/shared/components/services/image.service';
 import { BlogSummaryPage } from '../models/blog-summary-page.model';
 import { BlogSummaryPageService } from '../services/blog-summary-page.service';
+import { ImageFramingEditorComponent } from '../../../core/media/image-framing-editor.component';
 
 @Component({
   selector: 'app-edit-blog-summary-page',
-  imports: [FormsModule, RouterModule, ImageSelectorComponent],
+  imports: [
+    FormsModule,
+    RouterModule,
+    ImageSelectorComponent,
+    ImageFramingEditorComponent,
+  ],
   templateUrl: './edit-blog-summary-page.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './edit-blog-summary-page.component.css',
@@ -39,6 +46,11 @@ export class EditBlogSummaryPageComponent implements OnInit {
   readonly isRemoveConfirmationOpen = signal(false);
   readonly errorMessage = signal<string | undefined>(undefined);
   readonly successMessage = signal<string | undefined>(undefined);
+
+  // The public background fills the whole viewport, so the preview only tells
+  // the truth when it is shaped like the viewport: `cover` crops purely by
+  // container shape.
+  readonly previewAspectRatio = signal(this.readViewportAspectRatio());
   private updateBlogSummaryPageSubscription?: Subscription;
   private deleteBlogSummaryPageSubscription?: Subscription;
   private removeBackgroundImageSubscription?: Subscription;
@@ -218,6 +230,30 @@ export class EditBlogSummaryPageComponent implements OnInit {
   }
 
   // Create the empty editor state used before any blogs page settings are saved
+  // Keep the preview shaped like the viewport the background will actually fill
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.previewAspectRatio.set(this.readViewportAspectRatio());
+  }
+
+  // Store the framing the editor emits on the open draft
+  onBackgroundImageFramingChange(framing: string): void {
+    this.model.update((model) =>
+      model ? { ...model, backgroundImagePosition: framing } : model,
+    );
+  }
+
+  private readViewportAspectRatio(): string {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    if (!width || !height) {
+      return '16 / 9';
+    }
+
+    return `${width} / ${height}`;
+  }
+
   private createBlankBlogSummaryPage(): BlogSummaryPage {
     return {
       id: '',

@@ -19,6 +19,8 @@ import { ImageSelectorComponent } from '../shared/components/image-selector/imag
 import { ImageService } from '../shared/components/services/image.service';
 import { ViewportScroller } from '@angular/common';
 import { MarkdownEditorComponent } from '../shared/components/markdown-editor/markdown-editor.component';
+import { ImageFramingEditorComponent } from '../../../core/media/image-framing-editor.component';
+import { HostListener, viewChild } from '@angular/core';
 
 @Component({
   selector: 'app-add-blogpost',
@@ -31,6 +33,7 @@ import { MarkdownEditorComponent } from '../shared/components/markdown-editor/ma
     ImageSelectorComponent,
     MarkdownEditorComponent,
     AsyncPipe,
+    ImageFramingEditorComponent,
   ],
 })
 export class AddBlogpostComponent implements OnInit, OnDestroy {
@@ -55,6 +58,17 @@ export class AddBlogpostComponent implements OnInit, OnDestroy {
   imageSelectorSubscription?: Subscription; // Subscription for the image selector
   readonly urlHandleWarning = signal<string | undefined>(undefined); // Url handle field warning
 
+  // One picker serves every picture, so it has to be told which is being chosen
+  readonly imageTarget = signal<'featured' | 'background' | 'content'>(
+    'featured',
+  );
+
+  // Needed to drop a chosen picture at the cursor inside the body editor
+  private readonly markdownEditor = viewChild(MarkdownEditorComponent);
+
+  // The background fills the reader's viewport, so its preview is shaped like one
+  readonly previewAspectRatio = signal(this.readViewportAspectRatio());
+
   ngOnInit(): void {
     // Get the list of categories
     this.categories$ = this.categoryService.getAllCategories();
@@ -64,10 +78,27 @@ export class AddBlogpostComponent implements OnInit, OnDestroy {
       .onSelectImage()
       .subscribe({
         next: (selectedImage) => {
-          this.model.update((model) => ({
-            ...model,
-            featuredImageUrl: selectedImage.url,
-          }));
+          // A picture chosen for the body goes in at the cursor, not on the model
+          if (this.imageTarget() === 'content') {
+            this.markdownEditor()?.insertImage(selectedImage.url);
+            return;
+          }
+
+          // A different picture frames differently, so start its crops centred
+          this.model.update((model) =>
+            this.imageTarget() === 'background'
+              ? {
+                  ...model,
+                  backgroundImageUrl: selectedImage.url,
+                  backgroundImagePosition: null,
+                }
+              : {
+                  ...model,
+                  featuredImageUrl: selectedImage.url,
+                  featuredImageCardPosition: null,
+                  featuredImageBannerPosition: null,
+                },
+          );
         },
       });
   }
@@ -89,6 +120,28 @@ export class AddBlogpostComponent implements OnInit, OnDestroy {
         '*Please make sure to at least fill out this field!',
       ); // Warning message to fill out the urlHandleField
     }
+  }
+
+  // Keep the preview shaped like the viewport the background will actually fill
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.previewAspectRatio.set(this.readViewportAspectRatio());
+  }
+
+  // Clear the chosen background picture and the framing that went with it
+  onRemoveBackgroundImage(): void {
+    this.model.update((model) => ({
+      ...model,
+      backgroundImageUrl: null,
+      backgroundImagePosition: null,
+    }));
+  }
+
+  private readViewportAspectRatio(): string {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    return width && height ? `${width} / ${height}` : '16 / 9';
   }
 
   // Unsubscribe from the image selector to prevent memory leaks

@@ -8,46 +8,78 @@
 
 <!-- Render article content after the route request returns successfully -->
 @if (post) {
-  <div class="container">
+  @if (post.backgroundImageUrl) {
+    <!-- Optional per-post background, anchored to the viewport while the
+         article scrolls over it -->
+    <div
+      class="blog-details-background media-page-background"
+      [style.background-image]="'url(' + post.backgroundImageUrl + ')'"
+      [style.background-position]="backgroundImageObjectPosition()"
+      [style.height.%]="backgroundImageZoom()"
+      [style.transform]="backgroundImageTransform()"
+      [style.width.%]="backgroundImageZoom()"
+      aria-hidden="true"
+    ></div>
+  }
+  <div class="container blog-details-container">
     <div class="py-5">
       <div class="col-12 col-md-12 col-lg-12 mx-auto">
-        <!-- Blog post title -->
-        <h1 class="mb-4 text-center">{{ post.title }}</h1>
+        <!-- Title, picture and text are one unbroken sheet. Every gap between
+             them would show the background picture through the article, which
+             is where the heading and the metadata used to get lost. -->
+        <article class="blog-sheet">
+          <!-- Blog post title -->
+          <h1 class="blog-sheet-title text-center">{{ post.title }}</h1>
 
-        <!-- Featured image of the blog post -->
-        <img
-          [src]="post.featuredImageUrl"
-          [title]="post.title"
-          class="img-fluid full-width mt-2 rounded-3"
-          aria-label="Featured image"
-        />
+          <!-- Featured image of the blog post in a fixed 16/9 banner, so every
+               article opens with the same shape. The picture is contained rather
+               than cropped: framed at its lowest zoom the whole picture shows
+               against the black frame, and zooming in fills the banner. The
+               sheet clips its corners, so the banner carries no radius. -->
+          <div class="featured-media">
+            <app-framed-image
+              class="featured-image"
+              fit="contain"
+              [src]="post.featuredImageUrl"
+              [alt]="post.title"
+              [framing]="post.featuredImageBannerPosition"
+              [title]="post.title"
+              aria-label="Featured image"
+            />
 
-        <!-- Blog post categories and published date -->
-        @if (post.categories) {
-          <div class="d-flex justify-content-between flex-wrap gap-2 mt-4 mb-3">
-            <div class="d-flex flex-wrap gap-2">
-              <!-- Loop through the categories and display each category -->
-              @for (category of post.categories; track category) {
-                <span class="blog-category-badge">
-                  {{ category.name }}
-                </span>
-              }
-            </div>
-            <div class="d-flex justify-content-end">
-              <!-- Display the published date of the blog post -->
-              <span>{{ post.publishedDate | date: 'MM-dd-yy' }}</span>
-            </div>
+            <app-image-fullscreen-view
+              [src]="post.featuredImageUrl"
+              [alt]="post.title"
+              label="View featured image full screen"
+            />
           </div>
-        }
 
-        <!-- Blog post content -->
-        <div class="mt-4 blog-content p-3">
-          <markdown [data]="post.content" />
-          <!-- Blog post author -->
-          <h6 class="mt-1 text-end blogFontTheme">
-            Article published by: {{ post.author }}
-          </h6>
-        </div>
+          <!-- Blog post content -->
+          <div class="blog-content">
+            <!-- Blog post categories and published date, sitting on the sheet
+                 rather than floating between the picture and the text -->
+            @if (post.categories) {
+              <div class="blog-meta">
+                <div class="blog-meta-categories">
+                  <!-- Loop through the categories and display each category -->
+                  @for (category of post.categories; track category) {
+                    <span class="blog-category-badge">
+                      {{ category.name }}
+                    </span>
+                  }
+                </div>
+                <!-- Display the published date of the blog post -->
+                <span>{{ post.publishedDate | date: 'MM-dd-yy' }}</span>
+              </div>
+            }
+
+            <markdown [data]="post.content" />
+            <!-- Blog post author -->
+            <h6 class="mt-1 text-end blogFontTheme">
+              Article published by: {{ post.author }}
+            </h6>
+          </div>
+        </article>
 
         @if (post.isVisible) {
           <!-- Blog post comments -->

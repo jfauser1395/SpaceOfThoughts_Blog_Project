@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SpaceOfThoughts.API.Data;
@@ -11,9 +12,11 @@ using SpaceOfThoughts.API.Data;
 namespace SpaceOfThoughts.API.Migrations.ApplicationDb
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260808192943_AddBlogPostImageFraming")]
+    partial class AddBlogPostImageFraming
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -226,12 +229,6 @@ namespace SpaceOfThoughts.API.Migrations.ApplicationDb
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("BackgroundImagePosition")
-                        .HasColumnType("text");
-
-                    b.Property<string>("BackgroundImageUrl")
-                        .HasColumnType("text");
-
                     b.Property<string>("Content")
                         .IsRequired()
                         .HasColumnType("text");
@@ -274,9 +271,6 @@ namespace SpaceOfThoughts.API.Migrations.ApplicationDb
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
-
-                    b.Property<string>("BackgroundImagePosition")
-                        .HasColumnType("text");
 
                     b.Property<string>("BackgroundImageUrl")
                         .HasColumnType("text");

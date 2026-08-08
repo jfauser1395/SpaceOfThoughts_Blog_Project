@@ -15,6 +15,9 @@ namespace SpaceOfThoughts.API.Models.DTOs
         // Optional background image URL for the cover page
         public string? BackgroundImageUrl { get; set; }
 
+        // Framing as "x% y% zoom%"; null restores the centred, unzoomed default
+        public string? BackgroundImagePosition { get; set; }
+
         // Overlay strength as a percentage, constrained to the editor's supported range
         public int BackgroundOverlayStrength { get; set; }
     }

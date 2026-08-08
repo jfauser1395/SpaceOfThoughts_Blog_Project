@@ -4,6 +4,8 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  HostListener,
+  OnDestroy,
   OnInit,
   inject,
   signal,
@@ -16,6 +18,20 @@ import { ImageSelectorComponent } from '../../blog-post/shared/components/image-
 import { ImageService } from '../../blog-post/shared/components/services/image.service';
 import { CoverPageService } from '../services/cover-page.service';
 import { UpdateCoverPage } from '../models/update-cover-page.model';
+import {
+  DEFAULT_IMAGE_FRAMING,
+  ImageFraming,
+  IMAGE_ZOOM_STEP,
+  MAXIMUM_IMAGE_ZOOM,
+  MINIMUM_IMAGE_ZOOM,
+  buildCenteredFramingTransform,
+  buildFramingObjectPosition,
+  clampFramingPercent,
+  clampImageZoom,
+  formatImageFraming,
+  framingRenderScale,
+  parseImageFraming,
+} from '../../../core/media/image-framing';
 
 @Component({
   selector: 'app-edit-cover-page',
@@ -24,7 +40,7 @@ import { UpdateCoverPage } from '../models/update-cover-page.model';
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './edit-cover-page.component.css',
 })
-export class EditCoverPageComponent implements OnInit {
+export class EditCoverPageComponent implements OnInit, OnDestroy {
   private readonly coverPageService = inject(CoverPageService);
   private readonly imageService = inject(ImageService);
   private readonly viewportScroller = inject(ViewportScroller);
@@ -42,6 +58,29 @@ export class EditCoverPageComponent implements OnInit {
   readonly minimumBackgroundOverlayStrength = 0;
   readonly maximumBackgroundOverlayStrength = 100;
   readonly backgroundOverlayStrengthStep = 1;
+
+  // Framing controls, matching the profile picture editor's zoom and drag model
+  readonly minimumBackgroundImageZoom = MINIMUM_IMAGE_ZOOM;
+  readonly maximumBackgroundImageZoom = MAXIMUM_IMAGE_ZOOM;
+  readonly backgroundImageZoomStep = IMAGE_ZOOM_STEP;
+  readonly backgroundImagePositionX = signal(50);
+  readonly backgroundImagePositionY = signal(50);
+  readonly backgroundImageZoom = signal(MINIMUM_IMAGE_ZOOM);
+  readonly isDraggingBackgroundImage = signal(false);
+
+  // The public hero fills the whole viewport, so the preview only tells the truth
+  // when it is shaped like the viewport. `background-size: cover` crops purely by
+  // container shape, which is why the old fixed 4/5 preview could never match.
+  readonly previewAspectRatio = signal(this.readViewportAspectRatio());
+
+  // Active pointer and incremental drag values used for smooth two-axis movement
+  private activeBackgroundPointerId?: number;
+  private backgroundDragTarget?: HTMLElement;
+  private dragLastClientX = 0;
+  private dragLastClientY = 0;
+  private dragPositionX = 50;
+  private dragPositionY = 50;
+
   private updateCoverPageSubscription?: Subscription;
   private deleteCoverPageSubscription?: Subscription;
   private removeBackgroundImageSubscription?: Subscription;
@@ -59,12 +98,14 @@ export class EditCoverPageComponent implements OnInit {
               coverPage.backgroundOverlayStrength,
             ),
           });
+          this.applyBackgroundImagePosition(coverPage.backgroundImagePosition);
           this.isCreatingNewPage.set(false);
         },
         error: (error: HttpErrorResponse) => {
           if (error.status === 404) {
             // Start with empty fields when no Cover page has been published yet
             this.model.set(this.createBlankCoverPage());
+            this.applyBackgroundImagePosition(null);
             this.isCreatingNewPage.set(true);
             return;
           }
@@ -86,6 +127,9 @@ export class EditCoverPageComponent implements OnInit {
                 ? { ...model, backgroundImageUrl: selectedImage.url }
                 : model,
             );
+            // A different picture frames differently, so start it centred rather
+            // than inheriting the previous image's zoom and offset.
+            this.applyBackgroundImagePosition(null);
           }
         },
       });
@@ -106,6 +150,123 @@ export class EditCoverPageComponent implements OnInit {
   // Convert the percentage into the opacity consumed by the preview scrim
   get previewBackgroundOverlayOpacity(): number {
     return this.previewBackgroundOverlayStrength / 100;
+  }
+
+  // Framing may only be adjusted while a picture is actually selected
+  get canFrameBackgroundImage(): boolean {
+    return (
+      !!this.previewBackgroundImageUrl &&
+      !this.isRemovingImage() &&
+      !this.isRemoving()
+    );
+  }
+
+  // Transform that centres the preview layer and pans the overflow zoom created
+  get backgroundImageTransform(): string {
+    return buildCenteredFramingTransform(this.currentBackgroundImagePlacement);
+  }
+
+  // Size the preview layer is drawn at. The slider still reports the saved zoom,
+  // but the picture carries the same overscan the public cover renders with.
+  get backgroundImageRenderScale(): number {
+    return framingRenderScale(this.currentBackgroundImagePlacement);
+  }
+
+  // Which part of the picture fills the frame at the current zoom
+  get backgroundImageObjectPosition(): string {
+    return buildFramingObjectPosition(this.currentBackgroundImagePlacement);
+  }
+
+  // The exact string persisted with the cover page
+  get backgroundImagePositionValue(): string {
+    return formatImageFraming(this.currentBackgroundImagePlacement);
+  }
+
+  // True once the administrator has moved away from the centred default
+  get isBackgroundImageFramed(): boolean {
+    return this.backgroundImagePositionValue !== DEFAULT_IMAGE_FRAMING;
+  }
+
+  // Start dragging the cover preview
+  onBackgroundImagePointerDown(event: PointerEvent): void {
+    if (
+      !this.canFrameBackgroundImage ||
+      (event.pointerType === 'mouse' && event.button !== 0)
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    const frame = event.currentTarget as HTMLElement;
+    this.activeBackgroundPointerId = event.pointerId;
+    this.backgroundDragTarget = frame;
+    this.isDraggingBackgroundImage.set(true);
+    this.dragLastClientX = event.clientX;
+    this.dragLastClientY = event.clientY;
+    this.dragPositionX = this.backgroundImagePositionX();
+    this.dragPositionY = this.backgroundImagePositionY();
+    frame.setPointerCapture(event.pointerId);
+  }
+
+  // Track pointer movement on the window so a drag is not lost outside the frame
+  @HostListener('window:pointermove', ['$event'])
+  onBackgroundImagePointerMove(event: PointerEvent): void {
+    if (
+      !this.isDraggingBackgroundImage() ||
+      event.pointerId !== this.activeBackgroundPointerId
+    ) {
+      return;
+    }
+
+    if (event.cancelable) {
+      event.preventDefault();
+    }
+
+    this.updateBackgroundPositionFromDrag(event);
+  }
+
+  // Finish dragging the cover preview
+  @HostListener('window:pointerup', ['$event'])
+  onBackgroundImagePointerUp(event: PointerEvent): void {
+    if (
+      !this.isDraggingBackgroundImage() ||
+      event.pointerId !== this.activeBackgroundPointerId
+    ) {
+      return;
+    }
+
+    this.updateBackgroundPositionFromDrag(event);
+    this.finishBackgroundDrag(event.pointerId);
+  }
+
+  // Cancel an interrupted drag without applying an unreliable final position
+  @HostListener('window:pointercancel', ['$event'])
+  onBackgroundImagePointerCancel(event: PointerEvent): void {
+    if (event.pointerId === this.activeBackgroundPointerId) {
+      this.finishBackgroundDrag(event.pointerId);
+    }
+  }
+
+  // Keep the preview shaped like the viewport the cover hero will actually fill
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.previewAspectRatio.set(this.readViewportAspectRatio());
+  }
+
+  // Update background zoom from the range input
+  onBackgroundImageZoomChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.backgroundImageZoom.set(clampImageZoom(Number(input.value)));
+  }
+
+  // Return the picture to its centred, unzoomed framing
+  resetBackgroundImageFraming(): void {
+    this.applyBackgroundImagePosition(null);
+  }
+
+  ngOnDestroy(): void {
+    // Release any pointer capture still held by an interrupted drag
+    this.finishBackgroundDrag(this.activeBackgroundPointerId);
   }
 
   // Update the draft immediately while the user moves the overlay scale
@@ -160,6 +321,10 @@ export class EditCoverPageComponent implements OnInit {
         welcomeTitle: model.welcomeTitle.trim(),
         introduction: model.introduction.trim(),
         backgroundImageUrl: model.backgroundImageUrl?.trim() || null,
+        // Framing only means something alongside a picture
+        backgroundImagePosition: model.backgroundImageUrl?.trim()
+          ? this.backgroundImagePositionValue
+          : null,
         backgroundOverlayStrength: this.previewBackgroundOverlayStrength,
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -171,6 +336,7 @@ export class EditCoverPageComponent implements OnInit {
               coverPage.backgroundOverlayStrength,
             ),
           });
+          this.applyBackgroundImagePosition(coverPage.backgroundImagePosition);
           this.isCreatingNewPage.set(false);
           this.isRemoveConfirmationOpen.set(false);
           this.successMessage.set('Cover page updated.');
@@ -256,6 +422,7 @@ export class EditCoverPageComponent implements OnInit {
       this.model.update((model) =>
         model ? { ...model, backgroundImageUrl: null } : model,
       );
+      this.applyBackgroundImagePosition(null);
       this.successMessage.set('Picture removed from the draft.');
       return;
     }
@@ -271,6 +438,7 @@ export class EditCoverPageComponent implements OnInit {
           this.model.update((model) =>
             model ? { ...model, backgroundImageUrl: null } : model,
           );
+          this.applyBackgroundImagePosition(null);
           this.successMessage.set('Cover picture removed.');
           this.isRemovingImage.set(false);
         },
@@ -281,6 +449,75 @@ export class EditCoverPageComponent implements OnInit {
       });
   }
 
+  // Current framing expressed for the shared placement helpers
+  private get currentBackgroundImagePlacement(): ImageFraming {
+    return {
+      x: this.backgroundImagePositionX(),
+      y: this.backgroundImagePositionY(),
+      zoom: this.backgroundImageZoom(),
+    };
+  }
+
+  // Apply a saved framing string, falling back to the centred default
+  private applyBackgroundImagePosition(position?: string | null): void {
+    const placement = parseImageFraming(position);
+    this.backgroundImagePositionX.set(placement.x);
+    this.backgroundImagePositionY.set(placement.y);
+    this.backgroundImageZoom.set(placement.zoom);
+  }
+
+  // Convert pointer movement into percentage-based framing. Dragging moves the
+  // picture with the pointer, so the stored position moves the opposite way.
+  private updateBackgroundPositionFromDrag(event: PointerEvent): void {
+    const frame = this.backgroundDragTarget;
+    if (!frame) {
+      return;
+    }
+
+    const bounds = frame.getBoundingClientRect();
+    if (bounds.width <= 0 || bounds.height <= 0) {
+      return;
+    }
+
+    const deltaX =
+      ((event.clientX - this.dragLastClientX) / bounds.width) * 100;
+    const deltaY =
+      ((event.clientY - this.dragLastClientY) / bounds.height) * 100;
+
+    this.dragPositionX = clampFramingPercent(this.dragPositionX - deltaX);
+    this.dragPositionY = clampFramingPercent(this.dragPositionY - deltaY);
+    this.backgroundImagePositionX.set(Math.round(this.dragPositionX));
+    this.backgroundImagePositionY.set(Math.round(this.dragPositionY));
+    this.dragLastClientX = event.clientX;
+    this.dragLastClientY = event.clientY;
+  }
+
+  // Release pointer capture and clear all state associated with the current drag
+  private finishBackgroundDrag(pointerId?: number): void {
+    if (
+      pointerId !== undefined &&
+      this.backgroundDragTarget?.hasPointerCapture(pointerId)
+    ) {
+      this.backgroundDragTarget.releasePointerCapture(pointerId);
+    }
+
+    this.isDraggingBackgroundImage.set(false);
+    this.activeBackgroundPointerId = undefined;
+    this.backgroundDragTarget = undefined;
+  }
+
+  // Shape the preview like the browser viewport the public cover hero will fill
+  private readViewportAspectRatio(): string {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    if (!width || !height) {
+      return '16 / 9';
+    }
+
+    return `${width} / ${height}`;
+  }
+
   // Create a blank draft rather than filling the editor with static welcome copy
   private createBlankCoverPage(): UpdateCoverPage {
     return {
@@ -288,6 +525,7 @@ export class EditCoverPageComponent implements OnInit {
       welcomeTitle: '',
       introduction: '',
       backgroundImageUrl: null,
+      backgroundImagePosition: null,
       backgroundOverlayStrength: this.maximumBackgroundOverlayStrength,
     };
   }

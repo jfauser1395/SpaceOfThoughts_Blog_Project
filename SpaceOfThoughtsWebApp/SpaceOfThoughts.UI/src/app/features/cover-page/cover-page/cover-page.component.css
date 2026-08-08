@@ -13,9 +13,16 @@
 }
 
 /* Cover hero background and overlay */
+/* The layer is pinned to the viewport centre and sized to the saved zoom, so the
+   inline transform only has to centre it and pan the overflow that zoom created. */
 .cover-hero > .cover-hero-background {
-  inset: 0;
+  height: 100%;
+  inset: auto;
+  left: 50%;
   position: fixed;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
 }
 
 .cover-hero {
@@ -209,18 +216,10 @@
   outline-offset: 3px;
 }
 
+/* app-framed-image owns the crop, so only the frame itself is styled here. */
 .cover-blog-image {
   background: color-mix(in srgb, var(--media-text) 8%, transparent);
-  display: block;
   min-height: 100%;
-  overflow: hidden;
-}
-
-.cover-blog-image img {
-  height: 100%;
-  object-fit: cover;
-  transform: scale(1.02);
-  width: 100%;
 }
 
 .cover-blog-card-body {

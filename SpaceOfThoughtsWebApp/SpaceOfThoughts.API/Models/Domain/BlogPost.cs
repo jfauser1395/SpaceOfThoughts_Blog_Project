@@ -18,6 +18,19 @@
         // URL of the featured image for the blog post
         public required string FeaturedImageUrl { get; set; }
 
+        // Saved "x% y% zoom%" framings applied when the featured image is
+        // cropped. The blog card and the article banner are different shapes, so
+        // each keeps its own framing. Null keeps the centred rendering.
+        public string? FeaturedImageCardPosition { get; set; }
+
+        public string? FeaturedImageBannerPosition { get; set; }
+
+        // Optional background picture shown behind the article, with the saved
+        // "x% y% zoom%" framing that crops it to the reader's viewport
+        public string? BackgroundImageUrl { get; set; }
+
+        public string? BackgroundImagePosition { get; set; }
+
         // URL handle (slug) for the blog post
         public required string UrlHandle { get; set; }
 

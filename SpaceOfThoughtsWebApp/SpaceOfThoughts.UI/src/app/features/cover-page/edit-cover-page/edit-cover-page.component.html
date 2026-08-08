@@ -179,9 +179,18 @@
           aria-labelledby="cover-preview-heading"
         >
           <h2 id="cover-preview-heading">Preview</h2>
+          <!-- The frame is shaped like the current viewport so the crop shown here
+               is the crop visitors get on this screen -->
           <div
             class="cover-editor-preview-image"
+            [class.is-draggable]="canFrameBackgroundImage"
+            [class.is-dragging]="isDraggingBackgroundImage()"
             [style.--cover-overlay-opacity]="previewBackgroundOverlayOpacity"
+            [style.aspect-ratio]="previewAspectRatio()"
+            [attr.title]="
+              canFrameBackgroundImage ? 'Drag to position picture' : null
+            "
+            (pointerdown)="onBackgroundImagePointerDown($event)"
           >
             <div
               class="cover-editor-preview-background"
@@ -190,12 +199,58 @@
                   ? 'url(' + previewBackgroundImageUrl + ')'
                   : 'none'
               "
+              [style.background-position]="backgroundImageObjectPosition"
+              [style.height.%]="backgroundImageRenderScale"
+              [style.transform]="backgroundImageTransform"
+              [style.width.%]="backgroundImageRenderScale"
               aria-hidden="true"
             ></div>
             <div class="cover-editor-preview-copy">
               <span>{{ model.kicker }}</span>
               <strong>{{ model.welcomeTitle }}</strong>
               <p>{{ model.introduction }}</p>
+            </div>
+          </div>
+
+          <!-- Zoom and drag frame the picture exactly as the public cover shows it -->
+          <div class="cover-editor-overlay-control">
+            <label for="cover-background-zoom">
+              <span>Picture zoom</span>
+              <output for="cover-background-zoom">
+                {{ backgroundImageZoom() }}%
+              </output>
+            </label>
+            <!-- The reset sits on the zoom bar itself: it undoes the same
+                 framing the slider and the drag build up -->
+            <div class="cover-editor-framing-row">
+              <div class="cover-editor-framing-track">
+                <input
+                  id="cover-background-zoom"
+                  name="backgroundImageZoom"
+                  type="range"
+                  [min]="minimumBackgroundImageZoom"
+                  [max]="maximumBackgroundImageZoom"
+                  [step]="backgroundImageZoomStep"
+                  [value]="backgroundImageZoom()"
+                  [disabled]="!canFrameBackgroundImage"
+                  (input)="onBackgroundImageZoomChange($event)"
+                />
+                <div class="cover-editor-overlay-scale" aria-hidden="true">
+                  <span>Fit</span>
+                  <span>Closer</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                class="admin-icon-button cover-editor-framing-reset"
+                [disabled]="!canFrameBackgroundImage || !isBackgroundImageFramed"
+                title="Reset framing"
+                aria-label="Reset framing"
+                (click)="resetBackgroundImageFraming()"
+              >
+                <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+              </button>
             </div>
           </div>
 

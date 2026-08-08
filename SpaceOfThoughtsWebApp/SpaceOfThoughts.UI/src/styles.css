@@ -1355,11 +1355,12 @@ body:has(.admin-modal.show) .modal-backdrop.show {
   transform: scale(1.018);
 }
 
-/* Keep the cover artwork crisp in light mode without changing the blog imagery. */
+/* Keep the cover artwork crisp in light mode without changing the blog imagery.
+   No transform here: the cover background carries an inline transform that centres
+   it and applies the administrator's saved framing, which a rule cannot override. */
 [data-theme="light"] .cover-hero .media-page-background {
   filter: brightness(1) contrast(1.02) saturate(1);
   opacity: 1;
-  transform: scale(1.006);
 }
 
 html[data-theme="light"] .cover-hero::before {
@@ -1645,4 +1646,30 @@ html[data-theme="light"] .cover-page .cover-actions .btn-outline-light {
 }
 .scroll--simple::-webkit-scrollbar-thumb:active {
   background: color-mix(in srgb, var(--color-text) 72%, transparent);
+}
+
+/* Pictures placed inside a blog post body. The same rules apply in the editor
+   and on the published article, so what a writer arranges is what readers get.
+   The border is chosen per picture as the picture is inserted. */
+.blog-content img.blog-body-image,
+.admin-rich-editor-document img.blog-body-image {
+  border-radius: 8px;
+  display: block;
+  height: auto;
+  margin: 18px auto;
+  max-width: 100%;
+}
+
+.blog-content img.blog-body-image.is-bordered,
+.admin-rich-editor-document img.blog-body-image.is-bordered {
+  border: 1px solid var(--color-border-strong);
+  box-shadow: 0 10px 26px var(--color-shadow);
+  padding: 6px;
+}
+
+/* Any picture written into a post by hand still has to stay inside its column */
+.blog-content img,
+.admin-rich-editor-document img {
+  height: auto;
+  max-width: 100%;
 }

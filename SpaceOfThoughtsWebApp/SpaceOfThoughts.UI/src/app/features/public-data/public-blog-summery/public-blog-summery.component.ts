@@ -20,10 +20,23 @@ import { CategoryService } from '../../category/services/category.service';
 import { Category } from '../../category/models/category.model';
 import { BlogSummaryPageService } from '../services/blog-summary-page.service';
 import { LoadingOverlayComponent } from '../../../core/loading-overlay/loading-overlay.component';
+import { FramedImageComponent } from '../../../core/media/framed-image.component';
+import {
+  buildCenteredFramingTransform,
+  buildFramingObjectPosition,
+  framingRenderScale,
+  parseImageFraming,
+} from '../../../core/media/image-framing';
 
 @Component({
   selector: 'app-home',
-  imports: [RouterModule, LoadingOverlayComponent, AsyncPipe, DatePipe],
+  imports: [
+    RouterModule,
+    LoadingOverlayComponent,
+    AsyncPipe,
+    DatePipe,
+    FramedImageComponent,
+  ],
   templateUrl: './public-blog-summery.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './public-blog-summery.component.css',
@@ -49,6 +62,22 @@ export class PublicBlogSummeryComponent implements OnInit, OnDestroy {
   readonly isLoadingCategories = signal(true); // Flag for category options required by the filter bar
   readonly isLoadingPageSettings = signal(true); // Flag for the configurable public blogs background
   readonly backgroundImageUrl = signal<string | undefined>(undefined); // Optional configured background; undefined keeps the dark page blank
+  readonly backgroundImagePosition = signal<string | undefined>(undefined); // Saved framing for that background
+
+  // Render the framing an administrator saved in the blogs page editor. The same
+  // helpers drive the editor preview, so both surfaces crop the picture alike.
+  private readonly backgroundImagePlacement = computed(() =>
+    parseImageFraming(this.backgroundImagePosition()),
+  );
+  readonly backgroundImageZoom = computed(() =>
+    framingRenderScale(this.backgroundImagePlacement()),
+  );
+  readonly backgroundImageTransform = computed(() =>
+    buildCenteredFramingTransform(this.backgroundImagePlacement()),
+  );
+  readonly backgroundImageObjectPosition = computed(() =>
+    buildFramingObjectPosition(this.backgroundImagePlacement()),
+  );
   readonly canScrollCategoriesBack = signal(false); // Show the previous-topics arrow only after the row has moved
   readonly canScrollCategoriesForward = signal(false); // Show the next-topics arrow only while topics remain off-screen
 
@@ -119,6 +148,9 @@ export class PublicBlogSummeryComponent implements OnInit, OnDestroy {
         next: (blogSummaryPage) => {
           this.backgroundImageUrl.set(
             blogSummaryPage.backgroundImageUrl?.trim() || undefined,
+          );
+          this.backgroundImagePosition.set(
+            blogSummaryPage.backgroundImagePosition?.trim() || undefined,
           );
           this.isLoadingPageSettings.set(false);
         },

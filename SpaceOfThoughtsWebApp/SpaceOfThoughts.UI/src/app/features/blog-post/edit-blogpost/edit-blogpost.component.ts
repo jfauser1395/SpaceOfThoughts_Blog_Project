@@ -21,6 +21,8 @@ import { ImageSelectorComponent } from '../shared/components/image-selector/imag
 import { ImageService } from '../shared/components/services/image.service';
 import { ViewportScroller } from '@angular/common';
 import { MarkdownEditorComponent } from '../shared/components/markdown-editor/markdown-editor.component';
+import { ImageFramingEditorComponent } from '../../../core/media/image-framing-editor.component';
+import { HostListener, viewChild } from '@angular/core';
 
 @Component({
   selector: 'app-edit-blogpost',
@@ -33,6 +35,7 @@ import { MarkdownEditorComponent } from '../shared/components/markdown-editor/ma
     ImageSelectorComponent,
     MarkdownEditorComponent,
     AsyncPipe,
+    ImageFramingEditorComponent,
   ],
 })
 export class EditBlogpostComponent implements OnInit, OnDestroy {
@@ -53,6 +56,17 @@ export class EditBlogpostComponent implements OnInit, OnDestroy {
   deleteBlogPostSubscription$?: Subscription; // Subscription for deleting the blog post
   imageSelectSubscription$?: Subscription; // Subscription for image selection
   readonly urlHandleWarning = signal<string | undefined>(undefined);
+
+  // One picker serves every picture, so it has to be told which is being chosen
+  readonly imageTarget = signal<'featured' | 'background' | 'content'>(
+    'featured',
+  );
+
+  // Needed to drop a chosen picture at the cursor inside the body editor
+  private readonly markdownEditor = viewChild(MarkdownEditorComponent);
+
+  // The background fills the reader's viewport, so its preview is shaped like one
+  readonly previewAspectRatio = signal(this.readViewportAspectRatio());
 
   ngOnInit(): void {
     // Get the list of categories
@@ -79,9 +93,31 @@ export class EditBlogpostComponent implements OnInit, OnDestroy {
           .onSelectImage()
           .subscribe({
             next: (response) => {
-              this.model.update((model) =>
-                model ? { ...model, featuredImageUrl: response.url } : model,
-              );
+              // A picture chosen for the body goes in at the cursor, not on the model
+              if (this.imageTarget() === 'content') {
+                this.markdownEditor()?.insertImage(response.url);
+                return;
+              }
+
+              // A different picture frames differently, so start its crops centred
+              this.model.update((model) => {
+                if (!model) {
+                  return model;
+                }
+
+                return this.imageTarget() === 'background'
+                  ? {
+                      ...model,
+                      backgroundImageUrl: response.url,
+                      backgroundImagePosition: null,
+                    }
+                  : {
+                      ...model,
+                      featuredImageUrl: response.url,
+                      featuredImageCardPosition: null,
+                      featuredImageBannerPosition: null,
+                    };
+              });
             },
           });
       },
@@ -99,6 +135,17 @@ export class EditBlogpostComponent implements OnInit, OnDestroy {
           content: model.content,
           shortDescription: model.shortDescription,
           featuredImageUrl: model.featuredImageUrl,
+          // Framing only means something alongside a picture
+          featuredImageCardPosition: model.featuredImageUrl
+            ? (model.featuredImageCardPosition ?? null)
+            : null,
+          featuredImageBannerPosition: model.featuredImageUrl
+            ? (model.featuredImageBannerPosition ?? null)
+            : null,
+          backgroundImageUrl: model.backgroundImageUrl ?? null,
+          backgroundImagePosition: model.backgroundImageUrl
+            ? (model.backgroundImagePosition ?? null)
+            : null,
           isVisible: model.isVisible,
           publishedDate: model.publishedDate,
           title: model.title,
@@ -136,6 +183,28 @@ export class EditBlogpostComponent implements OnInit, OnDestroy {
           },
         });
     }
+  }
+
+  // Keep the preview shaped like the viewport the background will actually fill
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.previewAspectRatio.set(this.readViewportAspectRatio());
+  }
+
+  // Clear the chosen background picture and the framing that went with it
+  onRemoveBackgroundImage(): void {
+    this.model.update((model) =>
+      model
+        ? { ...model, backgroundImageUrl: null, backgroundImagePosition: null }
+        : model,
+    );
+  }
+
+  private readViewportAspectRatio(): string {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    return width && height ? `${width} / ${height}` : '16 / 9';
   }
 
   // Unsubscribe from subscriptions to prevent memory leaks

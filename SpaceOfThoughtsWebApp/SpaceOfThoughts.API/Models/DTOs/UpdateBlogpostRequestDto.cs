@@ -1,4 +1,4 @@
-namespace SpaceOfThoughts.API.Models.DTOs
+﻿namespace SpaceOfThoughts.API.Models.DTOs
 {
     // DTO for updating an existing blog post
     public class UpdateBlogpostRequestDto
@@ -14,6 +14,18 @@ namespace SpaceOfThoughts.API.Models.DTOs
 
         // URL of the featured image for the blog post
         public required string FeaturedImageUrl { get; set; }
+
+        // Saved "x% y% zoom%" framings applied to the cropped featured image.
+        // The blog card and the article banner are framed independently.
+        public string? FeaturedImageCardPosition { get; set; }
+
+        public string? FeaturedImageBannerPosition { get; set; }
+
+        // Optional background picture shown behind the article, with the saved
+        // "x% y% zoom%" framing that crops it to the reader's viewport
+        public string? BackgroundImageUrl { get; set; }
+
+        public string? BackgroundImagePosition { get; set; }
 
         // URL handle (slug) for the blog post
         public required string UrlHandle { get; set; }

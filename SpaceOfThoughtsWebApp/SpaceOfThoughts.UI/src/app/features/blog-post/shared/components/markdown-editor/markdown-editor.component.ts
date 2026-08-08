@@ -1,14 +1,15 @@
 import {
   AfterViewInit,
-  computed,
+  ChangeDetectionStrategy,
   Component,
   ElementRef,
-  effect,
   HostListener,
-  ChangeDetectionStrategy,
+  computed,
+  effect,
   inject,
   input,
   model,
+  output,
   signal,
   viewChild,
 } from '@angular/core';
@@ -41,6 +42,15 @@ export class MarkdownEditorComponent implements AfterViewInit {
 
   // Model provides the content input and matching contentChange output for two-way binding
   readonly content = model('');
+
+  // Raised when the writer asks for a picture; the form opens its library
+  readonly imagePickerRequested = output<void>();
+
+  // Id of the modal holding the shared picture library, when the host has one
+  readonly pickerModalId = input<string | null>(null);
+
+  // Whether the next inserted picture is bordered, chosen per picture
+  readonly borderNextImage = signal(false);
 
   // Options displayed in the text style dropdown
   readonly textStyleOptions = [
@@ -213,6 +223,41 @@ export class MarkdownEditorComponent implements AfterViewInit {
   // Convert the selected block into a quotation
   applyQuote(): void {
     this.runEditorCommand('formatBlock', 'blockquote');
+  }
+
+  // Ask the hosting form to open the shared picture library. The editor cannot
+  // open it itself: the modal belongs to the form, alongside its other pickers.
+  requestImage(): void {
+    this.focusEditor();
+    this.saveSelection();
+    this.imagePickerRequested.emit();
+  }
+
+  // Whether the next inserted picture carries a border
+  toggleImageBorder(): void {
+    this.borderNextImage.update((bordered) => !bordered);
+  }
+
+  // Insert a picture at the cursor. Called by the form once the library closes.
+  insertImage(url: string): void {
+    const trimmed = url.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    this.focusEditor();
+    const className = this.borderNextImage()
+      ? 'blog-body-image is-bordered'
+      : 'blog-body-image';
+
+    document.execCommand(
+      'insertHTML',
+      false,
+      `<img src="${this.escapeHtml(trimmed)}" alt="" class="${className}" /><p><br></p>`,
+    );
+
+    this.syncContentFromEditor();
+    this.saveSelection();
   }
 
   applyLink(): void {

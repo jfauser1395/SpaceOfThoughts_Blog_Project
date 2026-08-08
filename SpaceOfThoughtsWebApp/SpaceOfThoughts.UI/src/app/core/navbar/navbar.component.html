@@ -36,6 +36,8 @@
             class="searchIconAnimationInput"
             placeholder="Search blog ..."
             [style.opacity]="searchExpanded() ? '1' : '0'"
+            [attr.tabindex]="searchExpanded() ? null : -1"
+            [attr.aria-hidden]="searchExpanded() ? null : 'true'"
           />
           <i
             #mobileSearchToggle

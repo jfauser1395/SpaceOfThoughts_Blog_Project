@@ -12,6 +12,9 @@ export interface UpdateCoverPage {
   // Optional background image URL for the cover page
   backgroundImageUrl?: string | null;
 
+  // Saved "x% y% zoom%" framing applied to the cover background image
+  backgroundImagePosition?: string | null;
+
   // Strength of the translucent gradient placed over the cover background
   backgroundOverlayStrength: number;
 }

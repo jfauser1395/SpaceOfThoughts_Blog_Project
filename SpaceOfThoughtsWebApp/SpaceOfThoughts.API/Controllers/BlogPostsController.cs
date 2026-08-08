@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using SpaceOfThoughts.API.Models.Domain;
 using SpaceOfThoughts.API.Models.DTOs;
 using SpaceOfThoughts.API.Repositories.Interface;
+using SpaceOfThoughts.API.Validation;
 
 namespace SpaceOfThoughts.API.Controllers
 {
@@ -29,12 +30,69 @@ namespace SpaceOfThoughts.API.Controllers
         [Authorize(Roles = "Writer")]
         public async Task<IActionResult> CreateBlogPost([FromBody] CreateBlogPostRequestDto request)
         {
+            // Reject a framing string the blog post editor could not have produced.
+            // The card and the article banner are framed separately, so each is
+            // checked on its own.
+            var cardFramingFailure = ImageFramingValidator.Validate(
+                request.FeaturedImageCardPosition
+            );
+            if (cardFramingFailure is not null)
+            {
+                ModelState.AddModelError(
+                    nameof(request.FeaturedImageCardPosition),
+                    cardFramingFailure
+                );
+                return BadRequest(ModelState);
+            }
+
+            var bannerFramingFailure = ImageFramingValidator.Validate(
+                request.FeaturedImageBannerPosition
+            );
+            if (bannerFramingFailure is not null)
+            {
+                ModelState.AddModelError(
+                    nameof(request.FeaturedImageBannerPosition),
+                    bannerFramingFailure
+                );
+                return BadRequest(ModelState);
+            }
+
+            var backgroundFramingFailure = ImageFramingValidator.Validate(
+                request.BackgroundImagePosition
+            );
+            if (backgroundFramingFailure is not null)
+            {
+                ModelState.AddModelError(
+                    nameof(request.BackgroundImagePosition),
+                    backgroundFramingFailure
+                );
+                return BadRequest(ModelState);
+            }
+
             // Convert DTO to Domain Model
             var blogPost = new BlogPost
             {
                 Author = request.Author,
                 Content = request.Content,
                 FeaturedImageUrl = request.FeaturedImageUrl,
+                FeaturedImageCardPosition = string.IsNullOrWhiteSpace(
+                    request.FeaturedImageCardPosition
+                )
+                    ? null
+                    : request.FeaturedImageCardPosition.Trim(),
+                FeaturedImageBannerPosition = string.IsNullOrWhiteSpace(
+                    request.FeaturedImageBannerPosition
+                )
+                    ? null
+                    : request.FeaturedImageBannerPosition.Trim(),
+                BackgroundImageUrl = string.IsNullOrWhiteSpace(request.BackgroundImageUrl)
+                    ? null
+                    : request.BackgroundImageUrl.Trim(),
+                BackgroundImagePosition = string.IsNullOrWhiteSpace(
+                    request.BackgroundImagePosition
+                )
+                    ? null
+                    : request.BackgroundImagePosition.Trim(),
                 IsVisible = request.IsVisible,
                 PublishedDate = request.PublishedDate,
                 ShortDescription = request.ShortDescription,
@@ -63,6 +121,10 @@ namespace SpaceOfThoughts.API.Controllers
                 Author = blogPost.Author,
                 Content = blogPost.Content,
                 FeaturedImageUrl = blogPost.FeaturedImageUrl,
+                FeaturedImageCardPosition = blogPost.FeaturedImageCardPosition,
+                FeaturedImageBannerPosition = blogPost.FeaturedImageBannerPosition,
+                BackgroundImageUrl = blogPost.BackgroundImageUrl,
+                BackgroundImagePosition = blogPost.BackgroundImagePosition,
                 IsVisible = blogPost.IsVisible,
                 PublishedDate = blogPost.PublishedDate,
                 ShortDescription = blogPost.ShortDescription,
@@ -110,6 +172,10 @@ namespace SpaceOfThoughts.API.Controllers
                         Author = blogPost.Author,
                         Content = blogPost.Content,
                         FeaturedImageUrl = blogPost.FeaturedImageUrl,
+                        FeaturedImageCardPosition = blogPost.FeaturedImageCardPosition,
+                        FeaturedImageBannerPosition = blogPost.FeaturedImageBannerPosition,
+                        BackgroundImageUrl = blogPost.BackgroundImageUrl,
+                        BackgroundImagePosition = blogPost.BackgroundImagePosition,
                         IsVisible = blogPost.IsVisible,
                         PublishedDate = blogPost.PublishedDate,
                         ShortDescription = blogPost.ShortDescription,
@@ -148,6 +214,10 @@ namespace SpaceOfThoughts.API.Controllers
                 Author = blogPost.Author,
                 Content = blogPost.Content,
                 FeaturedImageUrl = blogPost.FeaturedImageUrl,
+                FeaturedImageCardPosition = blogPost.FeaturedImageCardPosition,
+                FeaturedImageBannerPosition = blogPost.FeaturedImageBannerPosition,
+                BackgroundImageUrl = blogPost.BackgroundImageUrl,
+                BackgroundImagePosition = blogPost.BackgroundImagePosition,
                 IsVisible = blogPost.IsVisible,
                 PublishedDate = blogPost.PublishedDate,
                 ShortDescription = blogPost.ShortDescription,
@@ -194,6 +264,10 @@ namespace SpaceOfThoughts.API.Controllers
                 Author = blogPost.Author,
                 Content = blogPost.Content,
                 FeaturedImageUrl = blogPost.FeaturedImageUrl,
+                FeaturedImageCardPosition = blogPost.FeaturedImageCardPosition,
+                FeaturedImageBannerPosition = blogPost.FeaturedImageBannerPosition,
+                BackgroundImageUrl = blogPost.BackgroundImageUrl,
+                BackgroundImagePosition = blogPost.BackgroundImagePosition,
                 IsVisible = blogPost.IsVisible,
                 PublishedDate = blogPost.PublishedDate,
                 ShortDescription = blogPost.ShortDescription,
@@ -219,6 +293,45 @@ namespace SpaceOfThoughts.API.Controllers
             UpdateBlogpostRequestDto request
         )
         {
+            // Reject a framing string the blog post editor could not have produced.
+            // The card and the article banner are framed separately, so each is
+            // checked on its own.
+            var cardFramingFailure = ImageFramingValidator.Validate(
+                request.FeaturedImageCardPosition
+            );
+            if (cardFramingFailure is not null)
+            {
+                ModelState.AddModelError(
+                    nameof(request.FeaturedImageCardPosition),
+                    cardFramingFailure
+                );
+                return BadRequest(ModelState);
+            }
+
+            var bannerFramingFailure = ImageFramingValidator.Validate(
+                request.FeaturedImageBannerPosition
+            );
+            if (bannerFramingFailure is not null)
+            {
+                ModelState.AddModelError(
+                    nameof(request.FeaturedImageBannerPosition),
+                    bannerFramingFailure
+                );
+                return BadRequest(ModelState);
+            }
+
+            var backgroundFramingFailure = ImageFramingValidator.Validate(
+                request.BackgroundImagePosition
+            );
+            if (backgroundFramingFailure is not null)
+            {
+                ModelState.AddModelError(
+                    nameof(request.BackgroundImagePosition),
+                    backgroundFramingFailure
+                );
+                return BadRequest(ModelState);
+            }
+
             // Convert DTO to Domain Model
             var blogPost = new BlogPost
             {
@@ -226,6 +339,24 @@ namespace SpaceOfThoughts.API.Controllers
                 Author = request.Author,
                 Content = request.Content,
                 FeaturedImageUrl = request.FeaturedImageUrl,
+                FeaturedImageCardPosition = string.IsNullOrWhiteSpace(
+                    request.FeaturedImageCardPosition
+                )
+                    ? null
+                    : request.FeaturedImageCardPosition.Trim(),
+                FeaturedImageBannerPosition = string.IsNullOrWhiteSpace(
+                    request.FeaturedImageBannerPosition
+                )
+                    ? null
+                    : request.FeaturedImageBannerPosition.Trim(),
+                BackgroundImageUrl = string.IsNullOrWhiteSpace(request.BackgroundImageUrl)
+                    ? null
+                    : request.BackgroundImageUrl.Trim(),
+                BackgroundImagePosition = string.IsNullOrWhiteSpace(
+                    request.BackgroundImagePosition
+                )
+                    ? null
+                    : request.BackgroundImagePosition.Trim(),
                 IsVisible = request.IsVisible,
                 PublishedDate = request.PublishedDate,
                 ShortDescription = request.ShortDescription,
@@ -258,6 +389,10 @@ namespace SpaceOfThoughts.API.Controllers
                 Author = blogPost.Author,
                 Content = blogPost.Content,
                 FeaturedImageUrl = blogPost.FeaturedImageUrl,
+                FeaturedImageCardPosition = blogPost.FeaturedImageCardPosition,
+                FeaturedImageBannerPosition = blogPost.FeaturedImageBannerPosition,
+                BackgroundImageUrl = blogPost.BackgroundImageUrl,
+                BackgroundImagePosition = blogPost.BackgroundImagePosition,
                 IsVisible = blogPost.IsVisible,
                 PublishedDate = blogPost.PublishedDate,
                 ShortDescription = blogPost.ShortDescription,
@@ -297,6 +432,10 @@ namespace SpaceOfThoughts.API.Controllers
                 Author = deletedBlogPost.Author,
                 Content = deletedBlogPost.Content,
                 FeaturedImageUrl = deletedBlogPost.FeaturedImageUrl,
+                FeaturedImageCardPosition = deletedBlogPost.FeaturedImageCardPosition,
+                FeaturedImageBannerPosition = deletedBlogPost.FeaturedImageBannerPosition,
+                BackgroundImageUrl = deletedBlogPost.BackgroundImageUrl,
+                BackgroundImagePosition = deletedBlogPost.BackgroundImagePosition,
                 IsVisible = deletedBlogPost.IsVisible,
                 PublishedDate = deletedBlogPost.PublishedDate,
                 ShortDescription = deletedBlogPost.ShortDescription,

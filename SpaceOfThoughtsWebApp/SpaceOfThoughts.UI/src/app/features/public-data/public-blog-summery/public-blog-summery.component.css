@@ -14,9 +14,17 @@
   position: relative;
 }
 
-/* Keep the artwork anchored to the viewport while the blog grid scrolls. */
+/* Keep the artwork anchored to the viewport while the blog grid scrolls. The
+   layer is pinned at the viewport's centre point because the saved framing
+   arrives as a transform that centres it and then pans the overflow. */
 .blog-summary-page > .blog-summary-background {
+  height: 100%;
+  inset: auto;
+  left: 50%;
   position: fixed;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
 }
 
 .blog-summary-page::before {
@@ -47,16 +55,23 @@
   position: relative;
 }
 
+/* `overflow-x: auto` also clips the block axis, so this row has to reserve room
+   for the active button's `0 6px 18px` shadow or the glow is sliced flat. It
+   shows worst on "All", which is first in the row and active by default, so its
+   shadow was cut off against the left and top edges. The negative margins cancel
+   the reserved space exactly, keeping every button on the same page grid as
+   before; 16px horizontally matches the page's smallest gutter, so the row can
+   never end up wider than its container. */
 .category-filter-bar {
   align-items: center;
   -webkit-overflow-scrolling: touch;
   display: flex;
   gap: 6px;
-  margin: 0 0 10px;
+  margin: -12px -16px -4px;
   -webkit-mask-image: var(--category-filter-mask, none);
   mask-image: var(--category-filter-mask, none);
   overflow-x: auto;
-  padding: 2px 2px 10px;
+  padding: 12px 16px 24px;
   scrollbar-width: none;
 }
 
@@ -259,19 +274,11 @@
 }
 
 /* Blog card image and body */
+/* app-framed-image owns the crop: it centres the picture, applies the saved
+   framing, and clips the overflow, so only the frame itself is styled here. */
 .blog-summary-image {
   background: color-mix(in srgb, var(--media-text) 8%, transparent);
-  display: block;
   min-height: 100%;
-  overflow: hidden;
-}
-
-.blog-summary-image img {
-  display: block;
-  height: 100%;
-  object-fit: cover;
-  transform: scale(1.02);
-  width: 100%;
 }
 
 .blog-summary-card-body {
