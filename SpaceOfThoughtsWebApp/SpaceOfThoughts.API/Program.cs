@@ -11,10 +11,24 @@ using SpaceOfThoughts.API.Data;
 using SpaceOfThoughts.API.Data.Initialization;
 using SpaceOfThoughts.API.Repositories.Implementation;
 using SpaceOfThoughts.API.Repositories.Interface;
+using SpaceOfThoughts.API.Imaging;
 using SpaceOfThoughts.API.Storage;
 using System.IO.Compression;
 using System.Threading.RateLimiting;
 
+
+if (args.Contains(ImageCodecProbe.CommandFlag, StringComparer.Ordinal))
+{
+    if (args.Length != 1)
+    {
+        throw new ArgumentException(
+            $"{ImageCodecProbe.CommandFlag} cannot be combined with server options."
+        );
+    }
+
+    await ImageCodecProbe.RunAsync();
+    return;
+}
 
 var spotctlProvisionCommand = SpotctlProvisionCommand.Parse(args, out var applicationArgs);
 var builder = WebApplication.CreateBuilder(applicationArgs);
@@ -68,6 +82,7 @@ builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<IBlogPostRepository, BlogPostRepository>();
 builder.Services.AddScoped<IBlogCommentRepository, BlogCommentRepository>();
 builder.Services.AddScoped<IImageRepository, ImageRepository>();
+builder.Services.AddSingleton<IImageUploadProcessor, ImageUploadProcessor>();
 builder.Services.AddScoped<ICoverPageRepository, CoverPageRepository>();
 builder.Services.AddScoped<IAboutPageRepository, AboutPageRepository>();
 builder.Services.AddScoped<IBlogSummaryPageRepository, BlogSummaryPageRepository>();

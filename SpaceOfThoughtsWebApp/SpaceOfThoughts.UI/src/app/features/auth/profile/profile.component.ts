@@ -171,7 +171,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
     this.imageSuccess.set(undefined);
 
     if (!this.avatarImageUrl) {
-      this.imageError.set('Choose a JPG, PNG, or WEBP picture first.');
+      this.imageError.set('Choose a JPG, PNG, WebP, or AVIF picture first.');
       return;
     }
 
@@ -610,7 +610,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
   private async createCroppedProfileImageFile(): Promise<File> {
     const imageUrl = this.avatarImageUrl;
     if (!imageUrl) {
-      throw new Error('Choose a JPG, PNG, or WEBP picture first.');
+      throw new Error('Choose a JPG, PNG, WebP, or AVIF picture first.');
     }
 
     const image = await this.loadImage(
@@ -630,7 +630,9 @@ export class ProfileComponent implements OnInit, OnDestroy {
     this.drawCroppedAvatarImage(context, image);
 
     const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, 'image/jpeg', 0.9);
+      // Hand the server a lossless crop so its optimized WebP is the only
+      // lossy generation in the profile-image workflow.
+      canvas.toBlob(resolve, 'image/png');
     });
 
     if (!blob) {
@@ -639,7 +641,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
 
     return new File([blob], this.getCroppedProfileImageFileName(), {
       lastModified: Date.now(),
-      type: 'image/jpeg',
+      type: 'image/png',
     });
   }
 
@@ -704,18 +706,19 @@ export class ProfileComponent implements OnInit, OnDestroy {
     const fileNameWithoutExtension =
       originalName.replace(/\.[^.]+$/, '') || 'profile-picture';
 
-    return `${fileNameWithoutExtension}-cropped.jpg`;
+    return `${fileNameWithoutExtension}-cropped.png`;
   }
 
   // Validate profile image file type and size before previewing it
   private isProfileImageFileValid(file: File): boolean {
     const extension = file.name.split('.').pop()?.toLowerCase();
-    const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+    const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'avif'];
     const allowedTypes = [
       'image/jpeg',
       'image/pjpeg',
       'image/png',
       'image/webp',
+      'image/avif',
       '',
     ];
     const hasValidExtension = extension
@@ -724,7 +727,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
     const hasValidType = allowedTypes.includes(file.type);
 
     if (!hasValidExtension && !hasValidType) {
-      this.imageError.set('Please choose a JPG, PNG, or WEBP image.');
+      this.imageError.set('Please choose a JPG, PNG, WebP, or AVIF image.');
       return false;
     }
 

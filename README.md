@@ -31,6 +31,37 @@ version recorded in `package-lock.json`.
 Production installation additionally expects a systemd-based Linux host, Bash
 4 or newer, OpenSSL, and a local PostgreSQL service.
 
+## Uploaded image processing
+
+Every new public-library, private-library, and profile image is processed by
+the API before it is published. The processor accepts JPEG, PNG, WebP, and
+AVIF raster input, verifies the decoded format rather than trusting the file
+extension, rejects corrupt or animated input, auto-orients it, converts it to
+sRGB, removes EXIF/IPTC/XMP metadata, and never upscales it. New SVG uploads are
+rejected; existing SVG files and existing raster URLs are left untouched.
+
+General images are limited to 10 MiB, 40 megapixels, and a 3840-pixel longest
+edge. Profile pictures are limited to 5 MiB and a 1024-pixel longest edge. The
+ImageMagick process also has strict memory, disk, dimension, frame, thread, and
+time limits, and upload encodes are serialized for the Raspberry Pi host.
+
+The canonical served output is WebP. PNG artwork and images with transparency
+use lossless WebP. Opaque photographs use quality 94 (profile pictures use 95),
+the highest WebP search method, sharp YUV conversion, automatic filtering, and
+lossless alpha. This is intended to be visually indistinguishable for normal
+web display; mathematically lossless photographs and maximum compression are
+mutually exclusive goals. The profile editor sends its crop to the API as PNG
+so that WebP encoding is the only lossy generation.
+
+AVIF input is supported, but AVIF is not yet emitted as an unused second copy.
+Serving AVIF efficiently requires first-class responsive variant metadata and
+`picture`/`srcset` or negotiated background delivery, plus an encode benchmark
+on the production Linux ARM64 host. Until that delivery contract exists, WebP
+is the compatible fallback that every stored one-URL reference can consume.
+Public images retain the one-hour cache policy because administrator-selected
+filenames can be deleted and reused; immutable caching requires content-addressed
+asset URLs as part of the later variant model.
+
 ## Local development configuration
 
 The API reads configuration through the standard ASP.NET Core configuration
@@ -288,6 +319,16 @@ cd SpaceOfThoughtsWebApp/SpaceOfThoughts.UI
 npm run build
 npm test
 ```
+
+Run the image codec probe on a development machine or directly from a published
+Linux ARM64 release without configuring the database or secrets:
+
+```bash
+./SpaceOfThoughts.API --probe-image-codecs
+```
+
+It performs a real WebP normalization round trip and an AVIF encode/decode
+round trip through the bundled native library.
 
 ## Security notes
 

@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SpaceOfThoughts.API.Data;
+using SpaceOfThoughts.API.Imaging;
 using SpaceOfThoughts.API.Models.Domain;
 using SpaceOfThoughts.API.Repositories.Interface;
 using SpaceOfThoughts.API.Storage;
@@ -12,17 +13,20 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
         private readonly IWebHostEnvironment webHostEnvironment;
         private readonly IHttpContextAccessor httpContextAccessor;
         private readonly ApplicationDbContext dbContext;
+        private readonly IImageUploadProcessor imageUploadProcessor;
 
         // Constructor to initialize dependencies
         public ImageRepository(
             IWebHostEnvironment webHostEnvironment,
             IHttpContextAccessor httpContextAccessor,
-            ApplicationDbContext dbContext
+            ApplicationDbContext dbContext,
+            IImageUploadProcessor imageUploadProcessor
         )
         {
             this.webHostEnvironment = webHostEnvironment;
             this.httpContextAccessor = httpContextAccessor;
             this.dbContext = dbContext;
+            this.imageUploadProcessor = imageUploadProcessor;
         }
 
         // Get all images with optional sorting
@@ -64,7 +68,8 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
         public async Task<BlogImage?> Upload(
             IFormFile file,
             BlogImage blogImage,
-            PublicImageCategory category
+            PublicImageCategory category,
+            CancellationToken cancellationToken = default
         )
         {
             var categoryDirectory = ImageStoragePaths.GetPublicDirectory(
@@ -73,6 +78,9 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
             );
             Directory.CreateDirectory(categoryDirectory);
 
+            // Existing legacy files retain their extension. New uploads use one
+            // canonical WebP URL so every consumer receives an optimized raster.
+            blogImage.FileExtension = ImageUploadProcessor.OutputFileExtension;
             var storedFileName = $"{blogImage.FileName}{blogImage.FileExtension}";
             var localPath = Path.Combine(
                 categoryDirectory,
@@ -114,34 +122,21 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
                 return null;
             }
 
-            FileStream stream;
             try
             {
-                // CreateNew is the atomic final guard against simultaneous duplicate uploads
-                stream = new FileStream(
-                    localPath,
-                    FileMode.CreateNew,
-                    FileAccess.Write,
-                    FileShare.None
+                await imageUploadProcessor.ProcessAndStoreAsync(
+                    file,
+                    categoryDirectory,
+                    blogImage.FileName,
+                    ImageUploadPurpose.PublicLibrary,
+                    cancellationToken
                 );
             }
-            catch (IOException) when (File.Exists(localPath))
+            catch (ImageUploadException) when (File.Exists(localPath))
             {
+                // Atomic publication is the final guard against two uploads that
+                // race after the metadata and directory checks above.
                 return null;
-            }
-
-            // Delete an incomplete file when copying the request body fails
-            try
-            {
-                await using (stream)
-                {
-                    await file.CopyToAsync(stream);
-                }
-            }
-            catch
-            {
-                File.Delete(localPath);
-                throw;
             }
 
             // Construct the public URL using forwarded proxy scheme and host information
@@ -154,7 +149,7 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
             try
             {
                 await dbContext.BlogImages.AddAsync(blogImage);
-                await dbContext.SaveChangesAsync(); // Save changes to the database
+                await dbContext.SaveChangesAsync(cancellationToken); // Save changes to the database
             }
             catch
             {

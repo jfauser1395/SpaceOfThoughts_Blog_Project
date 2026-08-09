@@ -7,6 +7,7 @@ using Npgsql;
 using SpaceOfThoughts.API.Authentication;
 using SpaceOfThoughts.API.Data;
 using SpaceOfThoughts.API.Data.Initialization;
+using SpaceOfThoughts.API.Imaging;
 using SpaceOfThoughts.API.Models.DTOs;
 using SpaceOfThoughts.API.Repositories.Interface;
 using SpaceOfThoughts.API.Storage;
@@ -25,32 +26,35 @@ namespace SpaceOfThoughts.API.Controllers
         private const int DefaultProfileImageZoomPercent = 100;
         private const int MinimumProfileImageZoomPercent = 85;
         private const int MaximumProfileImageZoomPercent = 170;
-        private const long MaxProfileImageSizeInBytes = 5 * 1024 * 1024;
         private static readonly string[] AllowedProfileImageExtensions =
         {
             ".jpg",
             ".jpeg",
             ".png",
-            ".webp"
+            ".webp",
+            ".avif"
         };
 
         private readonly UserManager<IdentityUser> userManager;
         private readonly AuthDbContext authDbContext;
         private readonly ITokenRepository tokenRepository;
         private readonly IWebHostEnvironment webHostEnvironment;
+        private readonly IImageUploadProcessor imageUploadProcessor;
 
         // Constructor to initialize UserManager and TokenRepository
         public AuthController(
             UserManager<IdentityUser> userManager,
             AuthDbContext authDbContext,
             ITokenRepository tokenRepository,
-            IWebHostEnvironment webHostEnvironment
+            IWebHostEnvironment webHostEnvironment,
+            IImageUploadProcessor imageUploadProcessor
         )
         {
             this.userManager = userManager;
             this.authDbContext = authDbContext;
             this.tokenRepository = tokenRepository;
             this.webHostEnvironment = webHostEnvironment;
+            this.imageUploadProcessor = imageUploadProcessor;
         }
 
         // POST: {apiBaseUrl}/api/auth/login - Endpoint to log in a user with email and password
@@ -509,6 +513,8 @@ namespace SpaceOfThoughts.API.Controllers
         [HttpPost]
         [Route("profile-image")]
         [Authorize(Roles = "Reader,Writer")]
+        [RequestSizeLimit(6 * 1024 * 1024)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 6 * 1024 * 1024)]
         public async Task<IActionResult> UploadProfileImage(
             [FromForm] IFormFile? file,
             [FromForm] string? profileImagePosition
@@ -538,55 +544,93 @@ namespace SpaceOfThoughts.API.Controllers
                 return Unauthorized();
             }
 
-            var fileExtension = Path.GetExtension(file!.FileName).ToLowerInvariant();
             var profilePicturesDirectory =
                 ImageStoragePaths.GetProfilePicturesDirectory(
                     webHostEnvironment.ContentRootPath
                 );
-            Directory.CreateDirectory(profilePicturesDirectory);
-
-            var fileName = $"{user.Id}-{Guid.NewGuid():N}{fileExtension}";
-            var localPath = Path.Combine(profilePicturesDirectory, fileName);
-
-            // CreateNew formally prevents an unexpected generated-name collision
-            await using (var stream = new FileStream(
-                localPath,
-                FileMode.CreateNew,
-                FileAccess.Write,
-                FileShare.None
-            ))
+            ProcessedImageFile processedImage;
+            try
             {
-                await file.CopyToAsync(stream);
+                processedImage = await imageUploadProcessor.ProcessAndStoreAsync(
+                    file!,
+                    profilePicturesDirectory,
+                    $"{user.Id}-{Guid.NewGuid():N}",
+                    ImageUploadPurpose.ProfilePicture,
+                    HttpContext.RequestAborted
+                );
             }
-
-            var profileImageUrl =
-                $"{Request.Scheme}://{Request.Host}{Request.PathBase}{ImageStoragePaths.PublicRequestPath}/{ImageStoragePaths.ProfilePicturesDirectoryName}/{fileName}";
-            var previousProfileImageUrl = await GetClaimValueAsync(user, ProfileImageClaimType);
-
-            var replacePositionResult = await ReplaceClaimAsync(
-                user,
-                ProfileImagePositionClaimType,
-                NormalizeProfileImagePosition(profileImagePosition ?? DefaultProfileImagePosition)
-            );
-
-            if (!replacePositionResult.Succeeded)
+            catch (ImageUploadException exception)
             {
-                DeleteLocalProfileImage(localPath);
-                AddIdentityErrorsToModelState(replacePositionResult);
+                ModelState.AddModelError(nameof(file), exception.Message);
                 return ValidationProblem(ModelState);
             }
 
-            var replaceImageResult = await ReplaceClaimAsync(user, ProfileImageClaimType, profileImageUrl);
-            if (!replaceImageResult.Succeeded)
+            var fileName = processedImage.FileName;
+            var localPath = processedImage.FilePath;
+            var uploadCommitted = false;
+            try
             {
-                DeleteLocalProfileImage(localPath);
-                AddIdentityErrorsToModelState(replaceImageResult);
-                return ValidationProblem(ModelState);
+                var profileImageUrl =
+                    $"{Request.Scheme}://{Request.Host}{Request.PathBase}{ImageStoragePaths.PublicRequestPath}/{ImageStoragePaths.ProfilePicturesDirectoryName}/{fileName}";
+                var previousProfileImageUrl = await GetClaimValueAsync(
+                    user,
+                    ProfileImageClaimType
+                );
+
+                // UserManager's Identity store and this controller share the
+                // request-scoped AuthDbContext. Keep both claim replacements in
+                // one transaction so an image-claim failure (or response-build
+                // exception) cannot leave a new position attached to the old image.
+                await using var claimTransaction = await authDbContext.Database.BeginTransactionAsync(
+                    HttpContext.RequestAborted
+                );
+
+                var replacePositionResult = await ReplaceClaimAsync(
+                    user,
+                    ProfileImagePositionClaimType,
+                    NormalizeProfileImagePosition(
+                        profileImagePosition ?? DefaultProfileImagePosition
+                    )
+                );
+
+                if (!replacePositionResult.Succeeded)
+                {
+                    await claimTransaction.RollbackAsync(CancellationToken.None);
+                    AddIdentityErrorsToModelState(replacePositionResult);
+                    return ValidationProblem(ModelState);
+                }
+
+                var replaceImageResult = await ReplaceClaimAsync(
+                    user,
+                    ProfileImageClaimType,
+                    profileImageUrl
+                );
+                if (!replaceImageResult.Succeeded)
+                {
+                    await claimTransaction.RollbackAsync(CancellationToken.None);
+                    AddIdentityErrorsToModelState(replaceImageResult);
+                    return ValidationProblem(ModelState);
+                }
+
+                // Build the response before committing. If this throws, disposing
+                // the uncommitted transaction restores both previous claims.
+                var response = await BuildUserResponseDtoAsync(user);
+                await claimTransaction.CommitAsync(HttpContext.RequestAborted);
+                uploadCommitted = true;
+
+                DeletePreviousProfileImage(previousProfileImageUrl);
+                return Ok(response);
             }
-
-            DeletePreviousProfileImage(previousProfileImageUrl);
-
-            return Ok(await BuildUserResponseDtoAsync(user));
+            finally
+            {
+                // The new file becomes durable only together with both claims.
+                // All validation, cancellation, and exception paths before commit
+                // remove it after the database transaction has rolled back.
+                if (!uploadCommitted)
+                {
+                    DeleteLocalProfileImage(localPath);
+                }
+            }
         }
 
         // GET: {apiBaseUrl}/api/auth/count - Endpoint to get the total count of users, excluding the admin
@@ -968,10 +1012,13 @@ namespace SpaceOfThoughts.API.Controllers
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
             if (!AllowedProfileImageExtensions.Contains(extension))
             {
-                ModelState.AddModelError("file", "Supported profile picture formats are JPG, PNG, and WEBP");
+                ModelState.AddModelError(
+                    "file",
+                    "Supported profile picture formats are JPG, PNG, WebP, and AVIF"
+                );
             }
 
-            if (file.Length > MaxProfileImageSizeInBytes)
+            if (file.Length > ImageUploadProcessor.MaximumProfileUploadBytes)
             {
                 ModelState.AddModelError("file", "Profile picture size cannot be more than 5MB");
             }

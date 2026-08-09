@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SpaceOfThoughts.API.Imaging;
 using SpaceOfThoughts.API.Models.Domain;
 using SpaceOfThoughts.API.Models.DTOs;
 using SpaceOfThoughts.API.Repositories.Interface;
@@ -75,6 +76,8 @@ namespace SpaceOfThoughts.API.Controllers
         // POST: {apiBaseUrl}/api/Images - Upload an image into a public category
         [HttpPost]
         [Authorize(Roles = "Writer")]
+        [RequestSizeLimit(11 * 1024 * 1024)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 11 * 1024 * 1024)]
         public async Task<IActionResult> UploadImage(
             [FromForm] IFormFile? file,
             [FromForm] string? fileName,
@@ -109,18 +112,28 @@ namespace SpaceOfThoughts.API.Controllers
                 // Create a new BlogImage object
                 var blogImage = new BlogImage
                 {
-                    FileExtension = Path.GetExtension(file!.FileName).ToLowerInvariant(),
+                    FileExtension = ImageUploadProcessor.OutputFileExtension,
                     FileName = normalizedFileName!,
                     Title = title!.Trim(),
                     DateCreated = DateTime.UtcNow,
                 };
 
                 // Upload without silently renaming a duplicate administrator filename
-                var uploadedImage = await imageRepository.Upload(
-                    file,
-                    blogImage,
-                    parsedCategory
-                );
+                BlogImage? uploadedImage;
+                try
+                {
+                    uploadedImage = await imageRepository.Upload(
+                        file!,
+                        blogImage,
+                        parsedCategory,
+                        HttpContext.RequestAborted
+                    );
+                }
+                catch (ImageUploadException exception)
+                {
+                    ModelState.AddModelError(nameof(file), exception.Message);
+                    return ValidationProblem(ModelState);
+                }
                 if (uploadedImage is null)
                 {
                     var storedFileName =
@@ -169,8 +182,8 @@ namespace SpaceOfThoughts.API.Controllers
                 ".jpg",
                 ".jpeg",
                 ".png",
-                ".svg",
-                ".webp"
+                ".webp",
+                ".avif"
             };
             if (
                 !allowedExtension.Contains(
@@ -178,9 +191,12 @@ namespace SpaceOfThoughts.API.Controllers
                 )
             )
             {
-                ModelState.AddModelError("file", "Unsupported file format.");
+                ModelState.AddModelError(
+                    "file",
+                    "Supported image formats are JPG, PNG, WebP, and AVIF."
+                );
             }
-            if (file.Length > 10485760)
+            if (file.Length > ImageUploadProcessor.MaximumGeneralUploadBytes)
             {
                 ModelState.AddModelError(
                     "file",

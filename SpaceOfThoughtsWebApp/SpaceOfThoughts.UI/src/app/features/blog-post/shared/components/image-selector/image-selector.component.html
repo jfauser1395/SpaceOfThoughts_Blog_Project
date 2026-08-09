@@ -37,6 +37,7 @@
               type="file"
               id="fileInput"
               class="form-control"
+              accept=".jpg,.jpeg,.png,.webp,.avif,image/jpeg,image/png,image/webp,image/avif"
               (change)="onFileUploadChange($event)"
               name="file"
               formControlName="file"
@@ -108,6 +109,8 @@
                         [src]="image.url"
                         alt=""
                         class="admin-image-preview"
+                        loading="lazy"
+                        decoding="async"
                       />
                     </button>
 

@@ -26,19 +26,19 @@
         <div>
           <p class="private-media-step">01</p>
           <h2 id="upload-photo-title">Add a private photo</h2>
-          <p>JPG, PNG, or WEBP up to 10 MB.</p>
+          <p>JPG, PNG, WebP, or AVIF up to 10 MB.</p>
         </div>
 
         <div class="private-media-upload-controls">
           <label class="private-media-file-picker" for="private-photo-input">
             <i class="bi bi-image" aria-hidden="true"></i>
             <span>
-              <strong>{{ chosenFile?.name ?? 'Choose a photo' }}</strong>
+              <strong>{{ chosenFile?.name ?? "Choose a photo" }}</strong>
               <small>
                 {{
                   chosenFile
                     ? formatFileSize(chosenFile.size)
-                    : 'Select from this device'
+                    : "Select from this device"
                 }}
               </small>
             </span>
@@ -48,7 +48,7 @@
             id="private-photo-input"
             class="visually-hidden"
             type="file"
-            accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+            accept=".jpg,.jpeg,.png,.webp,.avif,image/jpeg,image/png,image/webp,image/avif"
             (change)="onFileSelected($event)"
           />
 
@@ -92,7 +92,7 @@
           @if (!isLoading()) {
             <span class="private-media-count">
               {{ privateImages.length }}
-              {{ privateImages.length === 1 ? 'photo' : 'photos' }}
+              {{ privateImages.length === 1 ? "photo" : "photos" }}
             </span>
           }
         </div>
@@ -131,7 +131,7 @@
                 <div class="private-media-card-details">
                   <div>
                     <time [attr.datetime]="image.lastModifiedAt">
-                      {{ image.lastModifiedAt | date: 'mediumDate' }}
+                      {{ image.lastModifiedAt | date: "mediumDate" }}
                     </time>
                     <span>{{ formatFileSize(image.sizeInBytes) }}</span>
                   </div>
@@ -180,7 +180,7 @@
     <figure (click)="$event.stopPropagation()">
       <img [src]="selectedImage.previewUrl" alt="Private photo preview" />
       <figcaption>
-        Uploaded {{ selectedImage.lastModifiedAt | date: 'medium' }} ·
+        Uploaded {{ selectedImage.lastModifiedAt | date: "medium" }} ·
         {{ formatFileSize(selectedImage.sizeInBytes) }}
       </figcaption>
     </figure>

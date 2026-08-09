@@ -11,7 +11,8 @@ namespace SpaceOfThoughts.API.Repositories.Interface
         Task<BlogImage?> Upload(
             IFormFile file,
             BlogImage blogImage,
-            PublicImageCategory category
+            PublicImageCategory category,
+            CancellationToken cancellationToken = default
         );
 
         // Method to get all images with optional sorting

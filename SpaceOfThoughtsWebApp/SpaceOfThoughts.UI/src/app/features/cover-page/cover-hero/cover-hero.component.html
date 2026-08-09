@@ -76,6 +76,8 @@
               [src]="blog.featuredImageUrl || 'assets/loadIcon.svg'"
               [alt]="blog.title"
               [framing]="blog.featuredImageCardPosition"
+              loading="lazy"
+              fetchPriority="low"
             />
             <span class="cover-blog-card-body">
               <span class="cover-blog-meta">

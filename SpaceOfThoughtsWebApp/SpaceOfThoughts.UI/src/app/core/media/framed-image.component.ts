@@ -27,6 +27,9 @@ import {
         class="is-contained"
         [src]="src()"
         [alt]="alt()"
+        [attr.loading]="loading()"
+        [attr.fetchpriority]="fetchPriority()"
+        decoding="async"
         [style.transform]="transform()"
         draggable="false"
       />
@@ -34,6 +37,9 @@ import {
       <img
         [src]="src()"
         [alt]="alt()"
+        [attr.loading]="loading()"
+        [attr.fetchpriority]="fetchPriority()"
+        decoding="async"
         [style.height.%]="renderedScale()"
         [style.object-position]="objectPosition()"
         [style.transform]="transform()"
@@ -71,6 +77,8 @@ import {
 export class FramedImageComponent {
   readonly src = input.required<string>();
   readonly alt = input('');
+  readonly loading = input<'eager' | 'lazy'>('eager');
+  readonly fetchPriority = input<'auto' | 'high' | 'low'>('auto');
 
   // Saved "x% y% zoom%" string; anything unparseable falls back to centred.
   readonly framing = input<string | null | undefined>(undefined);

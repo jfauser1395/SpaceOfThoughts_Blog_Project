@@ -152,7 +152,7 @@
                 <input
                   id="profile-picture-input"
                   type="file"
-                  accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                  accept=".jpg,.jpeg,.png,.webp,.avif,image/jpeg,image/png,image/webp,image/avif"
                   (change)="onProfileImageSelected($event)"
                 />
 
@@ -166,7 +166,7 @@
                   (click)="onUploadProfileImage()"
                 >
                   <i class="bi bi-check2" aria-hidden="true"></i>
-                  {{ isUploadingProfileImage() ? 'Saving...' : 'Save picture' }}
+                  {{ isUploadingProfileImage() ? "Saving..." : "Save picture" }}
                 </button>
               </div>
 
@@ -193,7 +193,7 @@
                 formControlName="userName"
                 autocomplete="username"
               />
-              @if (profileForm.controls.userName.hasError('duplicate')) {
+              @if (profileForm.controls.userName.hasError("duplicate")) {
                 <small>Username is already taken.</small>
               } @else if (
                 profileForm.controls.userName.invalid &&
@@ -212,7 +212,7 @@
                 formControlName="email"
                 autocomplete="email"
               />
-              @if (profileForm.controls.email.hasError('duplicate')) {
+              @if (profileForm.controls.email.hasError("duplicate")) {
                 <small>Email is already taken.</small>
               } @else if (
                 profileForm.controls.email.invalid &&
@@ -233,7 +233,7 @@
                   autocomplete="current-password"
                 />
                 @if (
-                  profileForm.controls.currentPassword.hasError('required') &&
+                  profileForm.controls.currentPassword.hasError("required") &&
                   profileForm.controls.currentPassword.touched
                 ) {
                   <small>Current password is required.</small>
@@ -261,7 +261,7 @@
                   autocomplete="new-password"
                 />
                 @if (
-                  profileForm.controls.confirmPassword.hasError('mismatch')
+                  profileForm.controls.confirmPassword.hasError("mismatch")
                 ) {
                   <small>Passwords do not match.</small>
                 }
@@ -285,7 +285,7 @@
                 [disabled]="isSavingProfile() || profileForm.invalid"
               >
                 <i class="bi bi-save" aria-hidden="true"></i>
-                {{ isSavingProfile() ? 'Saving...' : 'Save changes' }}
+                {{ isSavingProfile() ? "Saving..." : "Save changes" }}
               </button>
             </div>
           </form>
@@ -350,8 +350,8 @@
                   <i class="bi bi-trash3" aria-hidden="true"></i>
                   {{
                     isDeletingAccount()
-                      ? 'Deleting...'
-                      : 'Delete account permanently'
+                      ? "Deleting..."
+                      : "Delete account permanently"
                   }}
                 </button>
               </div>

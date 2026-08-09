@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SpaceOfThoughts.API.Data.Initialization;
+using SpaceOfThoughts.API.Imaging;
 using SpaceOfThoughts.API.Models.DTOs;
 using SpaceOfThoughts.API.Storage;
 
@@ -12,21 +13,26 @@ namespace SpaceOfThoughts.API.Controllers
     [Authorize(Roles = IdentitySeedConstants.InitialAdminRole)]
     public class PrivateImagesController : ControllerBase
     {
-        private const long MaximumFileSizeInBytes = 10 * 1024 * 1024;
         private static readonly IReadOnlyDictionary<string, string> AllowedContentTypes =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 [".jpg"] = "image/jpeg",
                 [".jpeg"] = "image/jpeg",
                 [".png"] = "image/png",
-                [".webp"] = "image/webp"
+                [".webp"] = "image/webp",
+                [".avif"] = "image/avif"
             };
 
         private readonly IWebHostEnvironment webHostEnvironment;
+        private readonly IImageUploadProcessor imageUploadProcessor;
 
-        public PrivateImagesController(IWebHostEnvironment webHostEnvironment)
+        public PrivateImagesController(
+            IWebHostEnvironment webHostEnvironment,
+            IImageUploadProcessor imageUploadProcessor
+        )
         {
             this.webHostEnvironment = webHostEnvironment;
+            this.imageUploadProcessor = imageUploadProcessor;
         }
 
         // GET: {apiBaseUrl}/api/Images/private - List private images for the initial admin
@@ -81,6 +87,8 @@ namespace SpaceOfThoughts.API.Controllers
 
         // POST: {apiBaseUrl}/api/Images/private - Store an image behind authorization
         [HttpPost]
+        [RequestSizeLimit(11 * 1024 * 1024)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 11 * 1024 * 1024)]
         public async Task<IActionResult> Upload([FromForm] IFormFile? file)
         {
             ValidateUpload(file);
@@ -89,25 +97,28 @@ namespace SpaceOfThoughts.API.Controllers
                 return ValidationProblem(ModelState);
             }
 
-            var extension = Path.GetExtension(file!.FileName).ToLowerInvariant();
-            var fileName = $"{Guid.NewGuid():N}{extension}";
+            var outputBaseName = Guid.NewGuid().ToString("N");
             var privateDirectory = ImageStoragePaths.GetPrivateDirectory(
                 webHostEnvironment.ContentRootPath
             );
-            Directory.CreateDirectory(privateDirectory);
-
-            var filePath = Path.Combine(privateDirectory, fileName);
-            await using (var stream = new FileStream(
-                filePath,
-                FileMode.CreateNew,
-                FileAccess.Write,
-                FileShare.None
-            ))
+            ProcessedImageFile processedImage;
+            try
             {
-                await file.CopyToAsync(stream);
+                processedImage = await imageUploadProcessor.ProcessAndStoreAsync(
+                    file!,
+                    privateDirectory,
+                    outputBaseName,
+                    ImageUploadPurpose.PrivateLibrary,
+                    HttpContext.RequestAborted
+                );
+            }
+            catch (ImageUploadException exception)
+            {
+                ModelState.AddModelError(nameof(file), exception.Message);
+                return ValidationProblem(ModelState);
             }
 
-            var response = BuildResponse(filePath);
+            var response = BuildResponse(processedImage.FilePath);
             return CreatedAtAction(
                 nameof(GetByFileName),
                 new { fileName = response.FileName },
@@ -153,11 +164,11 @@ namespace SpaceOfThoughts.API.Controllers
             {
                 ModelState.AddModelError(
                     "file",
-                    "Supported private image formats are JPG, PNG, and WEBP."
+                    "Supported private image formats are JPG, PNG, WebP, and AVIF."
                 );
             }
 
-            if (file.Length > MaximumFileSizeInBytes)
+            if (file.Length > ImageUploadProcessor.MaximumGeneralUploadBytes)
             {
                 ModelState.AddModelError(
                     "file",
