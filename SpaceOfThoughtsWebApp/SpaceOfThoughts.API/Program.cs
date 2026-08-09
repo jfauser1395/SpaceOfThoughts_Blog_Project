@@ -195,6 +195,7 @@ builder
 // Add rate limiting to protect the API from abuse
 builder.Services.AddRateLimiter(options =>
 {
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
     {
         return RateLimitPartition.GetFixedWindowLimiter(
@@ -265,6 +266,7 @@ app.UseCors("AllowSpecificOrigins");
 
 // Enable authentication and authorization
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 
