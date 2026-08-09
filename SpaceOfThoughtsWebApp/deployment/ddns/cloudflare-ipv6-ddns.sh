@@ -52,7 +52,7 @@ umask 077
 #                        Set true only when Cloudflare should proxy the website.
 # -------------------------------------------------- #
 : "${CF_TTL:=300}"
-: "${CF_PROXIED:=false}"
+: "${CF_PROXIED:=true}"
 
 ###############  IPV6 HOST CONFIGURATION  ############
 # @IPV6_SUFFIX         - Stable host portion of the web server's global IPv6
