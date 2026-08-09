@@ -39,6 +39,12 @@
   --media-border: rgba(95, 45, 56, 0.24);
   --media-overlay: rgba(248, 245, 247, 0.68);
   --media-overlay-strong: rgba(248, 245, 247, 0.94);
+
+  /* The cover hero keeps its light copy in both themes, so the wash behind it
+     stays dark even where the page overlays turn milky. One token, because the
+     published hero and its editor preview have to agree. */
+  --cover-hero-overlay: rgba(0, 0, 0, 0.58);
+  --cover-hero-overlay-strong: rgba(0, 0, 0, 0.78);
   --media-shadow: rgba(33, 37, 41, 0.22);
 
   /* Keep Bootstrap utilities and stock controls on the same semantic palette. */
@@ -99,6 +105,8 @@
   --media-border: rgba(212, 126, 146, 0.48);
   --media-overlay: rgba(0, 0, 0, 0.58);
   --media-overlay-strong: rgba(0, 0, 0, 0.78);
+  --cover-hero-overlay: var(--media-overlay);
+  --cover-hero-overlay-strong: var(--media-overlay-strong);
   --media-shadow: rgba(0, 0, 0, 0.52);
 
   --bs-body-bg: var(--color-background);

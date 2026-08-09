@@ -39,15 +39,19 @@
   position: relative;
 }
 
+/* The cover keeps light copy in both themes, so this wash reads from the cover's
+   own tokens rather than the page overlays, which turn milky in light mode and
+   would leave light text on a white background. The editor preview reads the
+   same tokens, which is what keeps the two surfaces identical. */
 .cover-hero::before {
   background:
     linear-gradient(
       90deg,
-      var(--media-overlay-strong),
-      var(--media-overlay) 54%,
+      var(--cover-hero-overlay-strong),
+      var(--cover-hero-overlay) 54%,
       transparent
     ),
-    linear-gradient(0deg, var(--media-overlay), transparent);
+    linear-gradient(0deg, var(--cover-hero-overlay), transparent);
   content: "";
   inset: 0;
   opacity: var(--cover-overlay-opacity, 1);

@@ -4,11 +4,14 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  AfterViewInit,
+  ElementRef,
   HostListener,
   OnDestroy,
   OnInit,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -40,7 +43,7 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './edit-cover-page.component.css',
 })
-export class EditCoverPageComponent implements OnInit, OnDestroy {
+export class EditCoverPageComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly coverPageService = inject(CoverPageService);
   private readonly imageService = inject(ImageService);
   private readonly viewportScroller = inject(ViewportScroller);
@@ -73,6 +76,16 @@ export class EditCoverPageComponent implements OnInit, OnDestroy {
   // container shape, which is why the old fixed 4/5 preview could never match.
   readonly previewAspectRatio = signal(this.readViewportAspectRatio());
 
+  // The preview frame is a scaled-down viewport. The copy inside it is laid out
+  // at real viewport size and shrunk by this factor, so every clamp() and vw in
+  // the published hero resolves here exactly as it will on the page. Sizing the
+  // copy to the small frame directly could never do that: its type would keep a
+  // fixed size while the frame changed.
+  readonly previewScale = signal(1);
+  private readonly previewFrame =
+    viewChild<ElementRef<HTMLElement>>('previewFrame');
+  private previewFrameObserver?: ResizeObserver;
+
   // Active pointer and incremental drag values used for smooth two-axis movement
   private activeBackgroundPointerId?: number;
   private backgroundDragTarget?: HTMLElement;
@@ -84,6 +97,20 @@ export class EditCoverPageComponent implements OnInit, OnDestroy {
   private updateCoverPageSubscription?: Subscription;
   private deleteCoverPageSubscription?: Subscription;
   private removeBackgroundImageSubscription?: Subscription;
+
+  ngAfterViewInit(): void {
+    const frame = this.previewFrame()?.nativeElement;
+    if (!frame || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    this.previewFrameObserver = new ResizeObserver(() =>
+      this.updatePreviewScale(),
+    );
+    this.previewFrameObserver.observe(frame);
+    this.destroyRef.onDestroy(() => this.previewFrameObserver?.disconnect());
+    this.updatePreviewScale();
+  }
 
   ngOnInit(): void {
     // Load the saved cover page content
@@ -251,6 +278,17 @@ export class EditCoverPageComponent implements OnInit, OnDestroy {
   @HostListener('window:resize')
   onWindowResize(): void {
     this.previewAspectRatio.set(this.readViewportAspectRatio());
+    this.updatePreviewScale();
+  }
+
+  // How much smaller the preview frame is than the screen it stands in for.
+  private updatePreviewScale(): void {
+    const frameWidth = this.previewFrame()?.nativeElement.clientWidth ?? 0;
+    const viewportWidth = window.innerWidth;
+
+    if (frameWidth > 0 && viewportWidth > 0) {
+      this.previewScale.set(frameWidth / viewportWidth);
+    }
   }
 
   // Update background zoom from the range input

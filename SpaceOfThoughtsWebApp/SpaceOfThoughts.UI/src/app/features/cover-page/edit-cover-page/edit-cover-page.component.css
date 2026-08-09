@@ -70,7 +70,6 @@
 /* aspect-ratio is bound inline from the live viewport so this frame crops the
    picture exactly the way the full-screen public cover hero will. */
 .cover-editor-preview-image {
-  align-items: end;
   background-color: var(--media-background);
   border-radius: 8px;
   display: flex;
@@ -88,15 +87,17 @@
   cursor: grabbing;
 }
 
+/* Reads the cover's own overlay tokens, exactly as the published hero does, so
+   the preview cannot drift from the page in either theme. */
 .cover-editor-preview-image::before {
   background:
     linear-gradient(
       90deg,
-      var(--media-overlay-strong),
-      var(--media-overlay) 54%,
+      var(--cover-hero-overlay-strong),
+      var(--cover-hero-overlay) 54%,
       transparent
     ),
-    linear-gradient(0deg, var(--media-overlay), transparent);
+    linear-gradient(0deg, var(--cover-hero-overlay), transparent);
   content: "";
   inset: 0;
   opacity: var(--cover-overlay-opacity, 1);
@@ -104,17 +105,6 @@
   position: absolute;
   transition: opacity 160ms ease;
   z-index: 1;
-}
-
-:host-context([data-theme="light"]) .cover-editor-preview-image::before {
-  background:
-    linear-gradient(
-      90deg,
-      rgba(0, 0, 0, 0.78),
-      rgba(0, 0, 0, 0.58) 54%,
-      transparent
-    ),
-    linear-gradient(0deg, rgba(0, 0, 0, 0.58), transparent);
 }
 
 /* Pinned to the frame's centre and sized to the chosen zoom, so the inline
@@ -136,6 +126,24 @@
   transition: none;
 }
 
+/* A viewport-sized stage shrunk into the frame. Laying the copy out at the real
+   screen size is what makes clamp() and vw resolve to the values the published
+   hero uses; scaling then reduces the whole block in proportion, the way a
+   thumbnail does. Mirrors .cover-hero's own padding and centring. */
+.cover-editor-preview-viewport {
+  align-items: center;
+  display: flex;
+  height: calc(100% / var(--preview-scale, 1));
+  left: 0;
+  padding: clamp(84px, 12vh, 120px) clamp(18px, 6vw, 88px) clamp(32px, 8vh, 64px);
+  position: absolute;
+  top: 0;
+  transform: scale(var(--preview-scale, 1));
+  transform-origin: top left;
+  width: calc(100% / var(--preview-scale, 1));
+  z-index: 2;
+}
+
 /* The copy is a preview of the published text, not a target: letting pointer
    events through keeps the whole frame draggable. */
 .cover-editor-preview-copy {
@@ -143,10 +151,9 @@
   filter: none;
   mix-blend-mode: normal;
   opacity: 1;
-  padding: 22px;
   pointer-events: none;
   position: relative;
-  z-index: 2;
+  width: min(100%, 720px);
 }
 
 /* Framing hint and its inline reset action */
@@ -187,22 +194,32 @@
   color: #f4e9ec;
 }
 
-.cover-editor-preview-image span {
+/* Mirrors .cover-kicker, .cover-hero h1 and .cover-hero p. Those live in the
+   cover page's own stylesheet, which cannot reach in here across component style
+   encapsulation, so the values are repeated. Any change there belongs here too. */
+.cover-editor-preview-copy span {
   color: var(--media-accent);
   display: block;
   font-weight: 700;
-  margin-bottom: 8px;
+  letter-spacing: 0;
+  margin-bottom: 14px;
   text-transform: uppercase;
 }
 
-.cover-editor-preview-image strong {
+.cover-editor-preview-copy strong {
   display: block;
-  font-size: 28px;
-  line-height: 1.1;
+  font-family: NavFont, serif;
+  font-size: clamp(48px, 7vw, 96px);
+  line-height: 1;
+  margin: 0 0 18px;
 }
 
-.cover-editor-preview-image p {
-  margin: 12px 0 0;
+.cover-editor-preview-copy p {
+  color: var(--media-text-muted);
+  font-size: clamp(18px, 2vw, 24px);
+  line-height: 1.55;
+  margin: 0;
+  max-width: 650px;
 }
 
 :host-context([data-theme="light"]) .cover-editor-preview-copy strong {

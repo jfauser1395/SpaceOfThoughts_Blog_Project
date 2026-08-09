@@ -182,6 +182,7 @@
           <!-- The frame is shaped like the current viewport so the crop shown here
                is the crop visitors get on this screen -->
           <div
+            #previewFrame
             class="cover-editor-preview-image"
             [class.is-draggable]="canFrameBackgroundImage"
             [class.is-dragging]="isDraggingBackgroundImage()"
@@ -205,10 +206,19 @@
               [style.width.%]="backgroundImageRenderScale"
               aria-hidden="true"
             ></div>
-            <div class="cover-editor-preview-copy">
-              <span>{{ model.kicker }}</span>
-              <strong>{{ model.welcomeTitle }}</strong>
-              <p>{{ model.introduction }}</p>
+            <!-- A scaled-down viewport: the copy is laid out at the real screen
+                 size and shrunk to fit, so its proportions and placement are the
+                 ones the published hero will have. -->
+            <div
+              class="cover-editor-preview-viewport"
+              [style.--preview-scale]="previewScale()"
+              aria-hidden="true"
+            >
+              <div class="cover-editor-preview-copy">
+                <span>{{ model.kicker }}</span>
+                <strong>{{ model.welcomeTitle }}</strong>
+                <p>{{ model.introduction }}</p>
+              </div>
             </div>
           </div>
 
