@@ -28,6 +28,9 @@ readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly APP_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd -P)"
 readonly REPO_ROOT="$(cd -- "$APP_ROOT/.." && pwd -P)"
 readonly UI_PROJECT_DIR="$APP_ROOT/SpaceOfThoughts.UI"
+# Git pathspecs are given relative to the repository, which keeps them valid
+# whether this runs in Git Bash on Windows or in a Linux shell.
+readonly UI_RELATIVE_DIR="SpaceOfThoughtsWebApp/SpaceOfThoughts.UI"
 
 [[ -f "$UI_PROJECT_DIR/package.json" ]] || die "Angular package.json not found: $UI_PROJECT_DIR/package.json"
 
@@ -69,7 +72,7 @@ case "$choice" in
     *) die "Choose 1, 2, 3, or q." ;;
 esac
 
-npm --prefix "$UI_PROJECT_DIR" --silent version "$BUMP" --no-git-tag-version >/dev/null
+(cd -- "$UI_PROJECT_DIR" && npm --silent version "$BUMP" --no-git-tag-version >/dev/null)
 readonly NEW_VERSION="$(read_version)"
 [[ "$NEW_VERSION" != "$CURRENT_VERSION" ]] || die "npm did not change the version."
 
