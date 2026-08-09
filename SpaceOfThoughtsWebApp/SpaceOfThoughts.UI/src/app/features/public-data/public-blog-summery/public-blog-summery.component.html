@@ -1,17 +1,10 @@
 @let backgroundImage = backgroundImageUrl();
 @let visibleBlogs = filteredBlogs();
 <div class="blog-summary-page">
-  <div
-    class="blog-summary-background media-page-background"
-    [style.background-image]="
-      backgroundImage ? 'url(' + backgroundImage + ')' : 'none'
-    "
-    [style.background-position]="backgroundImageObjectPosition()"
-    [style.height.%]="backgroundImageZoom()"
-    [style.transform]="backgroundImageTransform()"
-    [style.width.%]="backgroundImageZoom()"
-    aria-hidden="true"
-  ></div>
+  <app-framed-background-layer
+    [src]="backgroundImage"
+    [framing]="backgroundImagePosition()"
+  />
   <!-- Block the page while its required posts, categories, or settings are loading -->
   <app-loading-overlay [loading]="isPageLoading()" />
 
@@ -116,7 +109,7 @@
                         }
                       </span>
                       <time [attr.datetime]="blog.publishedDate">
-                        {{ blog.publishedDate | date: 'yyyy-MM-dd' }}
+                        {{ blog.publishedDate | date: "yyyy-MM-dd" }}
                       </time>
                     </span>
 
@@ -138,7 +131,7 @@
                 aria-hidden="true"
               />
               <p>
-                @if (selectedCategoryId() === 'all') {
+                @if (selectedCategoryId() === "all") {
                   No blogs found.
                 } @else {
                   No blogs in this category yet.

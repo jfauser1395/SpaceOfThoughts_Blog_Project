@@ -21,12 +21,7 @@ import { Category } from '../../category/models/category.model';
 import { BlogSummaryPageService } from '../services/blog-summary-page.service';
 import { LoadingOverlayComponent } from '../../../core/loading-overlay/loading-overlay.component';
 import { FramedImageComponent } from '../../../core/media/framed-image.component';
-import {
-  buildCenteredFramingTransform,
-  buildFramingObjectPosition,
-  framingRenderScale,
-  parseImageFraming,
-} from '../../../core/media/image-framing';
+import { FramedBackgroundLayerComponent } from '../../../core/media/framed-background-layer.component';
 
 @Component({
   selector: 'app-home',
@@ -36,6 +31,7 @@ import {
     AsyncPipe,
     DatePipe,
     FramedImageComponent,
+    FramedBackgroundLayerComponent,
   ],
   templateUrl: './public-blog-summery.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -64,20 +60,6 @@ export class PublicBlogSummeryComponent implements OnInit, OnDestroy {
   readonly backgroundImageUrl = signal<string | undefined>(undefined); // Optional configured background; undefined keeps the dark page blank
   readonly backgroundImagePosition = signal<string | undefined>(undefined); // Saved framing for that background
 
-  // Render the framing an administrator saved in the blogs page editor. The same
-  // helpers drive the editor preview, so both surfaces crop the picture alike.
-  private readonly backgroundImagePlacement = computed(() =>
-    parseImageFraming(this.backgroundImagePosition()),
-  );
-  readonly backgroundImageZoom = computed(() =>
-    framingRenderScale(this.backgroundImagePlacement()),
-  );
-  readonly backgroundImageTransform = computed(() =>
-    buildCenteredFramingTransform(this.backgroundImagePlacement()),
-  );
-  readonly backgroundImageObjectPosition = computed(() =>
-    buildFramingObjectPosition(this.backgroundImagePlacement()),
-  );
   readonly canScrollCategoriesBack = signal(false); // Show the previous-topics arrow only after the row has moved
   readonly canScrollCategoriesForward = signal(false); // Show the next-topics arrow only while topics remain off-screen
 

@@ -1,18 +1,3 @@
-/* Optional per-post background. Pinned at the viewport's centre point because
-   the saved framing arrives as a transform that centres it and pans the
-   overflow, and anchored to the viewport so the article scrolls over it. The
-   content sits above it in its own stacking context. */
-.blog-details-background {
-  height: 100%;
-  inset: auto;
-  left: 50%;
-  position: fixed;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 100%;
-  z-index: 0;
-}
-
 .blog-details-container {
   position: relative;
   z-index: 1;
@@ -340,7 +325,11 @@
 
 .comment-control-button:hover:not(:disabled),
 .comment-control-button.is-active {
-  background: color-mix(in srgb, var(--color-primary) 16%, var(--color-surface));
+  background: color-mix(
+    in srgb,
+    var(--color-primary) 16%,
+    var(--color-surface)
+  );
   border-color: var(--color-primary-hover);
   color: var(--color-heading);
 }
@@ -380,7 +369,11 @@
 
 .reply-cancel-button:hover,
 .reply-cancel-button:focus-visible {
-  background: color-mix(in srgb, var(--color-primary) 16%, var(--color-surface));
+  background: color-mix(
+    in srgb,
+    var(--color-primary) 16%,
+    var(--color-surface)
+  );
   border-color: var(--color-primary-hover);
   color: var(--color-heading);
 }

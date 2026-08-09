@@ -44,28 +44,31 @@ import {
       [attr.title]="canFrame() ? 'Drag to position picture' : null"
       (pointerdown)="onPointerDown($event)"
     >
-      @if (src(); as source) {
-        @if (fit() === 'contain') {
-          <img
-            class="is-contained"
-            [src]="source"
-            [alt]="alt()"
-            [style.transform]="transform()"
-            draggable="false"
-          />
+    <!-- Render the image if requested -->
+      @if (renderImage()) {
+        @if (src(); as source) {
+          @if (fit() === 'contain') {
+            <img
+              class="is-contained"
+              [src]="source"
+              [alt]="alt()"
+              [style.transform]="transform()"
+              draggable="false"
+            />
+          } @else {
+            <img
+              [src]="source"
+              [alt]="alt()"
+              [style.height.%]="renderScale()"
+              [style.object-position]="objectPosition()"
+              [style.transform]="transform()"
+              [style.width.%]="renderScale()"
+              draggable="false"
+            />
+          }
         } @else {
-          <img
-            [src]="source"
-            [alt]="alt()"
-            [style.height.%]="renderScale()"
-            [style.object-position]="objectPosition()"
-            [style.transform]="transform()"
-            [style.width.%]="renderScale()"
-            draggable="false"
-          />
+          <span class="framing-empty">No picture selected</span>
         }
-      } @else {
-        <span class="framing-empty">No picture selected</span>
       }
       <ng-content />
     </div>
@@ -233,6 +236,10 @@ export class ImageFramingEditorComponent implements OnDestroy {
   readonly disabled = input(false);
   readonly zoomLabel = input('Picture zoom');
 
+  // A host can project its exact public renderer instead of drawing a second
+  // bare image. The shared control still owns drag, zoom, reset, and output.
+  readonly renderImage = input(true);
+
   // Must match the fit the published surface uses, or this stops being a preview.
   readonly fit = input<ImageFramingFit>('cover');
 
@@ -249,7 +256,9 @@ export class ImageFramingEditorComponent implements OnDestroy {
 
   readonly isDragging = signal(false);
 
-  private readonly placement = computed(() => parseImageFraming(this.framing(), this.fit()));
+  private readonly placement = computed(() =>
+    parseImageFraming(this.framing(), this.fit()),
+  );
 
   // The slider shows the saved zoom; the picture is drawn the way the public
   // surface draws it, so the editor previews what readers see.
@@ -265,10 +274,13 @@ export class ImageFramingEditorComponent implements OnDestroy {
       ? buildContainedFramingTransform(this.placement())
       : buildFramingTransform(this.placement()),
   );
-  protected readonly canFrame = computed(() => !!this.src() && !this.disabled());
+  protected readonly canFrame = computed(
+    () => !!this.src() && !this.disabled(),
+  );
   protected readonly isFramed = computed(
     () =>
-      formatImageFraming(this.placement(), this.fit()) !== DEFAULT_IMAGE_FRAMING,
+      formatImageFraming(this.placement(), this.fit()) !==
+      DEFAULT_IMAGE_FRAMING,
   );
 
   // Active pointer and incremental drag values used for smooth two-axis movement
@@ -280,7 +292,10 @@ export class ImageFramingEditorComponent implements OnDestroy {
   private dragPositionY = 50;
 
   onPointerDown(event: PointerEvent): void {
-    if (!this.canFrame() || (event.pointerType === 'mouse' && event.button !== 0)) {
+    if (
+      !this.canFrame() ||
+      (event.pointerType === 'mouse' && event.button !== 0)
+    ) {
       return;
     }
 
@@ -363,7 +378,8 @@ export class ImageFramingEditorComponent implements OnDestroy {
       return;
     }
 
-    const deltaX = ((event.clientX - this.dragLastClientX) / bounds.width) * 100;
+    const deltaX =
+      ((event.clientX - this.dragLastClientX) / bounds.width) * 100;
     const deltaY =
       ((event.clientY - this.dragLastClientY) / bounds.height) * 100;
 
@@ -386,7 +402,10 @@ export class ImageFramingEditorComponent implements OnDestroy {
 
   // Release pointer capture and clear all state associated with the current drag
   private finishDrag(pointerId?: number): void {
-    if (pointerId !== undefined && this.dragTarget?.hasPointerCapture(pointerId)) {
+    if (
+      pointerId !== undefined &&
+      this.dragTarget?.hasPointerCapture(pointerId)
+    ) {
       this.dragTarget.releasePointerCapture(pointerId);
     }
 

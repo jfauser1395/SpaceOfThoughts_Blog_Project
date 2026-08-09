@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   Component,
@@ -9,7 +8,6 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { StyleService } from '../../../../services/style.service';
 import { AuthService } from '../../auth/services/auth.service';
@@ -17,20 +15,14 @@ import { User } from '../../auth/models/user.model';
 import { BlogPost } from '../../blog-post/models/blog-post.model';
 import { BlogPostService } from '../../blog-post/services/blog-post.service';
 import { CoverPage } from '../models/cover-page.model';
-import {
-  buildCenteredFramingTransform,
-  buildFramingObjectPosition,
-  framingRenderScale,
-  parseImageFraming,
-} from '../../../core/media/image-framing';
 import { CoverPageService } from '../services/cover-page.service';
-import { FramedImageComponent } from '../../../core/media/framed-image.component';
 import { LoadingOverlayComponent } from '../../../core/loading-overlay/loading-overlay.component';
 import { ThemeService } from '../../../core/theme/theme.service';
+import { CoverHeroComponent } from '../cover-hero/cover-hero.component';
 
 @Component({
   selector: 'app-cover-page',
-  imports: [RouterModule, LoadingOverlayComponent, DatePipe, FramedImageComponent],
+  imports: [LoadingOverlayComponent, CoverHeroComponent],
   templateUrl: './cover-page.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './cover-page.component.css',
@@ -58,22 +50,6 @@ export class CoverPageComponent implements OnInit, OnDestroy {
     () => this.isLoading() || this.isCoverImageLoading(),
   );
 
-  // Render the framing the administrator saved in the cover editor. The same
-  // helpers drive the editor preview, so both surfaces crop the image identically.
-  private readonly backgroundImagePlacement = computed(() =>
-    parseImageFraming(this.coverPage()?.backgroundImagePosition),
-  );
-  // The layer is drawn at the shared render scale, which carries the overscan
-  // the framing transform pans within.
-  readonly backgroundImageZoom = computed(() =>
-    framingRenderScale(this.backgroundImagePlacement()),
-  );
-  readonly backgroundImageTransform = computed(() =>
-    buildCenteredFramingTransform(this.backgroundImagePlacement()),
-  );
-  readonly backgroundImageObjectPosition = computed(() =>
-    buildFramingObjectPosition(this.backgroundImagePlacement()),
-  );
   readonly activeBlogPreviewPosition = computed(() => {
     const blogPreviewPosts = this.blogPreviewPosts();
     return blogPreviewPosts.length === 0

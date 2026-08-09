@@ -30,12 +30,7 @@ import { User } from '../../auth/models/user.model';
 import { LoadingOverlayComponent } from '../../../core/loading-overlay/loading-overlay.component';
 import { FramedImageComponent } from '../../../core/media/framed-image.component';
 import { ImageFullscreenViewComponent } from '../../../core/media/image-fullscreen-view.component';
-import {
-  buildCenteredFramingTransform,
-  buildFramingObjectPosition,
-  framingRenderScale,
-  parseImageFraming,
-} from '../../../core/media/image-framing';
+import { FramedBackgroundLayerComponent } from '../../../core/media/framed-background-layer.component';
 
 @Component({
   selector: 'app-blog-details',
@@ -48,6 +43,7 @@ import {
     NgTemplateOutlet,
     FramedImageComponent,
     ImageFullscreenViewComponent,
+    FramedBackgroundLayerComponent,
   ],
   templateUrl: './blog-details.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -83,20 +79,6 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
     this.countComments(this.comments()),
   );
 
-  // Optional background picture behind the article, framed the way the editor
-  // framed it. The same helpers drive that preview, so both crop alike.
-  private readonly backgroundImagePlacement = computed(() =>
-    parseImageFraming(this.blogPost()?.backgroundImagePosition),
-  );
-  readonly backgroundImageZoom = computed(() =>
-    framingRenderScale(this.backgroundImagePlacement()),
-  );
-  readonly backgroundImageTransform = computed(() =>
-    buildCenteredFramingTransform(this.backgroundImagePlacement()),
-  );
-  readonly backgroundImageObjectPosition = computed(() =>
-    buildFramingObjectPosition(this.backgroundImagePlacement()),
-  );
   readonly commentControl = new FormControl('', {
     nonNullable: true,
     validators: [Validators.required, Validators.maxLength(2000)],

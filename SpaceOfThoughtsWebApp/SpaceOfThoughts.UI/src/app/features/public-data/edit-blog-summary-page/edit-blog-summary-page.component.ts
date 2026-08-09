@@ -18,6 +18,7 @@ import { ImageService } from '../../blog-post/shared/components/services/image.s
 import { BlogSummaryPage } from '../models/blog-summary-page.model';
 import { BlogSummaryPageService } from '../services/blog-summary-page.service';
 import { ImageFramingEditorComponent } from '../../../core/media/image-framing-editor.component';
+import { DEFAULT_IMAGE_FRAMING } from '../../../core/media/image-framing';
 
 @Component({
   selector: 'app-edit-blog-summary-page',
@@ -87,7 +88,11 @@ export class EditBlogSummaryPageComponent implements OnInit {
             // Replace the object so the signal refreshes the preview
             this.model.update((model) =>
               model
-                ? { ...model, backgroundImageUrl: selectedImage.url }
+                ? {
+                    ...model,
+                    backgroundImageUrl: selectedImage.url,
+                    backgroundImagePosition: DEFAULT_IMAGE_FRAMING,
+                  }
                 : model,
             );
           }
@@ -111,10 +116,16 @@ export class EditBlogSummaryPageComponent implements OnInit {
     this.isSaving.set(true);
     this.updateBlogSummaryPageSubscription?.unsubscribe();
 
-    // Save the optional background image URL to the API
+    const model = this.model();
+
+    // Framing is part of the controlled background value and must be persisted
+    // with the URL that it describes.
     this.updateBlogSummaryPageSubscription = this.blogSummaryPageService
       .updateBlogSummaryPage({
-        backgroundImageUrl: this.model()?.backgroundImageUrl?.trim() || null,
+        backgroundImageUrl: model?.backgroundImageUrl?.trim() || null,
+        backgroundImagePosition: model?.backgroundImageUrl?.trim()
+          ? model.backgroundImagePosition?.trim() || DEFAULT_IMAGE_FRAMING
+          : null,
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
@@ -203,7 +214,13 @@ export class EditBlogSummaryPageComponent implements OnInit {
     if (this.isCreatingNewPage()) {
       // A new draft has no persisted image reference to remove from the API
       this.model.update((model) =>
-        model ? { ...model, backgroundImageUrl: null } : model,
+        model
+          ? {
+              ...model,
+              backgroundImageUrl: null,
+              backgroundImagePosition: null,
+            }
+          : model,
       );
       this.successMessage.set('Picture removed from the draft.');
       return;
@@ -217,7 +234,13 @@ export class EditBlogSummaryPageComponent implements OnInit {
       .subscribe({
         next: () => {
           this.model.update((model) =>
-            model ? { ...model, backgroundImageUrl: null } : model,
+            model
+              ? {
+                  ...model,
+                  backgroundImageUrl: null,
+                  backgroundImagePosition: null,
+                }
+              : model,
           );
           this.successMessage.set('Blogs page picture removed.');
           this.isRemovingImage.set(false);
@@ -258,6 +281,7 @@ export class EditBlogSummaryPageComponent implements OnInit {
     return {
       id: '',
       backgroundImageUrl: null,
+      backgroundImagePosition: null,
       updatedAt: new Date().toISOString(),
     };
   }

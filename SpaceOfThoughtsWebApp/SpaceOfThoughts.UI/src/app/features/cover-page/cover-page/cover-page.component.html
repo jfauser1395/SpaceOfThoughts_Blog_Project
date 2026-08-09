@@ -1,118 +1,19 @@
-@let page = coverPage();
-@let currentUser = user();
-@let previewPosts = blogPreviewPosts();
-@let backgroundImage = backgroundImageUrl();
 <main class="cover-page">
-  <!-- Full-screen cover hero with dynamic background image -->
-  <section
-    class="cover-hero"
-    aria-labelledby="cover-title"
-    [style.--cover-overlay-opacity]="
-      (page?.backgroundOverlayStrength ?? 100) / 100
-    "
-  >
-    <div
-      class="cover-hero-background media-page-background"
-      [style.background-image]="
-        backgroundImage ? 'url(' + backgroundImage + ')' : 'none'
-      "
-      [style.background-position]="backgroundImageObjectPosition()"
-      [style.height.%]="backgroundImageZoom()"
-      [style.transform]="backgroundImageTransform()"
-      [style.width.%]="backgroundImageZoom()"
-      aria-hidden="true"
-    ></div>
-    <!-- Use the shared public loader while cover content and the hero image initialize -->
-    <app-loading-overlay [loading]="isPageLoading()" [lockPageScroll]="false" />
+  <!-- Public and editor surfaces render this exact same hero component. -->
+  <app-cover-hero
+    [page]="coverPage()"
+    [currentUser]="user()"
+    [backgroundImageUrl]="backgroundImageUrl()"
+    [backgroundImagePosition]="coverPage()?.backgroundImagePosition"
+    [loading]="isPageLoading()"
+    [notPublished]="isNotPublished()"
+    [blogPreviews]="visibleBlogPreviews()"
+    [blogPreviewPosition]="activeBlogPreviewPosition()"
+    [blogPreviewTotal]="blogPreviewPosts().length"
+  />
 
-    <!-- Welcome message and primary cover actions -->
-    <div class="cover-hero-content" [class.is-loading]="isPageLoading()">
-      @if (currentUser !== undefined) {
-        <div class="cover-greeting">
-          Hay <span>{{ currentUser.userName }}</span> !
-        </div>
-      }
-
-      @if (isLoading()) {
-        <span class="cover-kicker">Loading</span>
-        <h1 id="cover-title">Space of Thoughts</h1>
-        <p>Preparing the latest welcome...</p>
-      } @else if (page) {
-        <span class="cover-kicker">{{ page.kicker }}</span>
-        <h1 id="cover-title">{{ page.welcomeTitle }}</h1>
-        <p>{{ page.introduction }}</p>
-      } @else if (isNotPublished()) {
-        <!-- Status only; public welcome copy is never supplied from source defaults -->
-        <span class="cover-kicker">Cover page</span>
-        <h1 id="cover-title">Not published yet</h1>
-        <p>The welcome message has not been published yet.</p>
-      }
-
-      <div class="cover-actions">
-        <a class="btn btnPrimary" [routerLink]="['/blogs']">
-          <i class="bi bi-journal-text" aria-hidden="true"></i>
-          Read blogs
-        </a>
-        @if (currentUser === undefined) {
-          <a class="btn btn-outline-light" [routerLink]="['/login']">
-            <i class="bi bi-person" aria-hidden="true"></i>
-            Sign in
-          </a>
-        }
-      </div>
-    </div>
-
-    @if (previewPosts.length > 0) {
-      <!-- Rotating preview of published blog posts -->
-      <aside
-        class="cover-blog-preview"
-        [class.is-loading]="isPageLoading()"
-        aria-label="Blog previews"
-      >
-        <div class="cover-blog-preview-header">
-          <span>From the blog</span>
-          <span class="cover-blog-preview-count">
-            {{ activeBlogPreviewPosition() + ' / ' + previewPosts.length }}
-          </span>
-        </div>
-
-        <div class="cover-blog-preview-stage">
-          @for (
-            blog of visibleBlogPreviews();
-            track blog.id;
-            let index = $index
-          ) {
-            <a
-              class="cover-blog-card"
-              [class.is-primary]="index === 0"
-              [class.is-supporting]="index > 0"
-              [routerLink]="['/blog', blog.urlHandle]"
-              [attr.aria-label]="'Read blog ' + blog.title"
-            >
-              <app-framed-image
-                class="cover-blog-image"
-                [src]="blog.featuredImageUrl || 'assets/loadIcon.svg'"
-                [alt]="blog.title"
-                [framing]="blog.featuredImageCardPosition"
-              />
-              <span class="cover-blog-card-body">
-                <span class="cover-blog-meta">
-                  <span>{{ blog.publishedDate | date: 'MMM d, yyyy' }}</span>
-                  @if (blog.categories.length > 0) {
-                    <span>{{ blog.categories[0].name }}</span>
-                  }
-                </span>
-                <span class="cover-blog-title">{{ blog.title }}</span>
-                <span class="cover-blog-description">
-                  {{ blog.shortDescription }}
-                </span>
-              </span>
-            </a>
-          }
-        </div>
-      </aside>
-    }
-  </section>
+  <!-- Use the shared public loader while cover content and the hero image initialize -->
+  <app-loading-overlay [loading]="isPageLoading()" [lockPageScroll]="false" />
 
   <button
     type="button"

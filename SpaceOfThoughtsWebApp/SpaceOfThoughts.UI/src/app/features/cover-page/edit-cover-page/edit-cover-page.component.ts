@@ -4,11 +4,11 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
-  AfterViewInit,
   ElementRef,
   HostListener,
-  OnDestroy,
   OnInit,
+  computed,
+  effect,
   inject,
   signal,
   viewChild,
@@ -23,29 +23,36 @@ import { CoverPageService } from '../services/cover-page.service';
 import { UpdateCoverPage } from '../models/update-cover-page.model';
 import {
   DEFAULT_IMAGE_FRAMING,
-  ImageFraming,
-  IMAGE_ZOOM_STEP,
-  MAXIMUM_IMAGE_ZOOM,
-  MINIMUM_IMAGE_ZOOM,
-  buildCenteredFramingTransform,
-  buildFramingObjectPosition,
-  clampFramingPercent,
-  clampImageZoom,
   formatImageFraming,
-  framingRenderScale,
   parseImageFraming,
 } from '../../../core/media/image-framing';
+import { ImageFramingEditorComponent } from '../../../core/media/image-framing-editor.component';
+import { CoverHeroComponent } from '../cover-hero/cover-hero.component';
+import { AuthService } from '../../auth/services/auth.service';
+import { BlogPost } from '../../blog-post/models/blog-post.model';
+import { BlogPostService } from '../../blog-post/services/blog-post.service';
+
+type EditableCoverPageField =
+  'kicker' | 'welcomeTitle' | 'introduction' | 'backgroundImageUrl';
 
 @Component({
   selector: 'app-edit-cover-page',
-  imports: [FormsModule, RouterModule, ImageSelectorComponent],
+  imports: [
+    FormsModule,
+    RouterModule,
+    ImageSelectorComponent,
+    ImageFramingEditorComponent,
+    CoverHeroComponent,
+  ],
   templateUrl: './edit-cover-page.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './edit-cover-page.component.css',
 })
-export class EditCoverPageComponent implements OnInit, AfterViewInit, OnDestroy {
+export class EditCoverPageComponent implements OnInit {
   private readonly coverPageService = inject(CoverPageService);
   private readonly imageService = inject(ImageService);
+  private readonly authService = inject(AuthService);
+  private readonly blogPostService = inject(BlogPostService);
   private readonly viewportScroller = inject(ViewportScroller);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -58,59 +65,51 @@ export class EditCoverPageComponent implements OnInit, AfterViewInit, OnDestroy 
   readonly isRemoveConfirmationOpen = signal(false);
   readonly errorMessage = signal<string | undefined>(undefined);
   readonly successMessage = signal<string | undefined>(undefined);
+  readonly currentUser = this.authService.getUser();
+  readonly blogPreviewPosts = signal<BlogPost[]>([]);
+  readonly blogPreviewTotal = signal(0);
   readonly minimumBackgroundOverlayStrength = 0;
   readonly maximumBackgroundOverlayStrength = 100;
   readonly backgroundOverlayStrengthStep = 1;
 
-  // Framing controls, matching the profile picture editor's zoom and drag model
-  readonly minimumBackgroundImageZoom = MINIMUM_IMAGE_ZOOM;
-  readonly maximumBackgroundImageZoom = MAXIMUM_IMAGE_ZOOM;
-  readonly backgroundImageZoomStep = IMAGE_ZOOM_STEP;
-  readonly backgroundImagePositionX = signal(50);
-  readonly backgroundImagePositionY = signal(50);
-  readonly backgroundImageZoom = signal(MINIMUM_IMAGE_ZOOM);
-  readonly isDraggingBackgroundImage = signal(false);
-
-  // The public hero fills the whole viewport, so the preview only tells the truth
-  // when it is shaped like the viewport. `background-size: cover` crops purely by
-  // container shape, which is why the old fixed 4/5 preview could never match.
-  readonly previewAspectRatio = signal(this.readViewportAspectRatio());
-
-  // The preview frame is a scaled-down viewport. The copy inside it is laid out
-  // at real viewport size and shrunk by this factor, so every clamp() and vw in
-  // the published hero resolves here exactly as it will on the page. Sizing the
-  // copy to the small frame directly could never do that: its type would keep a
-  // fixed size while the frame changed.
+  // The shared hero is rendered at the public page's logical viewport dimensions,
+  // then the complete scene is uniformly scaled into the editor card.
+  readonly previewViewportWidth = signal(Math.max(window.innerWidth, 1));
+  readonly previewViewportHeight = signal(Math.max(window.innerHeight, 1));
+  readonly previewAspectRatio = computed(
+    () => `${this.previewViewportWidth()} / ${this.previewViewportHeight()}`,
+  );
   readonly previewScale = signal(1);
-  private readonly previewFrame =
-    viewChild<ElementRef<HTMLElement>>('previewFrame');
-  private previewFrameObserver?: ResizeObserver;
+  private readonly previewFrame = viewChild<
+    ImageFramingEditorComponent,
+    ElementRef<HTMLElement>
+  >('previewFrame', { read: ElementRef });
+  private readonly previewViewportProbe = viewChild<ElementRef<HTMLElement>>(
+    'previewViewportProbe',
+  );
 
-  // Active pointer and incremental drag values used for smooth two-axis movement
-  private activeBackgroundPointerId?: number;
-  private backgroundDragTarget?: HTMLElement;
-  private dragLastClientX = 0;
-  private dragLastClientY = 0;
-  private dragPositionX = 50;
-  private dragPositionY = 50;
-
-  private updateCoverPageSubscription?: Subscription;
-  private deleteCoverPageSubscription?: Subscription;
-  private removeBackgroundImageSubscription?: Subscription;
-
-  ngAfterViewInit(): void {
+  // The preview is conditional on the asynchronously loaded model. React to the
+  // signal query so scaling is initialized when that DOM node actually appears,
+  // rather than only during the earlier AfterViewInit hook.
+  private readonly previewGeometryEffect = effect((onCleanup) => {
     const frame = this.previewFrame()?.nativeElement;
+    const viewportProbe = this.previewViewportProbe()?.nativeElement;
+
+    this.updatePreviewViewportSize(viewportProbe);
+    this.updatePreviewScale(frame);
+
     if (!frame || typeof ResizeObserver === 'undefined') {
       return;
     }
 
-    this.previewFrameObserver = new ResizeObserver(() =>
-      this.updatePreviewScale(),
-    );
-    this.previewFrameObserver.observe(frame);
-    this.destroyRef.onDestroy(() => this.previewFrameObserver?.disconnect());
-    this.updatePreviewScale();
-  }
+    const observer = new ResizeObserver(() => this.updatePreviewScale(frame));
+    observer.observe(frame);
+    onCleanup(() => observer.disconnect());
+  });
+
+  private updateCoverPageSubscription?: Subscription;
+  private deleteCoverPageSubscription?: Subscription;
+  private removeBackgroundImageSubscription?: Subscription;
 
   ngOnInit(): void {
     // Load the saved cover page content
@@ -125,14 +124,12 @@ export class EditCoverPageComponent implements OnInit, AfterViewInit, OnDestroy 
               coverPage.backgroundOverlayStrength,
             ),
           });
-          this.applyBackgroundImagePosition(coverPage.backgroundImagePosition);
           this.isCreatingNewPage.set(false);
         },
         error: (error: HttpErrorResponse) => {
           if (error.status === 404) {
             // Start with empty fields when no Cover page has been published yet
             this.model.set(this.createBlankCoverPage());
-            this.applyBackgroundImagePosition(null);
             this.isCreatingNewPage.set(true);
             return;
           }
@@ -151,13 +148,33 @@ export class EditCoverPageComponent implements OnInit, AfterViewInit, OnDestroy 
             // Replace the model so the signal refreshes the live preview
             this.model.update((model) =>
               model
-                ? { ...model, backgroundImageUrl: selectedImage.url }
+                ? {
+                    ...model,
+                    backgroundImageUrl: selectedImage.url,
+                    backgroundImagePosition: DEFAULT_IMAGE_FRAMING,
+                  }
                 : model,
             );
-            // A different picture frames differently, so start it centred rather
-            // than inheriting the previous image's zoom and offset.
-            this.applyBackgroundImagePosition(null);
           }
+        },
+      });
+
+    // Use real public cards in the shared hero so its desktop composition and
+    // mobile in-flow height match the published page as closely as possible.
+    this.blogPostService
+      .getAllBlogPosts(undefined, 'publishedDate', 'desc')
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (blogs) => {
+          const visibleBlogs = blogs.filter((blog) => blog.isVisible);
+          this.blogPreviewPosts.set(visibleBlogs.slice(0, 3));
+          this.blogPreviewTotal.set(visibleBlogs.length);
+        },
+        error: () => {
+          // Previewing the editable cover copy must remain possible if the
+          // optional blog-card request is temporarily unavailable.
+          this.blogPreviewPosts.set([]);
+          this.blogPreviewTotal.set(0);
         },
       });
   }
@@ -165,6 +182,17 @@ export class EditCoverPageComponent implements OnInit, AfterViewInit, OnDestroy 
   // Return the selected background URL or no image for a deliberately blank page
   get previewBackgroundImageUrl(): string | null {
     return this.model()?.backgroundImageUrl?.trim() || null;
+  }
+
+  // Replace the draft object on every edit so the OnPush shared hero receives a
+  // new page input and refreshes immediately while the administrator is typing.
+  onDraftFieldChange<Field extends EditableCoverPageField>(
+    field: Field,
+    value: UpdateCoverPage[Field],
+  ): void {
+    this.model.update((model) =>
+      model ? { ...model, [field]: value } : model,
+    );
   }
 
   // Keep the live preview and saved request inside the supported overlay range
@@ -179,132 +207,50 @@ export class EditCoverPageComponent implements OnInit, AfterViewInit, OnDestroy 
     return this.previewBackgroundOverlayStrength / 100;
   }
 
-  // Framing may only be adjusted while a picture is actually selected
-  get canFrameBackgroundImage(): boolean {
-    return (
-      !!this.previewBackgroundImageUrl &&
-      !this.isRemovingImage() &&
-      !this.isRemoving()
+  // The exact string persisted with the cover page
+  get backgroundImagePositionValue(): string {
+    return formatImageFraming(
+      parseImageFraming(this.model()?.backgroundImagePosition),
     );
   }
 
-  // Transform that centres the preview layer and pans the overflow zoom created
-  get backgroundImageTransform(): string {
-    return buildCenteredFramingTransform(this.currentBackgroundImagePlacement);
-  }
-
-  // Size the preview layer is drawn at. The slider still reports the saved zoom,
-  // but the picture carries the same overscan the public cover renders with.
-  get backgroundImageRenderScale(): number {
-    return framingRenderScale(this.currentBackgroundImagePlacement);
-  }
-
-  // Which part of the picture fills the frame at the current zoom
-  get backgroundImageObjectPosition(): string {
-    return buildFramingObjectPosition(this.currentBackgroundImagePlacement);
-  }
-
-  // The exact string persisted with the cover page
-  get backgroundImagePositionValue(): string {
-    return formatImageFraming(this.currentBackgroundImagePlacement);
-  }
-
-  // True once the administrator has moved away from the centred default
-  get isBackgroundImageFramed(): boolean {
-    return this.backgroundImagePositionValue !== DEFAULT_IMAGE_FRAMING;
-  }
-
-  // Start dragging the cover preview
-  onBackgroundImagePointerDown(event: PointerEvent): void {
-    if (
-      !this.canFrameBackgroundImage ||
-      (event.pointerType === 'mouse' && event.button !== 0)
-    ) {
-      return;
-    }
-
-    event.preventDefault();
-    const frame = event.currentTarget as HTMLElement;
-    this.activeBackgroundPointerId = event.pointerId;
-    this.backgroundDragTarget = frame;
-    this.isDraggingBackgroundImage.set(true);
-    this.dragLastClientX = event.clientX;
-    this.dragLastClientY = event.clientY;
-    this.dragPositionX = this.backgroundImagePositionX();
-    this.dragPositionY = this.backgroundImagePositionY();
-    frame.setPointerCapture(event.pointerId);
-  }
-
-  // Track pointer movement on the window so a drag is not lost outside the frame
-  @HostListener('window:pointermove', ['$event'])
-  onBackgroundImagePointerMove(event: PointerEvent): void {
-    if (
-      !this.isDraggingBackgroundImage() ||
-      event.pointerId !== this.activeBackgroundPointerId
-    ) {
-      return;
-    }
-
-    if (event.cancelable) {
-      event.preventDefault();
-    }
-
-    this.updateBackgroundPositionFromDrag(event);
-  }
-
-  // Finish dragging the cover preview
-  @HostListener('window:pointerup', ['$event'])
-  onBackgroundImagePointerUp(event: PointerEvent): void {
-    if (
-      !this.isDraggingBackgroundImage() ||
-      event.pointerId !== this.activeBackgroundPointerId
-    ) {
-      return;
-    }
-
-    this.updateBackgroundPositionFromDrag(event);
-    this.finishBackgroundDrag(event.pointerId);
-  }
-
-  // Cancel an interrupted drag without applying an unreliable final position
-  @HostListener('window:pointercancel', ['$event'])
-  onBackgroundImagePointerCancel(event: PointerEvent): void {
-    if (event.pointerId === this.activeBackgroundPointerId) {
-      this.finishBackgroundDrag(event.pointerId);
-    }
+  // The generic media control owns drag, zoom, and reset behavior. This editor
+  // only stores its controlled output in the draft consumed by the real hero.
+  onBackgroundImageFramingChange(framing: string): void {
+    this.model.update((model) =>
+      model ? { ...model, backgroundImagePosition: framing } : model,
+    );
   }
 
   // Keep the preview shaped like the viewport the cover hero will actually fill
   @HostListener('window:resize')
   onWindowResize(): void {
-    this.previewAspectRatio.set(this.readViewportAspectRatio());
-    this.updatePreviewScale();
+    this.updatePreviewViewportSize(this.previewViewportProbe()?.nativeElement);
+    this.updatePreviewScale(this.previewFrame()?.nativeElement);
   }
 
-  // How much smaller the preview frame is than the screen it stands in for.
-  private updatePreviewScale(): void {
-    const frameWidth = this.previewFrame()?.nativeElement.clientWidth ?? 0;
-    const viewportWidth = window.innerWidth;
+  // How much smaller the editor card is than the logical public viewport.
+  private updatePreviewScale(frame?: HTMLElement): void {
+    const frameWidth = frame?.clientWidth ?? 0;
+    const viewportWidth = this.previewViewportWidth();
 
     if (frameWidth > 0 && viewportWidth > 0) {
-      this.previewScale.set(frameWidth / viewportWidth);
+      this.previewScale.set(Math.min(1, frameWidth / viewportWidth));
     }
   }
 
-  // Update background zoom from the range input
-  onBackgroundImageZoomChange(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.backgroundImageZoom.set(clampImageZoom(Number(input.value)));
-  }
+  // The hidden probe uses the public page's exact svh/vh sizing contract. Its
+  // measured box therefore remains accurate on mobile browsers where innerHeight
+  // and CSS viewport units can disagree while browser chrome expands or collapses.
+  private updatePreviewViewportSize(viewportProbe?: HTMLElement): void {
+    const bounds = viewportProbe?.getBoundingClientRect();
+    const width = bounds?.width || window.innerWidth;
+    const height = bounds?.height || window.innerHeight;
 
-  // Return the picture to its centred, unzoomed framing
-  resetBackgroundImageFraming(): void {
-    this.applyBackgroundImagePosition(null);
-  }
-
-  ngOnDestroy(): void {
-    // Release any pointer capture still held by an interrupted drag
-    this.finishBackgroundDrag(this.activeBackgroundPointerId);
+    if (width > 0 && height > 0) {
+      this.previewViewportWidth.set(width);
+      this.previewViewportHeight.set(height);
+    }
   }
 
   // Update the draft immediately while the user moves the overlay scale
@@ -374,7 +320,6 @@ export class EditCoverPageComponent implements OnInit, AfterViewInit, OnDestroy 
               coverPage.backgroundOverlayStrength,
             ),
           });
-          this.applyBackgroundImagePosition(coverPage.backgroundImagePosition);
           this.isCreatingNewPage.set(false);
           this.isRemoveConfirmationOpen.set(false);
           this.successMessage.set('Cover page updated.');
@@ -458,9 +403,14 @@ export class EditCoverPageComponent implements OnInit, AfterViewInit, OnDestroy 
     if (this.isCreatingNewPage()) {
       // A new draft has no persisted image reference to remove from the API
       this.model.update((model) =>
-        model ? { ...model, backgroundImageUrl: null } : model,
+        model
+          ? {
+              ...model,
+              backgroundImageUrl: null,
+              backgroundImagePosition: null,
+            }
+          : model,
       );
-      this.applyBackgroundImagePosition(null);
       this.successMessage.set('Picture removed from the draft.');
       return;
     }
@@ -474,9 +424,14 @@ export class EditCoverPageComponent implements OnInit, AfterViewInit, OnDestroy 
         next: () => {
           // Keep any unsaved text edits while clearing the persisted image URL
           this.model.update((model) =>
-            model ? { ...model, backgroundImageUrl: null } : model,
+            model
+              ? {
+                  ...model,
+                  backgroundImageUrl: null,
+                  backgroundImagePosition: null,
+                }
+              : model,
           );
-          this.applyBackgroundImagePosition(null);
           this.successMessage.set('Cover picture removed.');
           this.isRemovingImage.set(false);
         },
@@ -485,75 +440,6 @@ export class EditCoverPageComponent implements OnInit, AfterViewInit, OnDestroy 
           this.isRemovingImage.set(false);
         },
       });
-  }
-
-  // Current framing expressed for the shared placement helpers
-  private get currentBackgroundImagePlacement(): ImageFraming {
-    return {
-      x: this.backgroundImagePositionX(),
-      y: this.backgroundImagePositionY(),
-      zoom: this.backgroundImageZoom(),
-    };
-  }
-
-  // Apply a saved framing string, falling back to the centred default
-  private applyBackgroundImagePosition(position?: string | null): void {
-    const placement = parseImageFraming(position);
-    this.backgroundImagePositionX.set(placement.x);
-    this.backgroundImagePositionY.set(placement.y);
-    this.backgroundImageZoom.set(placement.zoom);
-  }
-
-  // Convert pointer movement into percentage-based framing. Dragging moves the
-  // picture with the pointer, so the stored position moves the opposite way.
-  private updateBackgroundPositionFromDrag(event: PointerEvent): void {
-    const frame = this.backgroundDragTarget;
-    if (!frame) {
-      return;
-    }
-
-    const bounds = frame.getBoundingClientRect();
-    if (bounds.width <= 0 || bounds.height <= 0) {
-      return;
-    }
-
-    const deltaX =
-      ((event.clientX - this.dragLastClientX) / bounds.width) * 100;
-    const deltaY =
-      ((event.clientY - this.dragLastClientY) / bounds.height) * 100;
-
-    this.dragPositionX = clampFramingPercent(this.dragPositionX - deltaX);
-    this.dragPositionY = clampFramingPercent(this.dragPositionY - deltaY);
-    this.backgroundImagePositionX.set(Math.round(this.dragPositionX));
-    this.backgroundImagePositionY.set(Math.round(this.dragPositionY));
-    this.dragLastClientX = event.clientX;
-    this.dragLastClientY = event.clientY;
-  }
-
-  // Release pointer capture and clear all state associated with the current drag
-  private finishBackgroundDrag(pointerId?: number): void {
-    if (
-      pointerId !== undefined &&
-      this.backgroundDragTarget?.hasPointerCapture(pointerId)
-    ) {
-      this.backgroundDragTarget.releasePointerCapture(pointerId);
-    }
-
-    this.isDraggingBackgroundImage.set(false);
-    this.activeBackgroundPointerId = undefined;
-    this.backgroundDragTarget = undefined;
-  }
-
-  // Shape the preview like the browser viewport the public cover hero will fill
-  private readViewportAspectRatio(): string {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-
-    if (!width || !height) {
-      return '16 / 9';
-    }
-
-    return `${width} / ${height}`;
   }
 
   // Create a blank draft rather than filling the editor with static welcome copy

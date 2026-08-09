@@ -1,4 +1,11 @@
 <div class="cover-editor-page">
+  <!-- Mirrors the public .cover-page viewport contract for accurate mobile ratios. -->
+  <div
+    #previewViewportProbe
+    class="cover-editor-viewport-probe"
+    aria-hidden="true"
+  ></div>
+
   <div class="container cover-editor-shell">
     <!-- Cover editor page header -->
     <header class="cover-editor-header">
@@ -53,7 +60,8 @@
               type="text"
               maxlength="160"
               required
-              [(ngModel)]="model.kicker"
+              [ngModel]="model.kicker"
+              (ngModelChange)="onDraftFieldChange('kicker', $event)"
             />
           </div>
 
@@ -66,7 +74,8 @@
               type="text"
               maxlength="160"
               required
-              [(ngModel)]="model.welcomeTitle"
+              [ngModel]="model.welcomeTitle"
+              (ngModelChange)="onDraftFieldChange('welcomeTitle', $event)"
             />
           </div>
 
@@ -79,7 +88,8 @@
               maxlength="2000"
               required
               rows="8"
-              [(ngModel)]="model.introduction"
+              [ngModel]="model.introduction"
+              (ngModelChange)="onDraftFieldChange('introduction', $event)"
             ></textarea>
           </div>
 
@@ -92,7 +102,10 @@
                 name="backgroundImageUrl"
                 class="form-control"
                 type="text"
-                [(ngModel)]="model.backgroundImageUrl"
+                [ngModel]="model.backgroundImageUrl"
+                (ngModelChange)="
+                  onDraftFieldChange('backgroundImageUrl', $event)
+                "
               />
               <button
                 type="button"
@@ -112,7 +125,7 @@
                   (click)="onRemoveBackgroundImage()"
                 >
                   <i class="bi bi-image-alt" aria-hidden="true"></i>
-                  {{ isRemovingImage() ? 'Removing...' : 'Remove picture' }}
+                  {{ isRemovingImage() ? "Removing..." : "Remove picture" }}
                 </button>
               }
             </div>
@@ -138,7 +151,7 @@
               "
             >
               <i class="bi bi-save" aria-hidden="true"></i>
-              {{ isSaving() ? 'Saving...' : 'Save cover page' }}
+              {{ isSaving() ? "Saving..." : "Save cover page" }}
             </button>
           </div>
 
@@ -166,7 +179,7 @@
                   (click)="onRemoveCoverPage()"
                 >
                   <i class="bi bi-trash3" aria-hidden="true"></i>
-                  {{ isRemoving() ? 'Removing...' : 'Remove cover page' }}
+                  {{ isRemoving() ? "Removing..." : "Remove cover page" }}
                 </button>
               </div>
             </div>
@@ -179,90 +192,38 @@
           aria-labelledby="cover-preview-heading"
         >
           <h2 id="cover-preview-heading">Preview</h2>
-          <!-- The frame is shaped like the current viewport so the crop shown here
-               is the crop visitors get on this screen -->
-          <div
+          <!-- The shared framing editor owns drag, zoom, reset, and the persisted
+               framing string. Its projected content is the exact public hero. -->
+          <app-image-framing-editor
             #previewFrame
-            class="cover-editor-preview-image"
-            [class.is-draggable]="canFrameBackgroundImage"
-            [class.is-dragging]="isDraggingBackgroundImage()"
-            [style.--cover-overlay-opacity]="previewBackgroundOverlayOpacity"
-            [style.aspect-ratio]="previewAspectRatio()"
-            [attr.title]="
-              canFrameBackgroundImage ? 'Drag to position picture' : null
-            "
-            (pointerdown)="onBackgroundImagePointerDown($event)"
+            class="cover-editor-preview-stage cover-page"
+            [style.--framing-frame-aspect]="previewAspectRatio()"
+            [src]="previewBackgroundImageUrl"
+            [framing]="backgroundImagePositionValue"
+            [disabled]="isRemovingImage() || isRemoving()"
+            [renderImage]="false"
+            zoomLabel="Picture zoom"
+            (framingChange)="onBackgroundImageFramingChange($event)"
           >
-            <div
-              class="cover-editor-preview-background"
-              [style.background-image]="
-                previewBackgroundImageUrl
-                  ? 'url(' + previewBackgroundImageUrl + ')'
-                  : 'none'
-              "
-              [style.background-position]="backgroundImageObjectPosition"
-              [style.height.%]="backgroundImageRenderScale"
-              [style.transform]="backgroundImageTransform"
-              [style.width.%]="backgroundImageRenderScale"
-              aria-hidden="true"
-            ></div>
-            <!-- A scaled-down viewport: the copy is laid out at the real screen
-                 size and shrunk to fit, so its proportions and placement are the
-                 ones the published hero will have. -->
-            <div
+            <!-- Render the real public hero at full viewport dimensions, then
+                 uniformly scale the complete scene into this clipped card. -->
+            <app-cover-hero
               class="cover-editor-preview-viewport"
-              [style.--preview-scale]="previewScale()"
+              [style.width.px]="previewViewportWidth()"
+              [style.height.px]="previewViewportHeight()"
+              [style.transform]="'scale(' + previewScale() + ')'"
+              [page]="model"
+              [currentUser]="currentUser"
+              [backgroundImageUrl]="previewBackgroundImageUrl"
+              [backgroundImagePosition]="backgroundImagePositionValue"
+              [editorPreview]="true"
+              [blogPreviews]="blogPreviewPosts()"
+              [blogPreviewPosition]="blogPreviewPosts().length > 0 ? 1 : 0"
+              [blogPreviewTotal]="blogPreviewTotal()"
               aria-hidden="true"
-            >
-              <div class="cover-editor-preview-copy">
-                <span>{{ model.kicker }}</span>
-                <strong>{{ model.welcomeTitle }}</strong>
-                <p>{{ model.introduction }}</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Zoom and drag frame the picture exactly as the public cover shows it -->
-          <div class="cover-editor-overlay-control">
-            <label for="cover-background-zoom">
-              <span>Picture zoom</span>
-              <output for="cover-background-zoom">
-                {{ backgroundImageZoom() }}%
-              </output>
-            </label>
-            <!-- The reset sits on the zoom bar itself: it undoes the same
-                 framing the slider and the drag build up -->
-            <div class="cover-editor-framing-row">
-              <div class="cover-editor-framing-track">
-                <input
-                  id="cover-background-zoom"
-                  name="backgroundImageZoom"
-                  type="range"
-                  [min]="minimumBackgroundImageZoom"
-                  [max]="maximumBackgroundImageZoom"
-                  [step]="backgroundImageZoomStep"
-                  [value]="backgroundImageZoom()"
-                  [disabled]="!canFrameBackgroundImage"
-                  (input)="onBackgroundImageZoomChange($event)"
-                />
-                <div class="cover-editor-overlay-scale" aria-hidden="true">
-                  <span>Fit</span>
-                  <span>Closer</span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                class="admin-icon-button cover-editor-framing-reset"
-                [disabled]="!canFrameBackgroundImage || !isBackgroundImageFramed"
-                title="Reset framing"
-                aria-label="Reset framing"
-                (click)="resetBackgroundImageFraming()"
-              >
-                <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
-              </button>
-            </div>
-          </div>
+              inert
+            />
+          </app-image-framing-editor>
 
           <!-- Overlay scale updates the milky gradient without softening the picture -->
           <div class="cover-editor-overlay-control">

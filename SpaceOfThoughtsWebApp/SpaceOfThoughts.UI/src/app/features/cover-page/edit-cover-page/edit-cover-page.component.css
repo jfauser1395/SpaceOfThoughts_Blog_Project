@@ -66,178 +66,35 @@
   color: var(--color-text);
 }
 
-/* Cover preview image card */
-/* aspect-ratio is bound inline from the live viewport so this frame crops the
-   picture exactly the way the full-screen public cover hero will. */
-.cover-editor-preview-image {
-  background-color: var(--media-background);
-  border-radius: 8px;
-  display: flex;
-  overflow: hidden;
-  position: relative;
-  touch-action: none;
-  user-select: none;
+/* The generic framing editor owns the frame, gesture state, zoom, and reset.
+   The live viewport ratio is supplied through its public custom property. */
+.cover-editor-preview-stage {
+  --framing-frame-height: auto;
+
+  display: block;
 }
 
-.cover-editor-preview-image.is-draggable {
-  cursor: grab;
-}
-
-.cover-editor-preview-image.is-dragging {
-  cursor: grabbing;
-}
-
-/* Reads the cover's own overlay tokens, exactly as the published hero does, so
-   the preview cannot drift from the page in either theme. */
-.cover-editor-preview-image::before {
-  background:
-    linear-gradient(
-      90deg,
-      var(--cover-hero-overlay-strong),
-      var(--cover-hero-overlay) 54%,
-      transparent
-    ),
-    linear-gradient(0deg, var(--cover-hero-overlay), transparent);
-  content: "";
-  inset: 0;
-  opacity: var(--cover-overlay-opacity, 1);
+/* This fixed, invisible box resolves the same mixed svh/vh dimensions as the
+   public cover without affecting the editor's document flow. */
+.cover-editor-viewport-probe {
+  height: 100svh;
+  min-height: 100vh;
   pointer-events: none;
-  position: absolute;
-  transition: opacity 160ms ease;
-  z-index: 1;
+  position: fixed;
+  visibility: hidden;
+  width: 100vw;
 }
 
-/* Pinned to the frame's centre and sized to the chosen zoom, so the inline
-   transform only centres the layer and pans the overflow the zoom created. */
-.cover-editor-preview-background {
-  background-position: center;
-  background-size: cover;
-  height: 100%;
-  inset: auto;
-  left: 50%;
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  transition: transform 0.14s ease;
-  width: 100%;
-}
-
-.cover-editor-preview-image.is-dragging .cover-editor-preview-background {
-  transition: none;
-}
-
-/* A viewport-sized stage shrunk into the frame. Laying the copy out at the real
-   screen size is what makes clamp() and vw resolve to the values the published
-   hero uses; scaling then reduces the whole block in proportion, the way a
-   thumbnail does. Mirrors .cover-hero's own padding and centring. */
+/* The actual shared hero is laid out at logical viewport size. Scaling its host
+   also gives its fixed-position artwork a local containing block, reproducing
+   the public crop and placement inside the card. */
 .cover-editor-preview-viewport {
-  align-items: center;
-  display: flex;
-  height: calc(100% / var(--preview-scale, 1));
+  display: block;
   left: 0;
-  padding: clamp(84px, 12vh, 120px) clamp(18px, 6vw, 88px) clamp(32px, 8vh, 64px);
+  pointer-events: none;
   position: absolute;
   top: 0;
-  transform: scale(var(--preview-scale, 1));
   transform-origin: top left;
-  width: calc(100% / var(--preview-scale, 1));
-  z-index: 2;
-}
-
-/* The copy is a preview of the published text, not a target: letting pointer
-   events through keeps the whole frame draggable. */
-.cover-editor-preview-copy {
-  color: var(--media-text);
-  filter: none;
-  mix-blend-mode: normal;
-  opacity: 1;
-  pointer-events: none;
-  position: relative;
-  width: min(100%, 720px);
-}
-
-/* Framing hint and its inline reset action */
-/* The slider keeps its own column so the Fit/Closer scale stays aligned under
-   it rather than under the button beside it. */
-.cover-editor-framing-row {
-  align-items: start;
-  display: flex;
-  gap: 10px;
-}
-
-.cover-editor-framing-track {
-  flex: 1;
-  min-width: 0;
-}
-
-/* The base look comes from the global .admin-icon-button style, so this matches
-   the framing reset in the blog post editors. */
-.cover-editor-framing-reset {
-  flex: 0 0 auto;
-}
-
-.cover-editor-framing-reset:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-/* :hover still fires on a disabled button, so the global hover colours have to
-   be held back here. */
-.cover-editor-framing-reset:disabled:hover,
-.cover-editor-framing-reset:disabled:focus {
-  background: var(--color-surface-muted);
-  border-color: var(--color-border);
-  color: var(--color-heading);
-}
-
-:host-context([data-theme="light"]) .cover-editor-preview-copy {
-  color: #f4e9ec;
-}
-
-/* Mirrors .cover-kicker, .cover-hero h1 and .cover-hero p. Those live in the
-   cover page's own stylesheet, which cannot reach in here across component style
-   encapsulation, so the values are repeated. Any change there belongs here too. */
-.cover-editor-preview-copy span {
-  color: var(--media-accent);
-  display: block;
-  font-weight: 700;
-  letter-spacing: 0;
-  margin-bottom: 14px;
-  text-transform: uppercase;
-}
-
-.cover-editor-preview-copy strong {
-  display: block;
-  font-family: NavFont, serif;
-  font-size: clamp(48px, 7vw, 96px);
-  line-height: 1;
-  margin: 0 0 18px;
-}
-
-.cover-editor-preview-copy p {
-  color: var(--media-text-muted);
-  font-size: clamp(18px, 2vw, 24px);
-  line-height: 1.55;
-  margin: 0;
-  max-width: 650px;
-}
-
-:host-context([data-theme="light"]) .cover-editor-preview-copy strong {
-  color: #f4e9ec;
-  font-weight: 400;
-  text-shadow: none;
-}
-
-:host-context([data-theme="light"]) .cover-editor-preview-copy span {
-  color: #d47e92;
-  font-weight: 700;
-  text-shadow: none;
-}
-
-:host-context([data-theme="light"]) .cover-editor-preview-copy p {
-  color: #d5dfe9;
-  font-weight: 400;
-  text-shadow: none;
 }
 
 /* Live milky-overlay scale below the preview */

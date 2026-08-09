@@ -11,15 +11,10 @@
   @if (post.backgroundImageUrl) {
     <!-- Optional per-post background, anchored to the viewport while the
          article scrolls over it -->
-    <div
-      class="blog-details-background media-page-background"
-      [style.background-image]="'url(' + post.backgroundImageUrl + ')'"
-      [style.background-position]="backgroundImageObjectPosition()"
-      [style.height.%]="backgroundImageZoom()"
-      [style.transform]="backgroundImageTransform()"
-      [style.width.%]="backgroundImageZoom()"
-      aria-hidden="true"
-    ></div>
+    <app-framed-background-layer
+      [src]="post.backgroundImageUrl"
+      [framing]="post.backgroundImagePosition"
+    />
   }
   <div class="container blog-details-container">
     <div class="py-5">
@@ -69,7 +64,7 @@
                   }
                 </div>
                 <!-- Display the published date of the blog post -->
-                <span>{{ post.publishedDate | date: 'MM-dd-yy' }}</span>
+                <span>{{ post.publishedDate | date: "MM-dd-yy" }}</span>
               </div>
             }
 
@@ -92,7 +87,7 @@
                 <h2 id="comments-heading" class="comments-title">Comments</h2>
                 <p class="comments-count mb-0">
                   {{ totalCommentCount() }}
-                  {{ totalCommentCount() === 1 ? 'comment' : 'comments' }}
+                  {{ totalCommentCount() === 1 ? "comment" : "comments" }}
                 </p>
               </div>
 
@@ -123,9 +118,9 @@
                   <div class="comment-validation">
                     @if (commentControl.invalid && commentControl.touched) {
                       <small>
-                        @if (commentControl.hasError('required')) {
+                        @if (commentControl.hasError("required")) {
                           A comment is required.
-                        } @else if (commentControl.hasError('maxlength')) {
+                        } @else if (commentControl.hasError("maxlength")) {
                           Comments can be up to 2000 characters.
                         }
                       </small>
@@ -232,7 +227,7 @@
                         comment.authorName
                       }}</strong>
                       <time class="comment-date">
-                        {{ comment.createdAt | date: 'yyyy-MM-dd HH:mm' }}
+                        {{ comment.createdAt | date: "yyyy-MM-dd HH:mm" }}
                       </time>
                     </div>
                     @if (getReplyTargetName(comment); as replyTargetName) {
@@ -301,8 +296,8 @@
                           <i class="bi bi-trash3" aria-hidden="true"></i>
                           {{
                             isDeletingComment(comment.id)
-                              ? 'Deleting...'
-                              : 'Delete'
+                              ? "Deleting..."
+                              : "Delete"
                           }}
                         </button>
                       }
@@ -333,10 +328,10 @@
                           <div class="comment-validation">
                             @if (replyControl.invalid && replyControl.touched) {
                               <small>
-                                @if (replyControl.hasError('required')) {
+                                @if (replyControl.hasError("required")) {
                                   A reply is required.
                                 } @else if (
-                                  replyControl.hasError('maxlength')
+                                  replyControl.hasError("maxlength")
                                 ) {
                                   Replies can be up to 2000 characters.
                                 }
@@ -396,8 +391,8 @@
                         <span>
                           {{
                             isThreadExpanded(comment.id)
-                              ? 'Hide replies'
-                              : 'Show replies'
+                              ? "Hide replies"
+                              : "Show replies"
                           }}
                         </span>
                         <span class="thread-toggle-count">{{
@@ -437,7 +432,7 @@
   <!-- Keep request failures visible after the loading overlay closes -->
   <div class="container py-5" role="alert">
     <div class="comment-alert comment-alert-error">
-      {{ errorMessage || 'Unable to load this blog post.' }}
+      {{ errorMessage || "Unable to load this blog post." }}
     </div>
   </div>
 }
