@@ -40,7 +40,7 @@ readonly ARTIFACTS_DIR="$REPO_ROOT/artifacts"
 
 [[ ${BASH_VERSINFO[0]} -ge 4 ]] || die "Bash 4 or newer is required."
 
-for command_name in dotnet npm git tar gzip sha256sum mktemp find grep cp chmod install mv date dirname basename mkdir rm; do
+for command_name in dotnet npm node git tar gzip sha256sum mktemp find grep cp chmod install mv date dirname basename mkdir rm; do
     require_command "$command_name"
 done
 
@@ -54,6 +54,13 @@ git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
 # silently producing an archive whose metadata varies from build to build.
 tar --help 2>/dev/null | grep -- '--sort' >/dev/null \
     || die "GNU tar is required (the installed tar does not support --sort)."
+
+# The application version leads the release id, so a release names the version it
+# carries: `spotctl releases` on the server then lines up with what the account
+# page and the update prompt report.
+UI_VERSION="$(node -e 'process.stdout.write(require(process.argv[1]).version)'     "$UI_PROJECT_DIR/package.json")"
+readonly UI_VERSION
+[[ "$UI_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]     || die "The Angular package.json version must look like 1.2.3, found: ${UI_VERSION:-<empty>}"
 
 readonly GIT_COMMIT="$(git -C "$REPO_ROOT" rev-parse --verify HEAD)"
 readonly SHORT_COMMIT="${GIT_COMMIT:0:12}"
@@ -79,7 +86,7 @@ readonly BUILD_TIME_UTC="$(date -u -d "@$BUILD_EPOCH" '+%Y-%m-%dT%H:%M:%SZ')" \
     || die "Unable to convert SOURCE_DATE_EPOCH with GNU date."
 readonly BUILD_ID_TIME="$(date -u -d "@$BUILD_EPOCH" '+%Y%m%dT%H%M%SZ')" \
     || die "Unable to create the release timestamp with GNU date."
-BASE_RELEASE_ID="${RELEASE_ID:-${BUILD_ID_TIME}-${SHORT_COMMIT}}"
+BASE_RELEASE_ID="${RELEASE_ID:-v${UI_VERSION}-${BUILD_ID_TIME}-${SHORT_COMMIT}}"
 if [[ "$SOURCE_DIRTY" == "true" && "$BASE_RELEASE_ID" != *-dirty ]]; then
     BASE_RELEASE_ID="${BASE_RELEASE_ID}-dirty"
 fi
@@ -91,6 +98,19 @@ unset BASE_RELEASE_ID
 readonly ARCHIVE_NAME="spaceofthoughts-${RELEASE_ID}-${RID}.tar.gz"
 readonly ARCHIVE_PATH="$ARTIFACTS_DIR/$ARCHIVE_NAME"
 readonly CHECKSUM_PATH="$ARCHIVE_PATH.sha256"
+
+# Two different builds must never claim the same version, or the update prompt
+# announces a number the reader may already be running. The version is raised
+# with deployment/bump-version.sh in the repository where editing happens.
+# ALLOW_SAME_VERSION=1 exists for rebuilding a release that was never shipped.
+if [[ -d "$ARTIFACTS_DIR" ]]; then
+    existing_release="$(find "$ARTIFACTS_DIR" -maxdepth 1 -type f \
+        -name "spaceofthoughts-v${UI_VERSION}-*.tar.gz" -print -quit)"
+    if [[ -n "$existing_release" && "${ALLOW_SAME_VERSION:-0}" != "1" ]]; then
+        die "Version $UI_VERSION was already built: $(basename -- "$existing_release"). Raise it with deployment/bump-version.sh, or set ALLOW_SAME_VERSION=1 to rebuild it."
+    fi
+    unset existing_release
+fi
 
 [[ ! -e "$ARCHIVE_PATH" ]] || die "Release archive already exists: $ARCHIVE_PATH"
 [[ ! -e "$CHECKSUM_PATH" ]] || die "Release checksum already exists: $CHECKSUM_PATH"
@@ -151,20 +171,21 @@ fi
 [[ -s "$UI_OUTPUT/index.html" ]] || die "Angular release index is missing or empty."
 
 # The update prompt reports appData.version from the service-worker manifest, and
-# the checked-in value is only a placeholder. Stamp the release id into the built
-# manifest rather than into the repository: editing a tracked file here would
-# leave the build clone dirty, which appends `-dirty` to every later release id.
-# appData carries no integrity guarantee of its own; the manifest hashes assets.
+# the checked-in value is only a placeholder. Stamp the application version from
+# package.json, which is the same value the account page displays. Editing the
+# built manifest rather than the repository keeps the build clone clean, which is
+# what keeps `-dirty` out of later release ids. appData carries no integrity
+# guarantee of its own; the manifest hashes assets.
 readonly UI_SERVICE_WORKER_MANIFEST="$UI_OUTPUT/ngsw.json"
 if [[ -f "$UI_SERVICE_WORKER_MANIFEST" ]]; then
-    info "Stamping release $RELEASE_ID into the service worker manifest"
+    info "Stamping version $UI_VERSION into the service worker manifest"
     node -e '
 const fs = require("fs");
 const [manifestPath, version] = process.argv.slice(1);
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
 manifest.appData = { ...manifest.appData, version };
 fs.writeFileSync(manifestPath, JSON.stringify(manifest));
-' "$UI_SERVICE_WORKER_MANIFEST" "$RELEASE_ID"
+' "$UI_SERVICE_WORKER_MANIFEST" "$UI_VERSION"
 else
     die "The Angular build produced no ngsw.json; the service worker is not configured."
 fi

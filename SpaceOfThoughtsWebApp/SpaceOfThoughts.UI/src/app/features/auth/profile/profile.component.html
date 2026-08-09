@@ -9,6 +9,9 @@
       <div>
         <h1>Profile</h1>
         <p>{{ user?.email }}</p>
+        <!-- The running version, so a reader reporting a problem can say which
+             one they are on -->
+        <p class="profile-version">Space of Thoughts v{{ appVersion }}</p>
       </div>
       <div class="profile-header-actions">
         <a class="btn btn-outline-secondary" [routerLink]="['/blogs']">

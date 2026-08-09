@@ -328,3 +328,11 @@
     width: 100%;
   }
 }
+
+/* Sits under the email as quiet secondary detail: useful when someone reports a
+   problem, never the point of the page. */
+.profile-version {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  margin: 4px 0 0;
+}

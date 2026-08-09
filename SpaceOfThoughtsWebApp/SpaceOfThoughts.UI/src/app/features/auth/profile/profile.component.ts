@@ -19,6 +19,7 @@ import { Router, RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { User } from '../models/user.model';
 import { AuthService } from '../services/auth.service';
+import { APP_VERSION } from '../../../core/app-version';
 
 @Component({
   selector: 'app-profile',
@@ -38,6 +39,9 @@ export class ProfileComponent implements OnInit, OnDestroy {
   readonly selectedProfileImagePreviewUrl = signal<string | undefined>(
     undefined,
   );
+
+  // Shown at the foot of the page; the update prompt reports the same value
+  readonly appVersion = APP_VERSION;
 
   // Avatar editor limits used by the zoom control
   readonly minimumAvatarZoom = 85;

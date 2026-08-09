@@ -3,6 +3,7 @@ SpaceOfThoughtsWebApp/deployment/systemd/*.service text eol=lf
 SpaceOfThoughtsWebApp/deployment/systemd/*.timer text eol=lf
 SpaceOfThoughtsWebApp/deployment/build-release.sh text eol=lf
 SpaceOfThoughtsWebApp/deployment/ship-release.sh text eol=lf
+SpaceOfThoughtsWebApp/deployment/bump-version.sh text eol=lf
 SpaceOfThoughtsWebApp/deployment/ddns/*.sh text eol=lf
 SpaceOfThoughtsWebApp/deployment/ddns/*.env.example text eol=lf
 SpaceOfThoughtsWebApp/deployment/ddns/tests/*.sh text eol=lf
