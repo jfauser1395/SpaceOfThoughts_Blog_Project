@@ -51,7 +51,7 @@ umask 077
 # @CF_PROXIED          - false publishes the server's IPv6 address directly.
 #                        Set true only when Cloudflare should proxy the website.
 # -------------------------------------------------- #
-: "${CF_TTL:=300}"
+: "${CF_TTL:=1}"
 : "${CF_PROXIED:=true}"
 
 ###############  IPV6 HOST CONFIGURATION  ############
