@@ -103,13 +103,6 @@ export class BlogDetailsComponent implements OnInit, OnDestroy {
   private deleteCommentSubscriptions: Subscription[] = [];
 
   ngOnInit(): void {
-    // Scroll to the top of the page smoothly on component initialization
-    window.scrollTo({
-      top: 0,
-      left: 0,
-      behavior: 'smooth',
-    });
-
     this.currentUser.set(this.authService.getUser());
 
     // Subscribe to route parameters to get the URL handle of the blog post

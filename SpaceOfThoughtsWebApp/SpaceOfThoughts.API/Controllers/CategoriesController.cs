@@ -24,10 +24,9 @@ namespace SpaceOfThoughts.API.Controllers
         public async Task<IActionResult> CreateCategory([FromBody] CreateCategoryRequestDto request)
         {
             // Convert DTO to Domain Model
-            var category = new Category 
-            { 
-                Name = request.Name,
-                UrlHandle = request.UrlHandle
+            var category = new Category
+            {
+                Name = request.Name
             };
 
             // Save the new category to the repository
@@ -37,8 +36,8 @@ namespace SpaceOfThoughts.API.Controllers
             var response = new CategoryDto
             {
                 Id = category.Id,
-                Name = request.Name,
-                UrlHandle = request.UrlHandle
+                Name = category.Name,
+                UrlHandle = category.UrlHandle
             };
             return Ok(response);
         }
@@ -125,8 +124,7 @@ namespace SpaceOfThoughts.API.Controllers
             var category = new Category
             {
                 Id = id,
-                Name = request.Name,
-                UrlHandle = request.UrlHandle
+                Name = request.Name
             };
 
             // Update the category in the repository

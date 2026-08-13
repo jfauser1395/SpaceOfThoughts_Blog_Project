@@ -8,7 +8,6 @@ export interface AddBlogPost {
   featuredImageBannerPosition?: string | null; // Saved "x% y% zoom%" framing for the picture cropped into the article banner
   backgroundImageUrl?: string | null; // Optional background picture shown behind the article
   backgroundImagePosition?: string | null; // Saved "x% y% zoom%" framing for the background picture
-  urlHandle: string; // URL handle (slug) for the blog post
   author: string; // Author of the blog post
   publishedDate: Date; // Date when the blog post is published
   isVisible: boolean; // Flag to indicate if the blog post is visible to readers

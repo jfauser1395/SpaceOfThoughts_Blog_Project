@@ -31,7 +31,6 @@ export class AddCategoryComponent implements OnDestroy {
     // Initialize the model with default values
     this.model = {
       name: '',
-      urlHandle: '',
     };
   }
 

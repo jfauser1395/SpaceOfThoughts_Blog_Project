@@ -54,7 +54,6 @@ export class ImageSelectorComponent implements OnInit, OnDestroy {
     // Declare and initialize the form group
     this.form = new FormGroup({
       file: new FormControl(null, Validators.required),
-      fileName: new FormControl(null, Validators.required),
       title: new FormControl(null, Validators.required),
     });
 
@@ -72,14 +71,13 @@ export class ImageSelectorComponent implements OnInit, OnDestroy {
   uploadImage(): void {
     // Map form values to the appropriate BlogImage values
     this.uploadError.set(undefined);
-    const fileName = this.form.get('fileName')?.value;
     const title = this.form.get('title')?.value;
-    if (this.file && fileName !== '' && title !== '') {
+    if (this.file && title !== '') {
       this.isUploading.set(true);
 
       // Image service to upload the image
       this.uploadImageSubscription = this.imageService
-        .uploadImage(this.file, fileName, title, this.imageCategory())
+        .uploadImage(this.file, title, this.imageCategory())
         .subscribe({
           next: (response) => {
             this.isUploading.set(false);
@@ -97,13 +95,13 @@ export class ImageSelectorComponent implements OnInit, OnDestroy {
     }
   }
 
-  // Prefer the API's filename validation message and keep a safe fallback
+  // Prefer the API's own validation message and keep a safe fallback
   private getUploadErrorMessage(error: HttpErrorResponse): string {
     const validationErrors = error.error?.errors as
       | Record<string, string[]>
       | undefined;
     return (
-      validationErrors?.['fileName']?.[0] ??
+      validationErrors?.['file']?.[0] ??
       error.error?.detail ??
       'The image could not be uploaded. Please try again.'
     );

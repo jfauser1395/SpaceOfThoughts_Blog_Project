@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using SpaceOfThoughts.API.Models.Domain;
 using SpaceOfThoughts.API.Models.DTOs;
 using SpaceOfThoughts.API.Repositories.Interface;
+using SpaceOfThoughts.API.Validation;
 
 namespace SpaceOfThoughts.API.Controllers
 {
@@ -37,12 +38,30 @@ namespace SpaceOfThoughts.API.Controllers
         [Authorize(Roles = "Writer")]
         public async Task<IActionResult> UpdateAboutPage([FromBody] UpdateAboutPageRequestDto request)
         {
+            // Reject a framing string the about page editor could not have produced
+            var framingFailure = ImageFramingValidator.Validate(
+                request.ProfileImagePosition
+            );
+            if (framingFailure is not null)
+            {
+                ModelState.AddModelError(
+                    nameof(request.ProfileImagePosition),
+                    framingFailure
+                );
+                return BadRequest(ModelState);
+            }
+
             var aboutPage = new AboutPage
             {
                 AuthorName = request.AuthorName,
                 AuthorRole = request.AuthorRole,
                 SignatureCaption = request.SignatureCaption,
                 ProfileImageUrl = request.ProfileImageUrl,
+                ProfileImagePosition = string.IsNullOrWhiteSpace(
+                    request.ProfileImagePosition
+                )
+                    ? null
+                    : request.ProfileImagePosition.Trim(),
                 AuthorIntro = request.AuthorIntro,
                 AuthorAside = request.AuthorAside,
                 BlogOverview = request.BlogOverview,
@@ -74,6 +93,7 @@ namespace SpaceOfThoughts.API.Controllers
                 AuthorRole = aboutPage.AuthorRole,
                 SignatureCaption = aboutPage.SignatureCaption,
                 ProfileImageUrl = aboutPage.ProfileImageUrl,
+                ProfileImagePosition = aboutPage.ProfileImagePosition,
                 AuthorIntro = aboutPage.AuthorIntro,
                 AuthorAside = aboutPage.AuthorAside,
                 BlogOverview = aboutPage.BlogOverview,

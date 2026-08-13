@@ -131,6 +131,16 @@ body {
   color: var(--color-text);
 }
 
+/* Bootstrap's reboot sets scroll-behavior: smooth on :root, which turns the
+   router's scrollPositionRestoration into a visible animation: leaving a long
+   page part-way down, the reader watches the new page scroll itself up to the
+   top. A route change has to land at the top instantly. Deliberate smooth
+   scrolls are unaffected because passing behavior: 'smooth' to scrollTo takes
+   precedence over this property. */
+:root {
+  scroll-behavior: auto;
+}
+
 body,
 #main-content {
   transition: background-color 0.2s ease, color 0.2s ease;

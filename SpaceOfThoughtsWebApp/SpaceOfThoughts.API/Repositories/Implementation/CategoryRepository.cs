@@ -2,6 +2,7 @@
 using SpaceOfThoughts.API.Data;
 using SpaceOfThoughts.API.Models.Domain;
 using SpaceOfThoughts.API.Repositories.Interface;
+using SpaceOfThoughts.API.Text;
 
 namespace SpaceOfThoughts.API.Repositories.Implementation
 {
@@ -19,6 +20,7 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
         // Create a new category
         public async Task<Category> CreateAsync(Category category)
         {
+            category.UrlHandle = await GenerateUniqueUrlHandleAsync(category.Name, category.Id);
             await dbContext.Categories.AddAsync(category); // Add new category to the context
             await dbContext.SaveChangesAsync(); // Save changes to the database
             return category; // Return the created category
@@ -110,11 +112,39 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
             );
             if (existingCategory != null)
             {
+                // A renamed category gets a matching handle, so both stay in step
+                category.UrlHandle = await GenerateUniqueUrlHandleAsync(
+                    category.Name,
+                    category.Id
+                );
+
                 dbContext.Entry(existingCategory).CurrentValues.SetValues(category); // Update category properties
                 await dbContext.SaveChangesAsync(); // Save changes to the database
                 return category; // Return the updated category
             }
             return null; // Return null if the category was not found
+        }
+
+        // Derive the handle from the name and keep it unique across categories
+        private async Task<string> GenerateUniqueUrlHandleAsync(string name, Guid categoryId)
+        {
+            var baseUrlHandle = Slug.Create(name);
+            var urlHandle = baseUrlHandle;
+
+            for (var suffix = 2; ; suffix++)
+            {
+                var candidate = urlHandle;
+                var isTaken = await dbContext.Categories.AnyAsync(c =>
+                    c.Id != categoryId && c.UrlHandle == candidate
+                );
+
+                if (!isTaken)
+                {
+                    return urlHandle;
+                }
+
+                urlHandle = $"{baseUrlHandle}-{suffix}";
+            }
         }
     }
 }

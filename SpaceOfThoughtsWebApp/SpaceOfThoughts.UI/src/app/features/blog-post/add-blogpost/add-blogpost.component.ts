@@ -46,7 +46,6 @@ export class AddBlogpostComponent implements OnInit, OnDestroy {
   readonly model = signal<AddBlogPost>({
     title: '',
     shortDescription: '',
-    urlHandle: '',
     content: '',
     featuredImageUrl: '',
     author: '',
@@ -56,7 +55,7 @@ export class AddBlogpostComponent implements OnInit, OnDestroy {
   }); // Model for the blog post data
   categories$?: Observable<Category[]>; // Observable for the list of categories
   imageSelectorSubscription?: Subscription; // Subscription for the image selector
-  readonly urlHandleWarning = signal<string | undefined>(undefined); // Url handle field warning
+  readonly titleWarning = signal<string | undefined>(undefined); // Title field warning, because the public URL is built from it
 
   // One picker serves every picture, so it has to be told which is being chosen
   readonly imageTarget = signal<'featured' | 'background' | 'content'>(
@@ -106,7 +105,7 @@ export class AddBlogpostComponent implements OnInit, OnDestroy {
   // Handle form submission to create a new blog post
   onFormSubmit(): void {
     const model = this.model();
-    if (model.urlHandle !== '') {
+    if (model.title.trim() !== '') {
       this.blogpostService.createBlogPost(model).subscribe({
         next: () => {
           this.router.navigateByUrl('/admin/blogposts').then(() => {
@@ -116,9 +115,9 @@ export class AddBlogpostComponent implements OnInit, OnDestroy {
       });
     } else {
       this.viewportScroller.scrollToPosition([0, 0]); // Scroll up
-      this.urlHandleWarning.set(
+      this.titleWarning.set(
         '*Please make sure to at least fill out this field!',
-      ); // Warning message to fill out the urlHandleField
+      ); // The title is required because the public URL is generated from it
     }
   }
 
@@ -126,6 +125,17 @@ export class AddBlogpostComponent implements OnInit, OnDestroy {
   @HostListener('window:resize')
   onWindowResize(): void {
     this.previewAspectRatio.set(this.readViewportAspectRatio());
+  }
+
+  // Clear the chosen featured picture along with both framings, because the card
+  // and the banner crops describe a picture that is no longer there
+  onRemoveFeaturedImage(): void {
+    this.model.update((model) => ({
+      ...model,
+      featuredImageUrl: '',
+      featuredImageCardPosition: null,
+      featuredImageBannerPosition: null,
+    }));
   }
 
   // Clear the chosen background picture and the framing that went with it

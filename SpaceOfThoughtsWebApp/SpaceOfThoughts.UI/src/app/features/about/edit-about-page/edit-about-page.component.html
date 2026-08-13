@@ -85,52 +85,55 @@
             />
           </div>
 
-          <!-- Profile picture is uploaded or selected through the shared admin image library -->
-          <fieldset class="about-editor-field about-editor-image-field">
-            <legend>Author profile picture</legend>
-            <div class="about-editor-image-control">
+          <!-- Profile picture URL and framing, matching every other image field -->
+          <div class="about-editor-field">
+            <label for="profileImageUrl">Author profile picture</label>
+            <div class="admin-input-group">
+              <input
+                type="text"
+                id="profileImageUrl"
+                name="profileImageUrl"
+                class="form-control"
+                [(ngModel)]="model.profileImageUrl"
+              />
+              <button
+                type="button"
+                class="admin-primary-action admin-input-action"
+                name="selectAboutImageButton"
+                data-bs-toggle="modal"
+                data-bs-target="#aboutImageSelectModal"
+              >
+                <i class="bi bi-image" aria-hidden="true"></i>
+                Select Picture
+              </button>
               @if (model.profileImageUrl) {
-                <img
-                  class="about-editor-image-preview"
-                  [src]="model.profileImageUrl"
-                  [alt]="model.authorName + ' profile picture preview'"
-                />
-              } @else {
-                <div class="about-editor-image-empty">No picture selected</div>
+                <button
+                  type="button"
+                  class="admin-danger-action admin-input-action"
+                  name="removeAboutImageButton"
+                  (click)="removeProfileImage()"
+                >
+                  <i class="bi bi-image-alt" aria-hidden="true"></i>
+                  Remove picture
+                </button>
               }
-
-              <div class="about-editor-image-copy">
-                <p>
-                  Upload a new picture or choose one from the existing image
-                  library.
-                </p>
-                <div class="about-editor-image-actions">
-                  <button
-                    type="button"
-                    class="admin-primary-action"
-                    name="selectAboutImageButton"
-                    data-bs-toggle="modal"
-                    data-bs-target="#aboutImageSelectModal"
-                  >
-                    <i class="bi bi-upload" aria-hidden="true"></i>
-                    Upload or select picture
-                  </button>
-
-                  @if (model.profileImageUrl) {
-                    <button
-                      type="button"
-                      class="admin-danger-action"
-                      name="removeAboutImageButton"
-                      (click)="removeProfileImage()"
-                    >
-                      <i class="bi bi-x-lg" aria-hidden="true"></i>
-                      Remove picture
-                    </button>
-                  }
-                </div>
-              </div>
             </div>
-          </fieldset>
+
+            @if (model.profileImageUrl) {
+              <!-- Square, because the public about page crops the photo to 1:1 -->
+              <div class="about-editor-framing-item">
+                <span class="about-editor-framing-label">Author photo</span>
+                <app-image-framing-editor
+                  class="about-editor-framing"
+                  [src]="model.profileImageUrl"
+                  [framing]="model.profileImagePosition"
+                  alt="Author profile picture framing"
+                  zoomLabel="Photo zoom"
+                  (framingChange)="onProfileImageFramingChange($event)"
+                />
+              </div>
+            }
+          </div>
 
           <h3>Author introduction</h3>
           <div class="about-editor-field">
@@ -340,9 +343,12 @@
               aria-label="Author preview"
             >
               @if (model.profileImageUrl) {
-                <img
+                <!-- The same renderer the public page uses, so the preview shows
+                     the crop readers get rather than a centred approximation -->
+                <app-framed-image
                   class="about-editor-preview-photo"
                   [src]="model.profileImageUrl"
+                  [framing]="model.profileImagePosition"
                   [alt]="model.authorName"
                 />
               }

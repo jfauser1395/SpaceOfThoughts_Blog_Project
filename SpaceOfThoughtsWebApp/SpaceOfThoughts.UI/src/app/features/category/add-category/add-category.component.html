@@ -12,9 +12,9 @@
       name="categoryForm"
     >
       <div class="admin-form-body">
-        <!-- Category name and URL handle fields -->
+        <!-- Category name field; the API generates the URL handle from it -->
         <div class="admin-form-grid">
-          <div class="admin-form-field">
+          <div class="admin-form-field is-full">
             <label for="categoryName">Category Name</label>
             <input
               type="text"
@@ -22,18 +22,6 @@
               name="categoryName"
               class="form-control"
               [(ngModel)]="model.name"
-              required
-            />
-          </div>
-
-          <div class="admin-form-field">
-            <label for="categoryUrlHandle">Category Url Handle</label>
-            <input
-              type="text"
-              id="categoryUrlHandle"
-              name="categoryUrlHandle"
-              class="form-control"
-              [(ngModel)]="model.urlHandle"
               required
             />
           </div>

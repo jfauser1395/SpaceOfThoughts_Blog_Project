@@ -18,9 +18,16 @@ namespace SpaceOfThoughts.API.Validation
         public const int MinimumZoom = 100;
         public const int MaximumZoom = 250;
 
+        // A contained picture is never larger than its own shape allows, so filling
+        // a wide frame with a tall one takes far more reach than cropping does. The
+        // article banner is the only surface framed that way. Both constants mirror
+        // MAXIMUM_IMAGE_ZOOM and MAXIMUM_CONTAINED_IMAGE_ZOOM in the UI's
+        // image-framing.ts; if a slider's range moves, this has to move with it.
+        public const int MaximumContainedZoom = 400;
+
         // Return null when the value is acceptable, otherwise the reason it is not.
         // An absent value is valid and restores the centred, unzoomed rendering.
-        public static string? Validate(string? framing)
+        public static string? Validate(string? framing, int maximumZoom = MaximumZoom)
         {
             if (string.IsNullOrWhiteSpace(framing))
             {
@@ -42,9 +49,9 @@ namespace SpaceOfThoughts.API.Validation
                 return "Image framing percentages must be between 0 and 100.";
             }
 
-            if (zoom < MinimumZoom || zoom > MaximumZoom)
+            if (zoom < MinimumZoom || zoom > maximumZoom)
             {
-                return $"Image framing zoom must be between {MinimumZoom} and {MaximumZoom} percent.";
+                return $"Image framing zoom must be between {MinimumZoom} and {maximumZoom} percent.";
             }
 
             return null;

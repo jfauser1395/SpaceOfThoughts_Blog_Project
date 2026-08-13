@@ -27,9 +27,6 @@
 
         public string? BackgroundImagePosition { get; set; }
 
-        // URL handle (slug) for the blog post
-        public required string UrlHandle { get; set; }
-
         // Date when the blog post was published
         public DateTime PublishedDate { get; set; }
 

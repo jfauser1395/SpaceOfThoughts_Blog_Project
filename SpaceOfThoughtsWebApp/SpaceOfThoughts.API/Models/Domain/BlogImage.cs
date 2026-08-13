@@ -6,8 +6,10 @@
         // Unique identifier for the image
         public Guid Id { get; set; }
 
-        // Name of the file
-        public required string FileName { get; set; }
+        // Name of the file. Assigned by ImageRepository from the title on upload
+        // and never supplied by a caller, so it is not `required`: that would only
+        // force each caller to write a dummy value.
+        public string FileName { get; set; } = string.Empty;
 
         // Extension of the file (e.g., .jpg, .png)
         public required string FileExtension { get; set; }

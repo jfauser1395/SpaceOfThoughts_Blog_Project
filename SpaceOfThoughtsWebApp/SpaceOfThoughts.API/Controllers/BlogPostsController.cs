@@ -45,8 +45,11 @@ namespace SpaceOfThoughts.API.Controllers
                 return BadRequest(ModelState);
             }
 
+            // The banner is the one surface that contains rather than crops, so it
+            // offers the wider zoom range its editor's slider exposes.
             var bannerFramingFailure = ImageFramingValidator.Validate(
-                request.FeaturedImageBannerPosition
+                request.FeaturedImageBannerPosition,
+                ImageFramingValidator.MaximumContainedZoom
             );
             if (bannerFramingFailure is not null)
             {
@@ -97,7 +100,6 @@ namespace SpaceOfThoughts.API.Controllers
                 PublishedDate = request.PublishedDate,
                 ShortDescription = request.ShortDescription,
                 Title = request.Title,
-                UrlHandle = request.UrlHandle,
                 Categories = new List<Category>()
             };
 
@@ -308,8 +310,11 @@ namespace SpaceOfThoughts.API.Controllers
                 return BadRequest(ModelState);
             }
 
+            // The banner is the one surface that contains rather than crops, so it
+            // offers the wider zoom range its editor's slider exposes.
             var bannerFramingFailure = ImageFramingValidator.Validate(
-                request.FeaturedImageBannerPosition
+                request.FeaturedImageBannerPosition,
+                ImageFramingValidator.MaximumContainedZoom
             );
             if (bannerFramingFailure is not null)
             {
@@ -361,7 +366,6 @@ namespace SpaceOfThoughts.API.Controllers
                 PublishedDate = request.PublishedDate,
                 ShortDescription = request.ShortDescription,
                 Title = request.Title,
-                UrlHandle = request.UrlHandle,
                 Categories = new List<Category>()
             };
 

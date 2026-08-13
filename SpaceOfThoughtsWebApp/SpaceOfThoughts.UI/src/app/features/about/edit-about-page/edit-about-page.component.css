@@ -75,62 +75,28 @@
 }
 
 /* Profile picture upload and selection control */
-.about-editor-image-field {
-  border: 0;
+/* Framing preview, laid out like the blog post editor's picture previews */
+.about-editor-framing-item {
+  margin-top: 10px;
+  max-width: 320px;
   min-width: 0;
-  padding: 0;
 }
 
-.about-editor-image-field legend {
-  color: var(--color-heading);
-  float: none;
-  font-size: 16px;
-  font-weight: 700;
-  margin-bottom: 7px;
+.about-editor-framing-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  margin-bottom: 6px;
+  opacity: 0.8;
+  text-transform: uppercase;
 }
 
-.about-editor-image-control {
-  align-items: center;
-  border: 1px solid var(--color-border-strong);
-  border-radius: 8px;
-  display: grid;
-  gap: 16px;
-  grid-template-columns: 120px minmax(0, 1fr);
-  padding: 14px;
-}
-
-.about-editor-image-preview,
-.about-editor-image-empty {
-  aspect-ratio: 1;
-  border-radius: 8px;
-  width: 120px;
-}
-
-.about-editor-image-preview {
-  object-fit: cover;
-}
-
-.about-editor-image-empty {
-  align-items: center;
-  background: var(--color-surface-muted);
-  border: 1px dashed var(--color-border-strong);
-  color: var(--color-text-muted);
-  display: flex;
-  font-size: 13px;
-  justify-content: center;
-  padding: 12px;
-  text-align: center;
-}
-
-.about-editor-image-copy p {
-  color: var(--color-text-muted);
-  margin: 0 0 12px;
-}
-
-.about-editor-image-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+/* Square, mirroring the 1:1 crop of .about-profile-image on the public page */
+.about-editor-framing {
+  --framing-frame-aspect: 1;
+  --framing-frame-height: auto;
+  display: block;
 }
 
 .about-editor-page .form-control {
@@ -245,15 +211,13 @@
   grid-template-columns: 1fr;
 }
 
+/* app-framed-image crops inside its own box, so the size and the rounding sit
+   on the host rather than on an inner picture. */
 .about-editor-preview-photo {
   aspect-ratio: 1;
   border-radius: 8px;
   height: 96px;
   width: 96px;
-}
-
-.about-editor-preview-photo {
-  object-fit: cover;
 }
 
 .about-editor-preview-card h3 {
@@ -317,10 +281,6 @@
   .about-editor-header {
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  .about-editor-image-control {
-    grid-template-columns: 1fr;
   }
 
   .about-editor-actions .btn {

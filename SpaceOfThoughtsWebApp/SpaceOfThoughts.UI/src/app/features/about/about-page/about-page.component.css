@@ -120,10 +120,11 @@
   grid-template-columns: 1fr;
 }
 
+/* app-framed-image crops inside its own box, so the shape and the rounding sit
+   on the host rather than on an inner picture. */
 .about-profile-image {
   aspect-ratio: 1;
   border-radius: 8px;
-  object-fit: cover;
   width: 100%;
 }
 

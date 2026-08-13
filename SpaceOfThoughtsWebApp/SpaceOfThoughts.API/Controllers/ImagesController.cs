@@ -80,14 +80,12 @@ namespace SpaceOfThoughts.API.Controllers
         [RequestFormLimits(MultipartBodyLengthLimit = 11 * 1024 * 1024)]
         public async Task<IActionResult> UploadImage(
             [FromForm] IFormFile? file,
-            [FromForm] string? fileName,
             [FromForm] string? title,
             [FromForm] string? category
         )
         {
             // Validate both the file and the public storage category before writing
             ValidateFileUpload(file);
-            var normalizedFileName = NormalizeFileName(fileName);
             if (
                 !ImageStoragePaths.TryParsePublicCategory(
                     category,
@@ -113,12 +111,10 @@ namespace SpaceOfThoughts.API.Controllers
                 var blogImage = new BlogImage
                 {
                     FileExtension = ImageUploadProcessor.OutputFileExtension,
-                    FileName = normalizedFileName!,
                     Title = title!.Trim(),
                     DateCreated = DateTime.UtcNow,
                 };
 
-                // Upload without silently renaming a duplicate administrator filename
                 BlogImage? uploadedImage;
                 try
                 {
@@ -136,19 +132,17 @@ namespace SpaceOfThoughts.API.Controllers
                 }
                 if (uploadedImage is null)
                 {
-                    var storedFileName =
-                        $"{blogImage.FileName}{blogImage.FileExtension}";
+                    // Generated filenames are unique, so this is a concurrent upload
+                    // that claimed the same name between the check and the write
                     ModelState.AddModelError(
-                        nameof(fileName),
-                        $"An image file named '{storedFileName}' already exists in the {parsedCategory} image library."
+                        nameof(file),
+                        "The image could not be stored. Please try uploading it again."
                     );
-
-                    // A duplicate filename conflicts with the existing stored resource
                     return Conflict(
                         new ValidationProblemDetails(ModelState)
                         {
                             Status = StatusCodes.Status409Conflict,
-                            Title = "Duplicate image filename"
+                            Title = "Image upload conflict"
                         }
                     );
                 }
@@ -203,56 +197,6 @@ namespace SpaceOfThoughts.API.Controllers
                     "File size cannot be more than 10MB."
                 );
             }
-        }
-
-        // Normalize the admin filename while rejecting path and unsafe filename characters
-        private string? NormalizeFileName(string? fileName)
-        {
-            var trimmedFileName = fileName?.Trim();
-            if (string.IsNullOrWhiteSpace(trimmedFileName))
-            {
-                ModelState.AddModelError(
-                    nameof(fileName),
-                    "An image filename is required."
-                );
-                return null;
-            }
-
-            if (
-                !string.Equals(
-                    Path.GetFileName(trimmedFileName),
-                    trimmedFileName,
-                    StringComparison.Ordinal
-                )
-            )
-            {
-                ModelState.AddModelError(
-                    nameof(fileName),
-                    "The image filename cannot contain a path."
-                );
-                return null;
-            }
-
-            var normalizedFileName = Path.GetFileNameWithoutExtension(trimmedFileName);
-            if (
-                string.IsNullOrWhiteSpace(normalizedFileName)
-                || normalizedFileName.Any(character =>
-                    !char.IsLetterOrDigit(character)
-                    && character != '-'
-                    && character != '_'
-                    && character != ' '
-                )
-            )
-            {
-                ModelState.AddModelError(
-                    nameof(fileName),
-                    "Use only letters, numbers, spaces, hyphens, or underscores in the filename."
-                );
-                return null;
-            }
-
-            // Use one casing so duplicate checks behave identically on Windows and Linux
-            return normalizedFileName.ToLowerInvariant();
         }
 
         // DELETE: {apiBaseUrl}/api/Images/{id} - Endpoint to delete an image by its ID

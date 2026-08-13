@@ -16,10 +16,18 @@ import { UpdateAboutPage } from '../models/update-about-page.model';
 import { AboutPageService } from '../services/about-page.service';
 import { ImageSelectorComponent } from '../../blog-post/shared/components/image-selector/image-selector.component';
 import { ImageService } from '../../blog-post/shared/components/services/image.service';
+import { FramedImageComponent } from '../../../core/media/framed-image.component';
+import { ImageFramingEditorComponent } from '../../../core/media/image-framing-editor.component';
 
 @Component({
   selector: 'app-edit-about-page',
-  imports: [FormsModule, RouterModule, ImageSelectorComponent],
+  imports: [
+    FormsModule,
+    RouterModule,
+    ImageSelectorComponent,
+    FramedImageComponent,
+    ImageFramingEditorComponent,
+  ],
   templateUrl: './edit-about-page.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './edit-about-page.component.css',
@@ -67,9 +75,16 @@ export class EditAboutPageComponent implements OnInit {
       .subscribe({
         next: (selectedImage) => {
           if (selectedImage.url) {
-            // Replace the object so the signal notifies the OnPush preview
+            // Replace the object so the signal notifies the OnPush preview. A
+            // different picture frames differently, so its crop starts centred.
             this.model.update((model) =>
-              model ? { ...model, profileImageUrl: selectedImage.url } : model,
+              model
+                ? {
+                    ...model,
+                    profileImageUrl: selectedImage.url,
+                    profileImagePosition: null,
+                  }
+                : model,
             );
           }
         },
@@ -79,7 +94,16 @@ export class EditAboutPageComponent implements OnInit {
   // Remove the selected picture without deleting it from the shared image library
   removeProfileImage(): void {
     this.model.update((model) =>
-      model ? { ...model, profileImageUrl: null } : model,
+      model
+        ? { ...model, profileImageUrl: null, profileImagePosition: null }
+        : model,
+    );
+  }
+
+  // Store the framing the shared editor produced for the profile picture
+  onProfileImageFramingChange(framing: string): void {
+    this.model.update((model) =>
+      model ? { ...model, profileImagePosition: framing } : model,
     );
   }
 
@@ -108,6 +132,10 @@ export class EditAboutPageComponent implements OnInit {
         authorRole: model.authorRole.trim(),
         signatureCaption: model.signatureCaption.trim(),
         profileImageUrl: model.profileImageUrl?.trim() || null,
+        // Framing only means something alongside a picture
+        profileImagePosition: model.profileImageUrl?.trim()
+          ? (model.profileImagePosition ?? null)
+          : null,
         authorIntro: model.authorIntro.trim(),
         authorAside: model.authorAside.trim(),
         blogOverview: model.blogOverview.trim(),
@@ -168,6 +196,7 @@ export class EditAboutPageComponent implements OnInit {
       authorRole: '',
       signatureCaption: '',
       profileImageUrl: null,
+      profileImagePosition: null,
       authorIntro: '',
       authorAside: '',
       blogOverview: '',

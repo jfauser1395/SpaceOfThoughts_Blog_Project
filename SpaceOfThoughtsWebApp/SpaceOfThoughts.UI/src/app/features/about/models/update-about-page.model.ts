@@ -12,6 +12,9 @@ export interface UpdateAboutPage {
   // Optional profile image URL for the author section
   profileImageUrl?: string | null;
 
+  // Saved "x% y% zoom%" framing for the cropped profile picture
+  profileImagePosition?: string | null;
+
   // Main introductory text about the author
   authorIntro: string;
 

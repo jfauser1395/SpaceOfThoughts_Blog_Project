@@ -2,12 +2,18 @@
 using SpaceOfThoughts.API.Data;
 using SpaceOfThoughts.API.Models.Domain;
 using SpaceOfThoughts.API.Repositories.Interface;
+using SpaceOfThoughts.API.Text;
 
 namespace SpaceOfThoughts.API.Repositories.Implementation
 {
     // BlogPostRepository handles CRUD operations for BlogPost entities
     public class BlogPostRepository : IBlogPostRepository
     {
+        // Literal segments of the blog post routes. A post cannot own one of these
+        // handles because the literal route wins, so GET api/blogposts/count would
+        // answer with the total instead of the post titled "Count".
+        private static readonly string[] ReservedUrlHandles = ["count"];
+
         private readonly ApplicationDbContext dbContext;
 
         // Constructor to initialize ApplicationDbContext
@@ -19,6 +25,7 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
         // Create a new blog post
         public async Task<BlogPost> CreateAsync(BlogPost blogPost)
         {
+            blogPost.UrlHandle = await GenerateUniqueUrlHandleAsync(blogPost.Title, blogPost.Id);
             await dbContext.BlogPosts.AddAsync(blogPost); // Add new blog post to the context
             await dbContext.SaveChangesAsync(); // Save changes to the database
             return blogPost; // Return the created blog post
@@ -162,12 +169,40 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
                 return null; // Return null if the blog post was not found
             }
 
+            // A retitled post gets a matching handle, so its public URL follows the title
+            blogPost.UrlHandle = await GenerateUniqueUrlHandleAsync(blogPost.Title, blogPost.Id);
+
             // Update blog post properties
             dbContext.Entry(existingBlogPost).CurrentValues.SetValues(blogPost);
             existingBlogPost.Categories = blogPost.Categories; // Update related categories
 
             await dbContext.SaveChangesAsync(); // Save changes to the database
             return blogPost; // Return the updated blog post
+        }
+
+        // Derive the public handle from the title and keep it unique, because
+        // GetByUrlHandleAsync matches exactly and two posts cannot share a URL
+        private async Task<string> GenerateUniqueUrlHandleAsync(string title, Guid blogPostId)
+        {
+            var baseUrlHandle = Slug.Create(title);
+            var urlHandle = baseUrlHandle;
+
+            for (var suffix = 2; ; suffix++)
+            {
+                var candidate = urlHandle;
+                var isTaken =
+                    ReservedUrlHandles.Contains(candidate)
+                    || await dbContext.BlogPosts.AnyAsync(x =>
+                        x.Id != blogPostId && x.UrlHandle == candidate
+                    );
+
+                if (!isTaken)
+                {
+                    return urlHandle;
+                }
+
+                urlHandle = $"{baseUrlHandle}-{suffix}";
+            }
         }
     }
 }

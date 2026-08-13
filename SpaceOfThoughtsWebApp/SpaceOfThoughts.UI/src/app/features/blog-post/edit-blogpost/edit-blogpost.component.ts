@@ -55,7 +55,7 @@ export class EditBlogpostComponent implements OnInit, OnDestroy {
   updateBlogPostSubscription$?: Subscription; // Subscription for updating the blog post
   deleteBlogPostSubscription$?: Subscription; // Subscription for deleting the blog post
   imageSelectSubscription$?: Subscription; // Subscription for image selection
-  readonly urlHandleWarning = signal<string | undefined>(undefined);
+  readonly titleWarning = signal<string | undefined>(undefined); // Title field warning, because the public URL is built from it
 
   // One picker serves every picture, so it has to be told which is being chosen
   readonly imageTarget = signal<'featured' | 'background' | 'content'>(
@@ -127,7 +127,7 @@ export class EditBlogpostComponent implements OnInit, OnDestroy {
   // Handle form submission to update the blog post
   onFormSubmit(): void {
     const model = this.model();
-    if (model?.urlHandle !== '') {
+    if (model?.title.trim() !== '') {
       // Convert this model to UpdateBlogPost request object
       if (model && this.id) {
         const updateBlogPost: UpdateBlogPost = {
@@ -149,7 +149,6 @@ export class EditBlogpostComponent implements OnInit, OnDestroy {
           isVisible: model.isVisible,
           publishedDate: model.publishedDate,
           title: model.title,
-          urlHandle: model.urlHandle,
           categories: this.selectedCategories ?? [],
         };
         this.updateBlogPostSubscription$ = this.blogPostService
@@ -164,9 +163,9 @@ export class EditBlogpostComponent implements OnInit, OnDestroy {
       }
     } else {
       this.viewportScroller.scrollToPosition([0, 0]); // Scroll up
-      this.urlHandleWarning.set(
+      this.titleWarning.set(
         '*Please make sure to at least fill out this field!',
-      ); // Warning message to fill out the urlHandleField
+      ); // The title is required because the public URL is generated from it
     }
   }
 
@@ -196,6 +195,21 @@ export class EditBlogpostComponent implements OnInit, OnDestroy {
     this.model.update((model) =>
       model
         ? { ...model, backgroundImageUrl: null, backgroundImagePosition: null }
+        : model,
+    );
+  }
+
+  // Clear the chosen featured picture along with both framings, because the card
+  // and the banner crops describe a picture that is no longer there
+  onRemoveFeaturedImage(): void {
+    this.model.update((model) =>
+      model
+        ? {
+            ...model,
+            featuredImageUrl: '',
+            featuredImageCardPosition: null,
+            featuredImageBannerPosition: null,
+          }
         : model,
     );
   }

@@ -4,6 +4,7 @@ using SpaceOfThoughts.API.Imaging;
 using SpaceOfThoughts.API.Models.Domain;
 using SpaceOfThoughts.API.Repositories.Interface;
 using SpaceOfThoughts.API.Storage;
+using SpaceOfThoughts.API.Text;
 
 namespace SpaceOfThoughts.API.Repositories.Implementation
 {
@@ -81,46 +82,20 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
             // Existing legacy files retain their extension. New uploads use one
             // canonical WebP URL so every consumer receives an optimized raster.
             blogImage.FileExtension = ImageUploadProcessor.OutputFileExtension;
+
+            // The filename comes from the title rather than from the administrator,
+            // so it can never carry spaces, path separators, or a taken name.
+            blogImage.FileName = await GenerateUniqueFileNameAsync(
+                blogImage.Title,
+                blogImage.FileExtension,
+                category,
+                categoryDirectory
+            );
             var storedFileName = $"{blogImage.FileName}{blogImage.FileExtension}";
             var localPath = Path.Combine(
                 categoryDirectory,
                 storedFileName
             );
-
-            // Reject matching metadata even when its physical file was removed externally
-            var matchingImageUrls = await dbContext
-                .BlogImages.AsNoTracking()
-                .Where(image =>
-                    image.FileName.ToLower() == blogImage.FileName.ToLower()
-                    && image.FileExtension.ToLower()
-                        == blogImage.FileExtension.ToLower()
-                )
-                .Select(image => image.Url)
-                .ToListAsync();
-            if (
-                matchingImageUrls.Any(url =>
-                    ImageStoragePaths.GetCategoryFromUrl(url) == category
-                )
-            )
-            {
-                return null;
-            }
-
-            // Compare existing files without relying on operating-system case rules
-            var fileAlreadyExists = Directory
-                .EnumerateFiles(categoryDirectory)
-                .Select(Path.GetFileName)
-                .Any(existingFileName =>
-                    string.Equals(
-                        existingFileName,
-                        storedFileName,
-                        StringComparison.OrdinalIgnoreCase
-                    )
-                );
-            if (fileAlreadyExists)
-            {
-                return null;
-            }
 
             try
             {
@@ -157,6 +132,57 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
                 throw;
             }
             return blogImage; // Return the uploaded image
+        }
+
+        // Pick the first free filename for this category, checking both metadata and
+        // disk because a stored file can outlive the row that described it
+        private async Task<string> GenerateUniqueFileNameAsync(
+            string title,
+            string fileExtension,
+            PublicImageCategory category,
+            string categoryDirectory
+        )
+        {
+            var baseFileName = Slug.Create(title);
+            var fileName = baseFileName;
+
+            for (var suffix = 2; ; suffix++)
+            {
+                var candidate = fileName;
+
+                // Reject matching metadata even when its physical file was removed externally
+                var matchingImageUrls = await dbContext
+                    .BlogImages.AsNoTracking()
+                    .Where(image =>
+                        image.FileName.ToLower() == candidate.ToLower()
+                        && image.FileExtension.ToLower() == fileExtension.ToLower()
+                    )
+                    .Select(image => image.Url)
+                    .ToListAsync();
+
+                var isTaken =
+                    matchingImageUrls.Any(url =>
+                        ImageStoragePaths.GetCategoryFromUrl(url) == category
+                    )
+                    // Compare existing files without relying on operating-system case rules
+                    || Directory
+                        .EnumerateFiles(categoryDirectory)
+                        .Select(Path.GetFileName)
+                        .Any(existingFileName =>
+                            string.Equals(
+                                existingFileName,
+                                $"{candidate}{fileExtension}",
+                                StringComparison.OrdinalIgnoreCase
+                            )
+                        );
+
+                if (!isTaken)
+                {
+                    return fileName;
+                }
+
+                fileName = $"{baseFileName}-{suffix}";
+            }
         }
 
         // Delete an image by ID

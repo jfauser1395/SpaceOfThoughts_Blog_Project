@@ -9,12 +9,13 @@ import {
 } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { LoadingOverlayComponent } from '../../../core/loading-overlay/loading-overlay.component';
+import { FramedImageComponent } from '../../../core/media/framed-image.component';
 import { AboutPage } from '../models/about-page.model';
 import { AboutPageService } from '../services/about-page.service';
 
 @Component({
   selector: 'app-about-page',
-  imports: [LoadingOverlayComponent],
+  imports: [LoadingOverlayComponent, FramedImageComponent],
   templateUrl: './about-page.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './about-page.component.css',

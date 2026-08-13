@@ -55,13 +55,11 @@ export class ImageService {
   // Upload a new image
   uploadImage(
     file: File,
-    fileName: string,
     title: string,
     category: PublicImageCategory = 'Blog',
   ): Observable<BlogImage> {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('fileName', fileName);
     formData.append('title', title);
     formData.append('category', category);
     return this.http.post<BlogImage>(

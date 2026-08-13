@@ -124,11 +124,6 @@
   margin-bottom: 14px;
 }
 
-.admin-image-upload-grid {
-  display: grid;
-  gap: 14px;
-}
-
 .admin-image-upload .form-control {
   min-height: 38px;
 }

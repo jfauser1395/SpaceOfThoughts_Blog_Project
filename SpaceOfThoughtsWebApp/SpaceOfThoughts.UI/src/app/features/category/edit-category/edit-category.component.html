@@ -9,7 +9,7 @@
       <!-- Form for editing category data -->
       <form #editCategoryForm="ngForm" (ngSubmit)="onFormSubmit()">
         <div class="admin-form-body">
-          <!-- Category ID, name, and URL handle fields -->
+          <!-- Category ID and name; the API generates the URL handle from the name -->
           <div class="admin-form-grid">
             <div class="admin-form-field is-full">
               <label for="categoryId">Id</label>
@@ -23,7 +23,7 @@
               />
             </div>
 
-            <div class="admin-form-field">
+            <div class="admin-form-field is-full">
               <label for="categoryName">Name</label>
               <input
                 type="text"
@@ -31,18 +31,6 @@
                 class="form-control"
                 name="categoryName"
                 [(ngModel)]="currentCategory.name"
-                required
-              />
-            </div>
-
-            <div class="admin-form-field">
-              <label for="categoryUrlHandle">Url Handle</label>
-              <input
-                type="text"
-                id="categoryUrlHandle"
-                class="form-control"
-                name="categoryUrlHandle"
-                [(ngModel)]="currentCategory.urlHandle"
                 required
               />
             </div>

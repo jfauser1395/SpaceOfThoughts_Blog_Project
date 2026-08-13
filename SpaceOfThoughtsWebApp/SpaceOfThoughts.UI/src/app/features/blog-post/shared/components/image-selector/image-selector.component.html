@@ -25,7 +25,7 @@
           name="imageForm"
         >
           @if (uploadError(); as errorMessage) {
-            <!-- Keep API validation visible so the administrator can choose another name -->
+            <!-- Keep API validation visible instead of closing the modal silently -->
             <div class="alert alert-danger" role="alert">
               {{ errorMessage }}
             </div>
@@ -45,30 +45,17 @@
             />
           </div>
 
-          <div class="admin-image-upload-grid">
-            <div class="admin-form-field">
-              <label for="imageFileName">File Name</label>
-              <input
-                type="text"
-                id="imageFileName"
-                class="form-control"
-                name="fileName"
-                formControlName="fileName"
-                aria-label="Input for file name"
-              />
-            </div>
-
-            <div class="admin-form-field">
-              <label for="imageTitle">Title</label>
-              <input
-                type="text"
-                id="imageTitle"
-                class="form-control"
-                name="title"
-                formControlName="title"
-                aria-label="Input for image title"
-              />
-            </div>
+          <!-- The API derives the stored filename from this title -->
+          <div class="admin-form-field">
+            <label for="imageTitle">Title</label>
+            <input
+              type="text"
+              id="imageTitle"
+              class="form-control"
+              name="title"
+              formControlName="title"
+              aria-label="Input for image title"
+            />
           </div>
 
           <div class="admin-image-selector-actions">

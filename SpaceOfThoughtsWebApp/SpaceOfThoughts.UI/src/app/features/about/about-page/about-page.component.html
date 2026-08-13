@@ -29,9 +29,10 @@
         aria-labelledby="about-me-title"
       >
         @if (page.profileImageUrl) {
-          <img
+          <app-framed-image
             class="about-profile-image"
             [src]="page.profileImageUrl"
+            [framing]="page.profileImagePosition"
             [alt]="page.authorName + ' profile photo'"
           />
         }

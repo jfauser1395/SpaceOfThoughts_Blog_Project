@@ -43,6 +43,7 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
                 existingAboutPage.AuthorRole = aboutPage.AuthorRole;
                 existingAboutPage.SignatureCaption = aboutPage.SignatureCaption;
                 existingAboutPage.ProfileImageUrl = aboutPage.ProfileImageUrl;
+                existingAboutPage.ProfileImagePosition = aboutPage.ProfileImagePosition;
                 existingAboutPage.AuthorIntro = aboutPage.AuthorIntro;
                 existingAboutPage.AuthorAside = aboutPage.AuthorAside;
                 existingAboutPage.BlogOverview = aboutPage.BlogOverview;

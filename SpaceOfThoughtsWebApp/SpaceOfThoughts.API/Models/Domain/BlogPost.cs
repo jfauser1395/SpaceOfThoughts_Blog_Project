@@ -31,8 +31,10 @@
 
         public string? BackgroundImagePosition { get; set; }
 
-        // URL handle (slug) for the blog post
-        public required string UrlHandle { get; set; }
+        // URL handle (slug) for the blog post. Assigned by BlogPostRepository from
+        // the title on every save and never supplied by a caller, so it is not
+        // `required`: that would only force each caller to write a dummy value.
+        public string UrlHandle { get; set; } = string.Empty;
 
         // Date when the blog post was published
         public DateTime PublishedDate { get; set; }

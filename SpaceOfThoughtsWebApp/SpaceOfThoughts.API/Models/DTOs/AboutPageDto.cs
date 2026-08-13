@@ -18,6 +18,9 @@ namespace SpaceOfThoughts.API.Models.DTOs
         // Optional profile image URL for the author section
         public string? ProfileImageUrl { get; set; }
 
+        // Saved "x% y% zoom%" framing for the cropped profile picture
+        public string? ProfileImagePosition { get; set; }
+
         // Main introductory text about the author
         public required string AuthorIntro { get; set; }
 

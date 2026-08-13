@@ -18,6 +18,10 @@ namespace SpaceOfThoughts.API.Models.Domain
         // Optional profile image URL for the author section
         public string? ProfileImageUrl { get; set; }
 
+        // Saved "x% y% zoom%" framing applied when the profile picture is cropped
+        // into its square on the public page. Null keeps the centred rendering.
+        public string? ProfileImagePosition { get; set; }
+
         // Main introductory text about the author
         public required string AuthorIntro { get; set; }
 
