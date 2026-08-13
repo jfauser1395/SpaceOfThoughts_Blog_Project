@@ -18,13 +18,20 @@ import {
   selector: 'app-framed-background-layer',
   template: '',
   styles: `
+    /* Height and vertical anchor are expressed in vh rather than in percentages
+       of this fixed element's containing block. A phone browser resizes that
+       containing block as its address bar collapses on scroll, so a percentage
+       height would grow mid-scroll and background-size: cover would visibly
+       rescale the picture. vh is defined against the large viewport, which the
+       address bar does not change. On desktop, and in the standalone PWA that
+       has no address bar at all, this resolves to exactly what % did. */
     :host {
-      height: 100%;
+      height: 100vh;
       inset: auto;
       left: 50%;
       pointer-events: none;
       position: fixed;
-      top: 50%;
+      top: 50vh;
       width: 100%;
     }
   `,
@@ -33,7 +40,7 @@ import {
     class: 'media-page-background',
     '[style.background-image]': 'backgroundImage()',
     '[style.background-position]': 'objectPosition()',
-    '[style.height.%]': 'renderScale()',
+    '[style.height]': 'renderHeight()',
     '[style.transform]': 'transform()',
     '[style.width.%]': 'renderScale()',
   },
@@ -57,6 +64,10 @@ export class FramedBackgroundLayerComponent {
   protected readonly renderScale = computed(() =>
     framingRenderScale(this.placement()),
   );
+
+  // The same overscan the width uses, but measured against the large viewport so
+  // a collapsing address bar cannot change the picture's size mid-scroll
+  protected readonly renderHeight = computed(() => `${this.renderScale()}vh`);
   protected readonly transform = computed(() =>
     buildCenteredFramingTransform(this.placement()),
   );
