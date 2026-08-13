@@ -76,6 +76,8 @@ printf '  3) complete rework   %s -> %s\n' "$CURRENT_VERSION" "$(next_version ma
 printf '  q) cancel\n\n'
 
 read -r -p 'Choice: ' choice
+# Input piped in from a Windows shell arrives with a carriage return attached.
+choice="${choice%$'\r'}"
 case "$choice" in
     1) NEW_VERSION="$(next_version patch)" ;;
     2) NEW_VERSION="$(next_version minor)" ;;
