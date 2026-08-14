@@ -1564,6 +1564,21 @@ html[data-theme="light"] .cover-page .cover-actions .btn-outline-light {
   font-display: swap; /* Fixes FCP render blocking completely */
 }
 
+/*
+ * Bootstrap Icons ships its @font-face with `font-display: block`, which hides
+ * every icon for up to 3s while the font loads and trips the Lighthouse
+ * "Font display" insight (only `swap` and `optional` pass it).
+ * Redeclaring the same family after the vendor stylesheet (styles.css is
+ * listed after bootstrap-icons.css in angular.json) makes this the winning
+ * face, so the browser loads the font with `swap` instead.
+ */
+@font-face {
+  font-family: "bootstrap-icons";
+  src: url("../node_modules/bootstrap-icons/font/fonts/bootstrap-icons.woff2")
+    format("woff2");
+  font-display: swap;
+}
+
 /* Theme font*/
 .blogFontThemeNav {
   color: var(--color-primary);
