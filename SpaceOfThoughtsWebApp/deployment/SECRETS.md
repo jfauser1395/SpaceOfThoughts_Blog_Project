@@ -174,6 +174,54 @@ systemd unit, so an API compromise does not also expose DNS control. The
 [DDNS runbook](ddns/README.md) installs that credential as
 `/etc/spaceofthoughts/ddns.env` with mode `0600`.
 
+## Operator-supplied secrets the API itself needs
+
+A third-party credential the API uses at runtime, such as a transactional email
+provider's API key, cannot be added to `api.env`. `spotctl` renders that file in
+full from its own generator, so `reconfigure` and a reconfiguring `restart`
+discard anything added by hand, and the service then starts without the key.
+
+Give each such credential its own root-only file and attach it with a systemd
+drop-in. `spotctl` writes only the main unit, never a drop-in, so the setting
+survives every deployment.
+
+```bash
+sudoedit /etc/spaceofthoughts/email.env
+sudo chown root:root /etc/spaceofthoughts/email.env
+sudo chmod 0600 /etc/spaceofthoughts/email.env
+
+sudo install -d -o root -g root -m 0755 \
+  /etc/systemd/system/spaceofthoughts.service.d
+sudoedit /etc/systemd/system/spaceofthoughts.service.d/email.conf
+
+sudo systemctl daemon-reload
+sudo systemctl restart spaceofthoughts.service
+```
+
+The drop-in contains only the additional file, because systemd accumulates
+`EnvironmentFile` entries rather than replacing them:
+
+```text
+[Service]
+EnvironmentFile=/etc/spaceofthoughts/email.env
+```
+
+Do not add a second `EnvironmentFile` line to the unit template instead. The
+`sed` expression in `install_service_unit` rewrites every matching line, so the
+next deployment would silently replace it with a duplicate of `api.env`.
+
+Confirm both files are attached, which prints paths and never values:
+
+```bash
+systemctl show spaceofthoughts.service -p EnvironmentFiles
+```
+
+These files are not part of a release and are not covered by the deployment
+backups. Record that each one exists, and expect to recreate them by hand when
+rebuilding the host. One-shot administrator provisioning also runs with only
+`api.env` attached, so the API must tolerate such a credential being absent at
+startup and resolve it when it is first used.
+
 ## Deploying an application update
 
 Build every update with the same release builder:
