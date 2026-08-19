@@ -243,14 +243,9 @@ var app = builder.Build();
 
 if (spotctlProvisionCommand is not null)
 {
-    var password = await Console.In.ReadLineAsync();
-    if (password is null)
-    {
-        throw new InvalidOperationException(
+    var password = await Console.In.ReadLineAsync() ?? throw new InvalidOperationException(
             "The spotctl administrator password must be supplied as one line on standard input."
         );
-    }
-
     await DbInitializer.MigrateAndProvisionAdminAsync(
         app,
         spotctlProvisionCommand.UserName,
