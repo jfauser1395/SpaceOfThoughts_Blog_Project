@@ -1,6 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
-
-namespace SpaceOfThoughts.API.Models.Domain
+﻿namespace SpaceOfThoughts.API.Models.Domain
 {
     // VerificationCode represents a code currently in flight, stored so the
     // user's input can be checked later. Rows are removed once consumed
@@ -23,8 +21,5 @@ namespace SpaceOfThoughts.API.Models.Domain
 
         // Failed attempts so far, used to stop guessing the six digits
         public int AttemptCount { get; set; }
-
-        // Identity user navigation property
-        public IdentityUser? User { get; set; }
     }
 }
