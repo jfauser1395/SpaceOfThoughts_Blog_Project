@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SpaceOfThoughts.API.Authentication;
+using SpaceOfThoughts.API.Imaging;
 using SpaceOfThoughts.API.Models.Domain;
 using SpaceOfThoughts.API.Models.DTOs;
 using SpaceOfThoughts.API.Repositories.Interface;
@@ -17,10 +19,6 @@ namespace SpaceOfThoughts.API.Controllers
         // Maximum number of nested replies allowed in one comment thread
         private const int MaxThreadDepth = 10;
 
-        // Claim names used to read profile image data from Identity
-        private const string ProfileImageClaimType = "profile_image_url";
-        private const string ProfileImagePositionClaimType = "profile_image_position";
-        private const string DefaultProfileImagePosition = "50% 50% 100%";
         private const string DeletedAuthorName = "[deleted]";
         private const string DeletedCommentContent = "Comment deleted.";
         private readonly IBlogPostRepository blogPostRepository;
@@ -359,7 +357,7 @@ namespace SpaceOfThoughts.API.Controllers
             var user = await userManager.FindByIdAsync(userId);
             if (user is null)
             {
-                return DefaultProfileImagePosition;
+                return ImageUploadProcessor.DefaultProfilePosition;
             }
 
             return await GetProfileImagePositionAsync(user);
@@ -369,15 +367,15 @@ namespace SpaceOfThoughts.API.Controllers
         private async Task<string?> GetProfileImageUrlAsync(IdentityUser user)
         {
             var claims = await userManager.GetClaimsAsync(user);
-            return claims.FirstOrDefault(claim => claim.Type == ProfileImageClaimType)?.Value;
+            return claims.FirstOrDefault(claim => claim.Type == UserClaimTypes.ProfileImage)?.Value;
         }
 
         // Read the profile image position claim for a user
         private async Task<string?> GetProfileImagePositionAsync(IdentityUser user)
         {
             var claims = await userManager.GetClaimsAsync(user);
-            return claims.FirstOrDefault(claim => claim.Type == ProfileImagePositionClaimType)?.Value
-                ?? DefaultProfileImagePosition;
+            return claims.FirstOrDefault(claim => claim.Type == UserClaimTypes.ProfileImagePosition)?.Value
+                ?? ImageUploadProcessor.DefaultProfilePosition;
         }
 
         // Convert the reaction string from the client into the domain enum
@@ -492,7 +490,7 @@ namespace SpaceOfThoughts.API.Controllers
                     ? null
                     : authorProfileImageUrl,
                 AuthorProfileImagePosition =
-                    authorProfileImagePosition ?? DefaultProfileImagePosition,
+                    authorProfileImagePosition ?? ImageUploadProcessor.DefaultProfilePosition,
                 CreatedAt = comment.CreatedAt,
                 IsDeleted = comment.IsDeleted,
                 IsAuthorDeleted = isAuthorDeleted,

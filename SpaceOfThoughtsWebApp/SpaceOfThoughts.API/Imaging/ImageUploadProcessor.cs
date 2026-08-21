@@ -17,6 +17,23 @@ namespace SpaceOfThoughts.API.Imaging
         public const long MaximumGeneralUploadBytes = 10 * 1024 * 1024;
         public const long MaximumProfileUploadBytes = 5 * 1024 * 1024;
 
+        // Centred framing used until the user crops the profile image, and the
+        // zoom range the crop controls allow
+        public const string DefaultProfilePosition = "50% 50% 100%";
+        public const int DefaultProfileZoomPercent = 100;
+        public const int MinimumProfileZoomPercent = 85;
+        public const int MaximumProfileZoomPercent = 170;
+
+        // File types accepted for a profile image upload
+        public static readonly string[] AllowedProfileExtensions =
+        {
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".webp",
+            ".avif"
+        };
+
         private const ulong MaximumDecodedPixels = 40_000_000;
         private const uint MaximumGeneralEdge = 3_840;
         private const uint MaximumProfileEdge = 1_024;
