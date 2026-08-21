@@ -11,5 +11,8 @@ namespace SpaceOfThoughts.API.Models.DTOs
 
         // Password for the new user
         public required string Password { get; set; }
+
+        // Request verification code
+        public required string? Code { get; init; }
     }
 }

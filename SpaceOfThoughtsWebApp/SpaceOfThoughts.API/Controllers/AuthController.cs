@@ -1,16 +1,18 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using SpaceOfThoughts.API.Authentication;
 using SpaceOfThoughts.API.Data;
 using SpaceOfThoughts.API.Data.Initialization;
 using SpaceOfThoughts.API.Imaging;
+using SpaceOfThoughts.API.Models.Domain;
 using SpaceOfThoughts.API.Models.DTOs;
 using SpaceOfThoughts.API.Repositories.Interface;
 using SpaceOfThoughts.API.Storage;
+using System.Security.Claims;
 
 namespace SpaceOfThoughts.API.Controllers
 {
@@ -22,10 +24,115 @@ namespace SpaceOfThoughts.API.Controllers
         AuthDbContext authDbContext,
         ITokenRepository tokenRepository,
         IWebHostEnvironment webHostEnvironment,
-        IImageUploadProcessor imageUploadProcessor
+        IImageUploadProcessor imageUploadProcessor,
+        IEmailServiceRepository emailServiceRepository,
+        IVerificationCodeRepository verificationCodeRepository,
+        IOptions<VerificationOptions> options
     ) : ControllerBase
     {
 
+        // POST: {apiBaseUrl}/api/auth/request-verification - Endpoint to send verification code to user email
+        [HttpPost]
+        [Route("request-verification")]
+        public async Task<IActionResult> RequestVerification([FromBody] RegisterRequestDto request)
+        {
+            var userName = request.UserName?.Trim();
+            var email = request.Email?.Trim();
+
+            // Shared identifier checks, collected before answering so the user
+            // learns about every problem in one response
+            await ValidateRegistrationAsync(userName, email, request.Password);
+
+            if (!ModelState.IsValid)
+            {
+                return ValidationProblem(ModelState);
+            }
+
+            var verificationCode = verificationCodeRepository.CreateForRegistration(email!);
+            var verificationEmail = new EmailRequest
+            {
+                ToAddress = email!,
+                UserName = userName!,
+                Code = verificationCode,
+                ExpiresInMinutes = options.Value.ExpiryMinutes,
+                Purpose = CodePurpose.EmailVerification
+            };
+
+            // The send is the whole point of this endpoint, so its failure is the response
+            var emailResult = await emailServiceRepository.SendAsync(verificationEmail);
+            if (!emailResult.Success)
+            {
+                ModelState.AddModelError("email", "The verification email could not be sent");
+                return ValidationProblem(ModelState);
+            }
+
+            return NoContent();
+        }
+
+        // POST: {apiBaseUrl}/api/auth/register - Endpoint to register a new user
+        [HttpPost]
+        [Route("register")]
+        public async Task<IActionResult> Register([FromBody] RegisterRequestDto request)
+        {
+            var userName = request.UserName?.Trim();
+            var email = request.Email?.Trim();
+
+            // Shared identifier checks, collected before answering so the user
+            // learns about every problem in one response
+            await ValidateRegistrationAsync(userName, email, request.Password);
+            if (!ModelState.IsValid)
+            {
+                return ValidationProblem(ModelState);
+            }
+
+            var codeVeryfied = verificationCodeRepository.VerifyForRegistration(email!, request.Code!);
+            if (codeVeryfied)
+            {
+                // Create a new IdentityUser object
+                var user = new IdentityUser
+                {
+                    UserName = userName,
+                    Email = email,
+                    EmailConfirmed = true
+                };
+
+                // Create the user in the database
+                IdentityResult identityResult;
+                try
+                {
+                    identityResult = await userManager.CreateAsync(user, request.Password);
+                }
+                catch (DbUpdateException exception)
+                {
+                    if (!TryAddUniqueIdentityError(exception))
+                    {
+                        throw;
+                    }
+
+                    return ValidationProblem(ModelState);
+                }
+
+                if (identityResult.Succeeded)
+                {
+                    // Add the default role of 'Reader' to the new user
+                    identityResult = await userManager.AddToRoleAsync(user, "Reader");
+                    if (identityResult.Succeeded)
+                    {
+                        // Return a login payload so registration also starts an authenticated session
+                        var roles = await userManager.GetRolesAsync(user);
+                        return Ok(await BuildLoginResponseDtoAsync(user, [.. roles]));
+                    }
+                }
+
+                AddIdentityErrorsToModelState(identityResult);
+                return ValidationProblem(ModelState);
+            }
+
+            // The code did not match, said without revealing whether it was
+            // wrong or expired
+            ModelState.AddModelError("code", "The verification code is invalid or has expired");
+            return ValidationProblem(ModelState);
+        }
 
         // POST: {apiBaseUrl}/api/auth/login - Endpoint to log in a user with email and password
         [HttpPost]
@@ -72,100 +179,6 @@ namespace SpaceOfThoughts.API.Controllers
         {
             DeleteAuthorizationCookie();
             return NoContent();
-        }
-
-        // POST: {apiBaseUrl}/api/auth/register - Endpoint to register a new user
-        [HttpPost]
-        [Route("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterRequestDto request)
-        {
-            var userName = request.UserName?.Trim();
-            var email = request.Email?.Trim();
-
-            if (string.IsNullOrWhiteSpace(userName))
-            {
-                ModelState.AddModelError("userName", "Username is required");
-            }
-
-            if (string.IsNullOrWhiteSpace(email))
-            {
-                ModelState.AddModelError("email", "Email is required");
-            }
-
-            if (!ModelState.IsValid)
-            {
-                return ValidationProblem(ModelState);
-            }
-
-            // Check if the email entry is formatted correctly
-            try
-            {
-                var addr = new System.Net.Mail.MailAddress(email!);
-                if (!string.Equals(addr.Address, email, StringComparison.OrdinalIgnoreCase))
-                {
-                    ModelState.AddModelError("email", "Invalid email format");
-                    return ValidationProblem(ModelState);
-                }
-            }
-            catch (FormatException)
-            {
-                ModelState.AddModelError("email", "Invalid email format");
-                return ValidationProblem(ModelState);
-            }
-
-            // Check if the email is already taken
-            var existingUserByEmail = await userManager.FindByEmailAsync(email!);
-            if (existingUserByEmail is not null)
-            {
-                ModelState.AddModelError("email", "Email is already taken");
-                return ValidationProblem(ModelState);
-            }
-
-            // Check if the username is already taken
-            var existingUserByUsername = await userManager.FindByNameAsync(userName!);
-            if (existingUserByUsername is not null)
-            {
-                ModelState.AddModelError("userName", "Username is already taken");
-                return ValidationProblem(ModelState);
-            }
-
-            // Create a new IdentityUser object
-            var user = new IdentityUser
-            {
-                UserName = userName,
-                Email = email
-            };
-
-            // Create the user in the database
-            IdentityResult identityResult;
-            try
-            {
-                identityResult = await userManager.CreateAsync(user, request.Password);
-            }
-            catch (DbUpdateException exception)
-            {
-                if (!TryAddUniqueIdentityError(exception))
-                {
-                    throw;
-                }
-
-                return ValidationProblem(ModelState);
-            }
-
-            if (identityResult.Succeeded)
-            {
-                // Add the default role of 'Reader' to the new user
-                identityResult = await userManager.AddToRoleAsync(user, "Reader");
-                if (identityResult.Succeeded)
-                {
-                    // Return a login payload so registration also starts an authenticated session
-                    var roles = await userManager.GetRolesAsync(user);
-                    return Ok(await BuildLoginResponseDtoAsync(user, [.. roles]));
-                }
-            }
-
-            AddIdentityErrorsToModelState(identityResult);
-            return ValidationProblem(ModelState);
         }
 
         // GET: {apiBaseUrl}/api/auth/me - Endpoint to get the current user's profile
@@ -803,7 +816,7 @@ namespace SpaceOfThoughts.API.Controllers
             var token = tokenRepository.CreateJWTToken(user, roles, expiresAt);
             SetAuthorizationCookie(token, expiresAt);
 
-             
+
             if (string.IsNullOrWhiteSpace(user.UserName) || string.IsNullOrWhiteSpace(user.Email))
             {
                 throw new InvalidOperationException(
@@ -991,6 +1004,50 @@ namespace SpaceOfThoughts.API.Controllers
             if (file.Length > ImageUploadProcessor.MaximumProfileUploadBytes)
             {
                 ModelState.AddModelError("file", "Profile picture size cannot be more than 5MB");
+            }
+        }
+
+        // Validate everything a registration asks for, username, email, and
+        // password, collecting every problem instead of stopping at the first
+        // one. Shared by the verification request and register, which must
+        // agree on the rules
+        private async Task ValidateRegistrationAsync(string? userName, string? email, string password)
+        {
+            if (string.IsNullOrWhiteSpace(userName))
+            {
+                ModelState.AddModelError("userName", "Username is required");
+            }
+            else if (await userManager.FindByNameAsync(userName) is not null)
+            {
+                ModelState.AddModelError("userName", "Username is already taken");
+            }
+
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                ModelState.AddModelError("email", "Email is required");
+            }
+            else if (!IsValidEmail(email))
+            {
+                ModelState.AddModelError("email", "Invalid email format");
+            }
+            else if (await userManager.FindByEmailAsync(email) is not null)
+            {
+                ModelState.AddModelError("email", "Email is already taken");
+            }
+
+            // The same password rules register applies later, run early so a
+            // weak password surfaces before a code is spent
+            foreach (var passwordValidator in userManager.PasswordValidators)
+            {
+                var passwordResult = await passwordValidator.ValidateAsync(
+                    userManager,
+                    new IdentityUser { UserName = userName, Email = email },
+                    password
+                );
+                if (!passwordResult.Succeeded)
+                {
+                    AddIdentityErrorsToModelState(passwordResult);
+                }
             }
         }
 

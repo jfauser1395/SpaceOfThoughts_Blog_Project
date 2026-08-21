@@ -6,6 +6,6 @@ namespace SpaceOfThoughts.API.Repositories.Interface
     public interface IEmailServiceRepository
     {
         // Send a verification email and report whether the provider took it
-        Task<EmailResult> SendAsync(EmailRequest request, CancellationToken ct);
+        Task<EmailResult> SendAsync(EmailRequest request);
     }
 }

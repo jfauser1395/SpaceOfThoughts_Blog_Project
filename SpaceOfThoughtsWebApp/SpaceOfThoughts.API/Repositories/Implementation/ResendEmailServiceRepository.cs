@@ -11,7 +11,7 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
         IOptions<EmailOptions> options,
         ILogger<ResendEmailServiceRepository> logger) : IEmailServiceRepository
     {
-        public async Task<EmailResult> SendAsync(EmailRequest request, CancellationToken ct = default)
+        public async Task<EmailResult> SendAsync(EmailRequest request)
         {
             try
             {
@@ -36,7 +36,7 @@ namespace SpaceOfThoughts.API.Repositories.Implementation
                     }
                 };
 
-                var result = await resend.EmailSendAsync(message, ct);
+                var result = await resend.EmailSendAsync(message);
 
                 logger.LogInformation(
                     "Sent {Purpose} email to {ToAddress}, id {Id}",
