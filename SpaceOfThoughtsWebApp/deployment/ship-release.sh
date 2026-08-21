@@ -19,6 +19,10 @@ die() {
     exit 1
 }
 
+warn() {
+    printf 'WARNING: %s\n' "$*" >&2
+}
+
 info() {
     printf '==> %s\n' "$*"
 }
@@ -71,6 +75,45 @@ readonly CHECKSUM="${ARCHIVE}.sha256"
 readonly ARCHIVE_NAME="$(basename -- "$ARCHIVE")"
 readonly REMOTE_ARCHIVE="$REMOTE_DIR/$ARCHIVE_NAME"
 
+# ----- One authentication for the whole run -----
+#
+# The copy, the deploy, and the cleanup below are three separate SSH sessions,
+# so a password login would be typed three times. Opening one master connection
+# up front and routing the rest through its socket reduces that to a single
+# authentication. Key-based logins gain the speed but see no prompt either way.
+#
+# ControlPath is always passed: if the master could not be opened, the socket
+# simply does not exist and each command falls back to connecting on its own.
+
+SOCKET_DIR="$(mktemp -d "${TMPDIR:-/tmp}/spot-ship.XXXXXXXX")" ||
+    die "Unable to create a temporary directory for the SSH control socket."
+readonly SOCKET_DIR
+readonly CONTROL_PATH="$SOCKET_DIR/mux"
+readonly SSH_MUX_OPTS=(-o "ControlPath=$CONTROL_PATH")
+
+cleanup_master_connection() {
+    local exit_code=$?
+
+    # Ask the master to exit so no connection outlives this script.
+    if [[ -S "$CONTROL_PATH" ]]; then
+        ssh -O exit "${SSH_MUX_OPTS[@]}" "$TARGET" >/dev/null 2>&1 || true
+    fi
+    if [[ -d "$SOCKET_DIR" ]]; then
+        rm -rf -- "$SOCKET_DIR"
+    fi
+
+    exit "$exit_code"
+}
+trap cleanup_master_connection EXIT
+trap 'exit 130' INT TERM
+
+# -f backgrounds the master only after authentication succeeds, so any password
+# prompt is answered here rather than partway through shipping.
+info "Connecting to $TARGET"
+if ! ssh -f -N -M "${SSH_MUX_OPTS[@]}" "$TARGET"; then
+    warn "Could not open a shared connection; each step will authenticate separately."
+fi
+
 # Catch a mistyped or stale artifact before it reaches the Pi.
 if command -v sha256sum >/dev/null 2>&1; then
     info "Verifying the archive checksum locally"
@@ -79,17 +122,18 @@ if command -v sha256sum >/dev/null 2>&1; then
 fi
 
 info "Copying $ARCHIVE_NAME to $TARGET:$REMOTE_DIR"
-scp -- "$ARCHIVE" "$CHECKSUM" "$TARGET:$REMOTE_DIR/"
+scp "${SSH_MUX_OPTS[@]}" -- "$ARCHIVE" "$CHECKSUM" "$TARGET:$REMOTE_DIR/"
 
 # `deploy` prompts for the sudo password and reports progress, so it needs a
-# terminal on the remote side.
+# terminal on the remote side. That sudo prompt is the host's own and is not
+# affected by how many SSH connections this script opens.
 info "Deploying on $TARGET"
-ssh -t "$TARGET" "sudo spotctl deploy '$REMOTE_ARCHIVE'"
+ssh -t "${SSH_MUX_OPTS[@]}" "$TARGET" "sudo spotctl deploy '$REMOTE_ARCHIVE'"
 
 # Only tidy up once the release is installed; a failed deploy is worth retrying
 # without copying the archive across the network again.
 info "Removing the copies from $TARGET:$REMOTE_DIR"
-ssh "$TARGET" "rm -f -- '$REMOTE_ARCHIVE' '$REMOTE_ARCHIVE.sha256'"
+ssh "${SSH_MUX_OPTS[@]}" "$TARGET" "rm -f -- '$REMOTE_ARCHIVE' '$REMOTE_ARCHIVE.sha256'"
 
 printf '\nShipped successfully:\n  Archive: %s\n  Host:    %s\n' \
     "$ARCHIVE_NAME" \

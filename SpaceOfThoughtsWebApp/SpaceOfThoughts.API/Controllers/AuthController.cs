@@ -17,45 +17,15 @@ namespace SpaceOfThoughts.API.Controllers
     // The AuthController handles user authentication, registration, and management
     [Route("api/[controller]")]
     [ApiController]
-    public class AuthController : ControllerBase
+    public class AuthController(
+        UserManager<IdentityUser> userManager,
+        AuthDbContext authDbContext,
+        ITokenRepository tokenRepository,
+        IWebHostEnvironment webHostEnvironment,
+        IImageUploadProcessor imageUploadProcessor
+    ) : ControllerBase
     {
-        private const string ProfileImageClaimType = "profile_image_url";
-        private const string ProfileImagePositionClaimType = "profile_image_position";
-        private const string UserBanClaimType = "is_banned";
-        private const string DefaultProfileImagePosition = "50% 50% 100%";
-        private const int DefaultProfileImageZoomPercent = 100;
-        private const int MinimumProfileImageZoomPercent = 85;
-        private const int MaximumProfileImageZoomPercent = 170;
-        private static readonly string[] AllowedProfileImageExtensions =
-        {
-            ".jpg",
-            ".jpeg",
-            ".png",
-            ".webp",
-            ".avif"
-        };
 
-        private readonly UserManager<IdentityUser> userManager;
-        private readonly AuthDbContext authDbContext;
-        private readonly ITokenRepository tokenRepository;
-        private readonly IWebHostEnvironment webHostEnvironment;
-        private readonly IImageUploadProcessor imageUploadProcessor;
-
-        // Constructor to initialize UserManager and TokenRepository
-        public AuthController(
-            UserManager<IdentityUser> userManager,
-            AuthDbContext authDbContext,
-            ITokenRepository tokenRepository,
-            IWebHostEnvironment webHostEnvironment,
-            IImageUploadProcessor imageUploadProcessor
-        )
-        {
-            this.userManager = userManager;
-            this.authDbContext = authDbContext;
-            this.tokenRepository = tokenRepository;
-            this.webHostEnvironment = webHostEnvironment;
-            this.imageUploadProcessor = imageUploadProcessor;
-        }
 
         // POST: {apiBaseUrl}/api/auth/login - Endpoint to log in a user with email and password
         [HttpPost]
@@ -84,7 +54,7 @@ namespace SpaceOfThoughts.API.Controllers
                     var roles = await userManager.GetRolesAsync(identityUser);
                     if (identityUser.UserName != null && identityUser.Email != null)
                     {
-                        return Ok(await BuildLoginResponseDtoAsync(identityUser, roles.ToList()));
+                        return Ok(await BuildLoginResponseDtoAsync(identityUser, [.. roles]));
                     }
                 }
             }
@@ -190,7 +160,7 @@ namespace SpaceOfThoughts.API.Controllers
                 {
                     // Return a login payload so registration also starts an authenticated session
                     var roles = await userManager.GetRolesAsync(user);
-                    return Ok(await BuildLoginResponseDtoAsync(user, roles.ToList()));
+                    return Ok(await BuildLoginResponseDtoAsync(user, [.. roles]));
                 }
             }
 
@@ -337,7 +307,7 @@ namespace SpaceOfThoughts.API.Controllers
                 {
                     var replacePositionResult = await ReplaceClaimAsync(
                         user,
-                        ProfileImagePositionClaimType,
+                        UserClaimTypes.ProfileImagePosition,
                         NormalizeProfileImagePosition(request.ProfileImagePosition)
                     );
 
@@ -380,7 +350,7 @@ namespace SpaceOfThoughts.API.Controllers
 
             user = await userManager.FindByIdAsync(user.Id) ?? user;
             var roles = await userManager.GetRolesAsync(user);
-            return Ok(await BuildLoginResponseDtoAsync(user, roles.ToList()));
+            return Ok(await BuildLoginResponseDtoAsync(user, [.. roles]));
         }
 
         // DELETE: {apiBaseUrl}/api/auth/me - Delete the authenticated user's own account
@@ -574,7 +544,7 @@ namespace SpaceOfThoughts.API.Controllers
                     $"{Request.Scheme}://{Request.Host}{Request.PathBase}{ImageStoragePaths.PublicRequestPath}/{ImageStoragePaths.ProfilePicturesDirectoryName}/{fileName}";
                 var previousProfileImageUrl = await GetClaimValueAsync(
                     user,
-                    ProfileImageClaimType
+                    UserClaimTypes.ProfileImage
                 );
 
                 // UserManager's Identity store and this controller share the
@@ -587,9 +557,9 @@ namespace SpaceOfThoughts.API.Controllers
 
                 var replacePositionResult = await ReplaceClaimAsync(
                     user,
-                    ProfileImagePositionClaimType,
+                    UserClaimTypes.ProfileImagePosition,
                     NormalizeProfileImagePosition(
-                        profileImagePosition ?? DefaultProfileImagePosition
+                        profileImagePosition ?? ImageUploadProcessor.DefaultProfilePosition
                     )
                 );
 
@@ -602,7 +572,7 @@ namespace SpaceOfThoughts.API.Controllers
 
                 var replaceImageResult = await ReplaceClaimAsync(
                     user,
-                    ProfileImageClaimType,
+                    UserClaimTypes.ProfileImage,
                     profileImageUrl
                 );
                 if (!replaceImageResult.Succeeded)
@@ -812,7 +782,7 @@ namespace SpaceOfThoughts.API.Controllers
         // Delete an Identity account and clean up its managed profile picture after success
         private async Task<IdentityResult> DeleteUserAccountAsync(IdentityUser user)
         {
-            var profileImageUrl = await GetClaimValueAsync(user, ProfileImageClaimType);
+            var profileImageUrl = await GetClaimValueAsync(user, UserClaimTypes.ProfileImage);
             var result = await userManager.DeleteAsync(user);
 
             if (result.Succeeded)
@@ -846,10 +816,10 @@ namespace SpaceOfThoughts.API.Controllers
                 UserName = user.UserName,
                 Email = user.Email,
                 Roles = roles,
-                ProfileImageUrl = await GetClaimValueAsync(user, ProfileImageClaimType),
+                ProfileImageUrl = await GetClaimValueAsync(user, UserClaimTypes.ProfileImage),
                 ProfileImagePosition =
-                    await GetClaimValueAsync(user, ProfileImagePositionClaimType)
-                    ?? DefaultProfileImagePosition
+                    await GetClaimValueAsync(user, UserClaimTypes.ProfileImagePosition)
+                    ?? ImageUploadProcessor.DefaultProfilePosition
             };
         }
 
@@ -916,10 +886,10 @@ namespace SpaceOfThoughts.API.Controllers
                 UserName = user.UserName,
                 Email = user.Email,
                 Roles = roles,
-                ProfileImageUrl = await GetClaimValueAsync(user, ProfileImageClaimType),
+                ProfileImageUrl = await GetClaimValueAsync(user, UserClaimTypes.ProfileImage),
                 ProfileImagePosition =
-                    await GetClaimValueAsync(user, ProfileImagePositionClaimType)
-                    ?? DefaultProfileImagePosition,
+                    await GetClaimValueAsync(user, UserClaimTypes.ProfileImagePosition)
+                    ?? ImageUploadProcessor.DefaultProfilePosition,
                 IsBanned = await IsUserBannedAsync(user)
             };
         }
@@ -936,7 +906,7 @@ namespace SpaceOfThoughts.API.Controllers
         {
             var claims = await userManager.GetClaimsAsync(user);
             return claims.Any(claim =>
-                claim.Type == UserBanClaimType
+                claim.Type == UserClaimTypes.UserBan
                 && string.Equals(claim.Value, bool.TrueString, StringComparison.OrdinalIgnoreCase)
             );
         }
@@ -945,7 +915,7 @@ namespace SpaceOfThoughts.API.Controllers
         private async Task<IdentityResult> SetUserBanStateAsync(IdentityUser user, bool isBanned)
         {
             var existingClaims = (await userManager.GetClaimsAsync(user))
-                .Where(claim => claim.Type == UserBanClaimType)
+                .Where(claim => claim.Type == UserClaimTypes.UserBan)
                 .ToList();
 
             foreach (var claim in existingClaims)
@@ -964,7 +934,7 @@ namespace SpaceOfThoughts.API.Controllers
 
             return await userManager.AddClaimAsync(
                 user,
-                new Claim(UserBanClaimType, bool.TrueString)
+                new Claim(UserClaimTypes.UserBan, bool.TrueString)
             );
         }
 
@@ -1010,7 +980,7 @@ namespace SpaceOfThoughts.API.Controllers
             }
 
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (!AllowedProfileImageExtensions.Contains(extension))
+            if (!ImageUploadProcessor.AllowedProfileExtensions.Contains(extension))
             {
                 ModelState.AddModelError(
                     "file",
@@ -1060,8 +1030,8 @@ namespace SpaceOfThoughts.API.Controllers
         {
             var numberText = value.Trim().TrimEnd('%');
             return int.TryParse(numberText, out var number)
-                && number >= MinimumProfileImageZoomPercent
-                && number <= MaximumProfileImageZoomPercent;
+                && number >= ImageUploadProcessor.MinimumProfileZoomPercent
+                && number <= ImageUploadProcessor.MaximumProfileZoomPercent;
         }
 
         // Normalize image framing to the persisted "x% y% zoom%" representation
@@ -1075,12 +1045,12 @@ namespace SpaceOfThoughts.API.Controllers
                 || (parts.Length == 3 && !IsValidZoomPercent(parts[2]))
             )
             {
-                return DefaultProfileImagePosition;
+                return ImageUploadProcessor.DefaultProfilePosition;
             }
 
             var zoom = parts.Length == 3
                 ? parts[2].Trim().TrimEnd('%')
-                : DefaultProfileImageZoomPercent.ToString();
+                : ImageUploadProcessor.DefaultProfileZoomPercent.ToString();
 
             return $"{parts[0].Trim().TrimEnd('%')}% {parts[1].Trim().TrimEnd('%')}% {zoom}%";
         }
